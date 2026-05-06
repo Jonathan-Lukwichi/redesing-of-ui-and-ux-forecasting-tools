@@ -22,7 +22,7 @@ export default function Landing({ onNavigate }) {
           <div style={{ fontSize: 15, fontWeight: 600 }}>HealthForecast AI</div>
         </div>
         <div style={{ display: 'flex', gap: 28, fontSize: 13, fontWeight: 500 }}>
-          {[['Platform', 'section-platform'], ['Models', 'section-models'], ['Outcomes', 'section-outcomes'], ['Customers', 'section-customers']].map(([l, id]) => (
+          {[['Platform', 'section-platform'], ['Models', 'section-models'], ['Outcomes', 'section-outcomes']].map(([l, id]) => (
             <a key={l} onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })} style={{ color: 'rgba(255,255,255,0.85)', textDecoration: 'none', cursor: 'pointer' }}>{l}</a>
           ))}
         </div>
