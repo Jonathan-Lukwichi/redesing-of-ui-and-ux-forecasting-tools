@@ -106,13 +106,6 @@ function Topbar({ crumbs = [], onNavigate }) {
         ))}
       </div>
       <div className="topbar-spacer" />
-      <div className="topbar-search-wrap">
-        <Icon name="search" size={14} />
-        <input className="topbar-search" placeholder="Search dashboards, models, datasets…" />
-      </div>
-      <button className="topbar-action" title="Notifications"><Icon name="bell" size={16} /></button>
-      <button className="topbar-action" title="Settings"><Icon name="settings" size={16} /></button>
-      <div className="topbar-divider" />
       <button
         className="topbar-signout"
         onClick={() => onNavigate('welcome')}
