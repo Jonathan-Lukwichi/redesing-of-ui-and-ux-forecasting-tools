@@ -50,36 +50,51 @@ function Sidebar({ active, onNavigate }) {
           <div className="sidebar-brand-sub">Memorial General Hospital</div>
         </div>
       </div>
-      {NAV_ITEMS.map((sec) => (
-        <div key={sec.section}>
-          <div className="sidebar-section">{sec.section}</div>
-          <nav className="sidebar-nav">
-            {sec.items.map((it) => (
-              <div
-                key={it.id}
-                className={'sidebar-item' + (it.id === active ? ' active' : '')}
-                onClick={() => onNavigate(it.id)}
-              >
-                <span className="sidebar-item-icon"><Icon name={it.icon} size={15} /></span>
-                <span>{it.label}</span>
-                {it.badge && <span className="sidebar-item-badge">{it.badge}</span>}
-              </div>
-            ))}
-          </nav>
-        </div>
-      ))}
+
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {NAV_ITEMS.map((sec) => (
+          <div key={sec.section}>
+            <div className="sidebar-section">{sec.section}</div>
+            <nav className="sidebar-nav">
+              {sec.items.map((it) => (
+                <div
+                  key={it.id}
+                  className={'sidebar-item' + (it.id === active ? ' active' : '')}
+                  onClick={() => onNavigate(it.id)}
+                >
+                  <span className="sidebar-item-icon"><Icon name={it.icon} size={15} /></span>
+                  <span>{it.label}</span>
+                  {it.badge && <span className="sidebar-item-badge">{it.badge}</span>}
+                </div>
+              ))}
+            </nav>
+          </div>
+        ))}
+      </div>
+
       <div className="sidebar-footer">
-        <div className="sidebar-avatar">SM</div>
-        <div>
-          <div className="sidebar-user-name">Dr. Sarah Mitchell</div>
-          <div className="sidebar-user-role">Operations Director</div>
-        </div>
+        <button
+          className="sidebar-footer-btn"
+          onClick={() => onNavigate('landing')}
+          title="Back to home page"
+        >
+          <Icon name="home" size={14} />
+          <span>Home</span>
+        </button>
+        <button
+          className="sidebar-footer-btn sidebar-footer-btn-danger"
+          onClick={() => onNavigate('welcome')}
+          title="Sign out"
+        >
+          <Icon name="logout" size={14} />
+          <span>Sign out</span>
+        </button>
       </div>
     </aside>
   );
 }
 
-function Topbar({ crumbs = [] }) {
+function Topbar({ crumbs = [], onNavigate }) {
   return (
     <div className="topbar">
       <div className="topbar-crumbs">
@@ -95,8 +110,17 @@ function Topbar({ crumbs = [] }) {
         <Icon name="search" size={14} />
         <input className="topbar-search" placeholder="Search dashboards, models, datasets…" />
       </div>
-      <button className="topbar-action"><Icon name="bell" size={16} /></button>
-      <button className="topbar-action"><Icon name="settings" size={16} /></button>
+      <button className="topbar-action" title="Notifications"><Icon name="bell" size={16} /></button>
+      <button className="topbar-action" title="Settings"><Icon name="settings" size={16} /></button>
+      <div className="topbar-divider" />
+      <button
+        className="topbar-signout"
+        onClick={() => onNavigate('welcome')}
+        title="Sign out"
+      >
+        <Icon name="logout" size={14} />
+        Sign out
+      </button>
     </div>
   );
 }
@@ -107,7 +131,7 @@ export default function AppShell({ active = 'dashboard', onNavigate, children })
     <div className="app">
       <Sidebar active={active} onNavigate={onNavigate} />
       <div className="main">
-        <Topbar crumbs={crumbs} />
+        <Topbar crumbs={crumbs} onNavigate={onNavigate} />
         {children}
       </div>
     </div>
