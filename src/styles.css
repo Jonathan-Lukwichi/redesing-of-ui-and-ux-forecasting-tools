@@ -94,7 +94,7 @@ body {
 
 .app {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: minmax(220px, 280px) 1fr;
   height: 100vh;
   overflow: hidden;
   background: var(--bg);
@@ -108,6 +108,8 @@ body {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
 }
 
 .sidebar-brand {
@@ -270,14 +272,15 @@ body {
 
 /* ---------- Top bar ---------- */
 .topbar {
-  height: 68px;
+  height: clamp(52px, 5vh, 68px);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  padding: 0 32px;
-  gap: 16px;
+  padding: 0 clamp(16px, 2.5vw, 32px);
+  gap: 12px;
   flex-shrink: 0;
+  min-width: 0;
 }
 
 .topbar-crumbs {
@@ -285,7 +288,8 @@ body {
   align-items: center;
   gap: 8px;
   color: var(--text-3);
-  font-size: 15px;
+  font-size: clamp(13px, 1vw, 15px);
+  white-space: nowrap;
 }
 
 .topbar-crumbs .sep { color: var(--text-4); }
@@ -294,13 +298,13 @@ body {
 .topbar-spacer { flex: 1; }
 
 .topbar-search {
-  width: 320px;
-  height: 38px;
+  width: clamp(160px, 20vw, 320px);
+  height: 36px;
   background: var(--surface-3);
   border: 1px solid transparent;
   border-radius: 8px;
-  padding: 0 14px 0 38px;
-  font-size: 14px;
+  padding: 0 12px 0 36px;
+  font-size: clamp(12px, 1vw, 14px);
   color: var(--text-2);
   font-family: var(--font-sans);
   outline: none;
@@ -376,15 +380,14 @@ body {
 }
 
 .content {
-  padding: 32px 48px 56px 48px;
+  padding: clamp(16px, 2.5vw, 40px) clamp(20px, 3vw, 48px) 56px;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: clamp(16px, 2vw, 28px);
   overflow-y: auto;
+  overflow-x: hidden;
   flex: 1;
-  max-width: 1600px;
-  width: 100%;
-  align-self: center;
+  min-width: 0;
   box-sizing: border-box;
 }
 
@@ -507,11 +510,12 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 22px 24px;
+  padding: clamp(14px, 1.5vw, 22px) clamp(16px, 1.8vw, 24px);
   display: flex;
   flex-direction: column;
   gap: 4px;
   position: relative;
+  min-width: 0;
 }
 
 .kpi-label {
@@ -526,7 +530,7 @@ body {
 }
 
 .kpi-value {
-  font-size: 40px;
+  font-size: clamp(26px, 2.8vw, 40px);
   font-weight: 600;
   color: var(--text);
   letter-spacing: -1px;
