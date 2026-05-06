@@ -22,7 +22,7 @@ export default function DataHub() {
       />
 
       {/* Source tiles */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+      <div className="grid-kpi">
         {[
           { name: 'Patient arrivals', desc: 'ED encounter records', count: '847,392 rows', status: 'Connected', color: 'success', icon: 'hospital', source: 'Epic FHIR' },
           { name: 'Weather', desc: 'Hourly temp, humidity, conditions', count: '2,847 days', status: 'Connected', color: 'success', icon: 'cloud', source: 'NOAA API' },
@@ -122,7 +122,7 @@ export default function DataHub() {
               </table>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginTop: 16 }}>
+            <div className="grid-kpi" style={{ marginTop: 16 }}>
               {[
                 { l: 'Total rows', v: '847,392', c: '#0f172a' },
                 { l: 'Date coverage', v: '100%', c: '#16a34a' },

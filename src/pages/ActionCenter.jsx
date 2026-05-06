@@ -79,7 +79,7 @@ export default function ActionCenter() {
         actions={<button className="btn"><Icon name="download" size={14} />Export</button>}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+      <div className="grid-kpi">
         <KPI label="Critical" value="2" foot="resolve today" />
         <KPI label="High priority" value="4" foot="this week" />
         <KPI label="Estimated savings" value="$48k" trend="this week" trendDir="up" />

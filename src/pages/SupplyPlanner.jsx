@@ -35,7 +35,7 @@ export default function SupplyPlanner() {
         </>}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+      <div className="grid-kpi">
         <KPI label="Service level" value="98.2" unit="%" trend="+0.4%" trendDir="up" foot="last 30 days" />
         <KPI label="Items at ROP" value="3" trend="+1" trendDir="down" foot="reorder needed" />
         <KPI label="Stockouts (forecast)" value="0" foot="next 7 days" />

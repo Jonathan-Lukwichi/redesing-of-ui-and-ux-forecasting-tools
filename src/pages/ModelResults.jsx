@@ -25,7 +25,7 @@ export default function ModelResults() {
         </>}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+      <div className="grid-kpi">
         <KPI label="Best model" value="LightGBM" unit="v3.2" foot="MAPE 6.4%" />
         <KPI label="Skill score" value="+38" unit="%" trend="vs. naïve" trendDir="up" />
         <KPI label="DM test" value="p < 0.01" foot="significantly better" />
@@ -72,7 +72,7 @@ export default function ModelResults() {
       </div>
 
       {/* Bottom row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+      <div className="grid-3">
         <div className="card">
           <div className="card-header"><div className="card-title">Residual diagnostics · LightGBM</div></div>
           <div style={{ padding: '8px 16px 16px' }}>

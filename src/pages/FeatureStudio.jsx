@@ -30,7 +30,7 @@ export default function FeatureStudio() {
         </>}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+      <div className="grid-kpi">
         <KPI label="Total features" value="74" foot="from 11 columns" />
         <KPI label="Train / Val / Test" value="70 / 15 / 15" unit="%" foot="time-ordered" />
         <KPI label="CV folds" value="5" foot="expanding window" />
@@ -43,7 +43,7 @@ export default function FeatureStudio() {
           <div className="card-title">Feature recipes</div>
           <span className="tag tag-success">74 features built</span>
         </div>
-        <div style={{ padding: 16, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+        <div className="grid-recipes" style={{ padding: 16 }}>
           {RECIPES.map((r) => {
             const on = enabled[r.n];
             return (
@@ -68,7 +68,7 @@ export default function FeatureStudio() {
       </div>
 
       {/* Split & CV viz */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="grid-2">
         <div className="card">
           <div className="card-header"><div className="card-title">Temporal split · 1,216 days</div></div>
           <div className="card-body">

@@ -16,7 +16,7 @@ export default function StaffPlanner() {
         </>}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+      <div className="grid-kpi">
         <KPI label="Coverage" value="94.2" unit="%" trend="+2.1%" trendDir="up" foot="vs. last week" />
         <KPI label="Total staff/wk" value="312" unit="shifts" foot="48 RNs · 12 MDs · 18 techs" />
         <KPI label="Overtime" value="84" unit="hrs" trend="-23%" trendDir="up" foot="vs. last week" />

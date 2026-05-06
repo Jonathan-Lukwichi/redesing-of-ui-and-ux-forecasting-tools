@@ -44,7 +44,7 @@ export default function Dashboard({ onNavigate }) {
       </div>
 
       {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+      <div className="grid-kpi">
         <KPI label="Today's forecast" value="195" unit="patients" trend="+8.3%" trendDir="up" foot="vs. 30-day avg" spark={last30.slice(-14)} sparkColor="#1e6091" />
         <KPI label="7-day total" value="1,422" unit="patients" trend="+5.1%" trendDir="up" foot="vs. last week" spark={next7} sparkColor="#0d9488" />
         <KPI label="Peak day" value="232" unit="Thu" trend="+18.4%" trendDir="up" foot="vs. baseline" spark={[180,195,210,232,215,188,174]} sparkColor="#d97706" />
@@ -52,7 +52,7 @@ export default function Dashboard({ onNavigate }) {
       </div>
 
       {/* Charts row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
+      <div className="layout-main">
         <div className="card">
           <div className="card-header">
             <div>
@@ -87,7 +87,7 @@ export default function Dashboard({ onNavigate }) {
       </div>
 
       {/* Bottom row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+      <div className="grid-3">
         <div className="card">
           <div className="card-header">
             <div className="card-title">Model leaderboard</div>

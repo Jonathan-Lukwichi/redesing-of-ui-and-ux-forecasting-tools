@@ -18,7 +18,7 @@ export default function Baselines() {
         </>}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16 }}>
+      <div className="layout-aside">
         {/* Configuration */}
         <div className="card">
           <div className="card-header"><div className="card-title">Configuration</div></div>

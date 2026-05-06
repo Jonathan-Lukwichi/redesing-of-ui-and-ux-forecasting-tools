@@ -17,14 +17,14 @@ export default function FeatureSelection() {
         actions={<button className="btn btn-primary"><Icon name="play" size={14} />Run selection</button>}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+      <div className="grid-kpi">
         <KPI label="Selected" value="18" unit="of 74" foot="76% reduction" />
         <KPI label="Method" value="Lasso CV" foot="α = 0.024" />
         <KPI label="Test MAPE" value="6.8" unit="%" trend="-0.4%" trendDir="up" foot="vs. all features" />
         <KPI label="Train time" value="−42" unit="%" foot="faster downstream" />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16 }}>
+      <div className="layout-wide">
         <div className="card">
           <div className="card-header">
             <div className="card-title">Selected features (top 18)</div>

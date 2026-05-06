@@ -43,7 +43,7 @@ export default function ExploreData() {
       </div>
 
       {/* Stats strip */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
+      <div className="grid-6">
         {[
           { l: 'Mean', v: '164.2' },
           { l: 'Median', v: '162.0' },
@@ -85,7 +85,7 @@ export default function ExploreData() {
       </div>
 
       {/* Seasonality + correlations */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16 }}>
+      <div className="layout-wide">
         <div className="card">
           <div className="card-header">
             <div className="card-title">Hour-of-day × day-of-week heatmap</div>

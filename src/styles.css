@@ -89,6 +89,86 @@ body {
 }
 
 /* =============================================================================
+   RESPONSIVE GRID UTILITIES
+   ============================================================================= */
+
+/* KPI row — 4 cols min, wraps to 2 then 1 */
+.grid-kpi {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+  gap: clamp(10px, 1.2vw, 18px);
+}
+
+/* 2-column equal */
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr));
+  gap: clamp(12px, 1.5vw, 20px);
+}
+
+/* 3-column equal */
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: clamp(12px, 1.5vw, 20px);
+}
+
+/* 6-column stat row */
+.grid-6 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr));
+  gap: clamp(10px, 1vw, 14px);
+}
+
+/* 7-column forecast day cards */
+.grid-7 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(110px, 100%), 1fr));
+  gap: clamp(8px, 1vw, 12px);
+}
+
+/* 2-column model cards */
+.grid-models {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+  gap: clamp(12px, 1.5vw, 20px);
+}
+
+/* 2-column feature recipe cards */
+.grid-recipes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: clamp(10px, 1.2vw, 14px);
+}
+
+/* Left panel + fluid content (e.g. config + chart) */
+.layout-aside {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) 1fr;
+  gap: clamp(12px, 1.5vw, 20px);
+}
+
+/* Wide left + narrow right (1.4fr / 1fr) */
+.layout-wide {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: clamp(12px, 1.5vw, 20px);
+}
+
+/* Main + sidebar right (2fr / 1fr) */
+.layout-main {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: clamp(12px, 1.5vw, 20px);
+}
+
+@media (max-width: 1100px) {
+  .layout-aside,
+  .layout-wide,
+  .layout-main { grid-template-columns: 1fr; }
+}
+
+/* =============================================================================
    APP SHELL
    ============================================================================= */
 

@@ -37,7 +37,7 @@ export default function PrepareData() {
         <div className="step"><span className="step-num">5</span>Save to cache</div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16 }}>
+      <div className="layout-aside">
         {/* Settings */}
         <div className="card">
           <div className="card-header"><div className="card-title">Fusion settings</div></div>
@@ -103,7 +103,7 @@ export default function PrepareData() {
       </div>
 
       {/* Bottom row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+      <div className="grid-3">
         <div className="card">
           <div className="card-header"><div className="card-title">Missing data heatmap</div></div>
           <div className="card-body">

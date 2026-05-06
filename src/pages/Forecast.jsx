@@ -22,7 +22,7 @@ export default function Forecast() {
       />
 
       {/* Forecast cards row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10 }}>
+      <div className="grid-7">
         {[
           ['Mon May 4', 188, 'low'],
           ['Tue May 5', 195, 'med'],
@@ -84,7 +84,7 @@ export default function Forecast() {
       </div>
 
       {/* Bottom row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16 }}>
+      <div className="layout-wide">
         <div className="card">
           <div className="card-header">
             <div className="card-title">Forecast by clinical category</div>

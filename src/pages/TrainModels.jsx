@@ -43,7 +43,7 @@ export default function TrainModels() {
       </div>
 
       {/* Model cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+      <div className="grid-models">
         {MODELS.map((m) => (
           <div key={m.name} className="card" style={{ position: 'relative' }}>
             {m.best && <div style={{ position: 'absolute', top: 12, right: 12 }}><span className="tag tag-success">Best</span></div>}
@@ -62,7 +62,7 @@ export default function TrainModels() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+              <div className="grid-3" style={{ gap: 8 }}>
                 {[['MAPE', m.mape ? m.mape + '%' : '—'], ['RMSE', m.rmse ?? '—'], ['MAE', m.mape ? (m.mape * 1.5).toFixed(1) : '—']].map(([l, v]) => (
                   <div key={l} style={{ padding: 8, background: '#fafbfc', borderRadius: 4 }}>
                     <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.4 }}>{l}</div>
