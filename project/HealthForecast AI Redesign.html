@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>HealthForecast AI — Redesign</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+<link rel="stylesheet" href="styles.css" />
+<style>
+  body { margin: 0; font-family: "Inter", system-ui, sans-serif; background: #f0eee9; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="shell.jsx"></script>
+<script type="text/babel" src="pages-1.jsx"></script>
+<script type="text/babel" src="pages-2.jsx"></script>
+<script type="text/babel" src="pages-3.jsx"></script>
+<script type="text/babel" src="pages-landing.jsx"></script>
+
+<script type="text/babel">
+const { useState } = React;
+
+// Wrap each page in the AppShell (sidebar + topbar). Welcome is full-bleed.
+const Frame = ({ active, children, hideShell }) => {
+  if (hideShell) return <div style={{ width: "100%", height: "100%", overflow: "hidden" }}>{children}</div>;
+  return <AppShell active={active}>{children}</AppShell>;
+};
+
+const App = () => (
+  <DesignCanvas>
+    <DCSection id="marketing" title="00 — Marketing" subtitle="Public-facing landing page">
+      <DCArtboard id="landing" label="Landing Page" width={1440} height={3600}>
+        <Frame hideShell><PageLanding /></Frame>
+      </DCArtboard>
+    </DCSection>
+
+    <DCSection id="entry" title="01 — Entry" subtitle="First-touch screens · sign-in & onboarding">
+      <DCArtboard id="welcome" label="Welcome / Sign in" width={1280} height={820}>
+        <Frame hideShell><PageWelcome /></Frame>
+      </DCArtboard>
+    </DCSection>
+
+    <DCSection id="ops" title="02 — Daily Operations" subtitle="What ops directors see every morning">
+      <DCArtboard id="dashboard" label="Operations Dashboard" width={1440} height={1180}>
+        <Frame active="dashboard"><PageDashboard /></Frame>
+      </DCArtboard>
+      <DCArtboard id="actions" label="Action Center" width={1440} height={1280}>
+        <Frame active="actions"><PageActions /></Frame>
+      </DCArtboard>
+    </DCSection>
+
+    <DCSection id="data" title="03 — Data & Analysis" subtitle="Setting up data, exploring patterns">
+      <DCArtboard id="upload" label="Data Hub" width={1440} height={1180}>
+        <Frame active="upload"><PageUpload /></Frame>
+      </DCArtboard>
+      <DCArtboard id="prepare" label="Prepare Data" width={1440} height={1180}>
+        <Frame active="prepare"><PagePrepare /></Frame>
+      </DCArtboard>
+      <DCArtboard id="explore" label="Explore Data (EDA)" width={1440} height={1280}>
+        <Frame active="explore"><PageExplore /></Frame>
+      </DCArtboard>
+    </DCSection>
+
+    <DCSection id="modeling" title="04 — Modeling" subtitle="From baselines to ML to live forecast">
+      <DCArtboard id="baseline" label="Baseline Models" width={1440} height={980}>
+        <Frame active="baseline"><PageBaseline /></Frame>
+      </DCArtboard>
+      <DCArtboard id="features" label="Feature Studio" width={1440} height={1180}>
+        <Frame active="features"><PageFeatureStudio /></Frame>
+      </DCArtboard>
+      <DCArtboard id="selection" label="Feature Selection" width={1440} height={1080}>
+        <Frame active="features"><PageFeatureSelection /></Frame>
+      </DCArtboard>
+      <DCArtboard id="train" label="Train Models" width={1440} height={1380}>
+        <Frame active="train"><PageTrain /></Frame>
+      </DCArtboard>
+      <DCArtboard id="results" label="Model Results" width={1440} height={1180}>
+        <Frame active="results"><PageResults /></Frame>
+      </DCArtboard>
+      <DCArtboard id="forecast" label="Patient Forecast" width={1440} height={1180}>
+        <Frame active="forecast"><PageForecast /></Frame>
+      </DCArtboard>
+    </DCSection>
+
+    <DCSection id="planning" title="05 — Planning" subtitle="Translating forecasts into actions">
+      <DCArtboard id="staff" label="Staff Planning" width={1440} height={1280}>
+        <Frame active="staff"><PageStaff /></Frame>
+      </DCArtboard>
+      <DCArtboard id="supply" label="Supply Planning" width={1440} height={980}>
+        <Frame active="supply"><PageSupply /></Frame>
+      </DCArtboard>
+    </DCSection>
+  </DesignCanvas>
+);
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
