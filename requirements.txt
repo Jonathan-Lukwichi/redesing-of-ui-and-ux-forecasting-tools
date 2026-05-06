@@ -1,0 +1,11 @@
+fastapi==0.136.1
+uvicorn==0.46.0
+supabase==2.29.0
+pandas==2.2.3
+numpy==1.26.4
+statsmodels==0.14.6
+scikit-learn==1.5.2
+python-multipart==0.0.27
+httpx==0.28.1
+python-dotenv==1.2.2
+scipy==1.13.1
