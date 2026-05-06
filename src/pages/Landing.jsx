@@ -22,8 +22,8 @@ export default function Landing({ onNavigate }) {
           <div style={{ fontSize: 15, fontWeight: 600 }}>HealthForecast AI</div>
         </div>
         <div style={{ display: 'flex', gap: 28, fontSize: 13, fontWeight: 500 }}>
-          {['Platform', 'Models', 'Outcomes', 'Customers', 'Pricing'].map((l) => (
-            <a key={l} style={{ color: 'rgba(255,255,255,0.85)', textDecoration: 'none', cursor: 'pointer' }}>{l}</a>
+          {[['Platform', 'section-platform'], ['Models', 'section-models'], ['Outcomes', 'section-outcomes'], ['Customers', 'section-customers']].map(([l, id]) => (
+            <a key={l} onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })} style={{ color: 'rgba(255,255,255,0.85)', textDecoration: 'none', cursor: 'pointer' }}>{l}</a>
           ))}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -68,7 +68,7 @@ export default function Landing({ onNavigate }) {
             </p>
             <div style={{ display: 'flex', gap: 12, marginBottom: 40 }}>
               <button onClick={() => onNavigate('welcome')} style={{ padding: '14px 28px', background: 'white', color: '#0f1729', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>
-                Start free trial
+                Start here
               </button>
             </div>
 
@@ -147,7 +147,7 @@ export default function Landing({ onNavigate }) {
         </div>
 
         {/* Trust strip */}
-        <div style={{ maxWidth: 1320, margin: '80px auto 0', paddingTop: 32, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+        <div id="section-customers" style={{ maxWidth: 1320, margin: '80px auto 0', paddingTop: 32, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 18 }}>Trusted by leading hospitals</div>
           <div style={{ display: 'flex', gap: 56, alignItems: 'center', opacity: 0.7, fontSize: 16, fontWeight: 600, color: '#cbd5e1', flexWrap: 'wrap' }}>
             <span>MEMORIAL GENERAL</span>
@@ -185,7 +185,7 @@ export default function Landing({ onNavigate }) {
       </div>
 
       {/* PIPELINE */}
-      <div style={{ padding: '100px 56px', background: 'linear-gradient(180deg, #fafbfc 0%, #f0f5fa 100%)' }}>
+      <div id="section-platform" style={{ padding: '100px 56px', background: 'linear-gradient(180deg, #fafbfc 0%, #f0f5fa 100%)' }}>
         <div style={{ maxWidth: 1320, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 64 }}>
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, color: '#1e6091', textTransform: 'uppercase', marginBottom: 12 }}>How it works</div>
@@ -216,7 +216,7 @@ export default function Landing({ onNavigate }) {
       </div>
 
       {/* MODEL ZOO */}
-      <div style={{ padding: '100px 56px', background: 'linear-gradient(180deg, #0f1729 0%, #1e3a5f 100%)', color: 'white' }}>
+      <div id="section-models" style={{ padding: '100px 56px', background: 'linear-gradient(180deg, #0f1729 0%, #1e3a5f 100%)', color: 'white' }}>
         <div style={{ maxWidth: 1320, margin: '0 auto' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 64, alignItems: 'center' }}>
             <div>
@@ -250,7 +250,7 @@ export default function Landing({ onNavigate }) {
       </div>
 
       {/* OUTCOMES */}
-      <div style={{ padding: '100px 56px', background: 'white' }}>
+      <div id="section-outcomes" style={{ padding: '100px 56px', background: 'white' }}>
         <div style={{ maxWidth: 1320, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 64 }}>
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, color: '#1e6091', textTransform: 'uppercase', marginBottom: 12 }}>Measured outcomes</div>
@@ -283,7 +283,7 @@ export default function Landing({ onNavigate }) {
           <h2 style={{ fontSize: 48, fontWeight: 600, letterSpacing: '-1px', lineHeight: 1.1, margin: '0 0 20px 0' }}>Stop guessing.<br />Start forecasting.</h2>
           <p style={{ fontSize: 17, color: '#cbd5e1', margin: '0 0 36px 0', lineHeight: 1.6 }}>Spin up a sandbox with your last 6 months of arrival data and see your first forecast in under an hour.</p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-            <button onClick={() => onNavigate('welcome')} style={{ padding: '16px 32px', background: 'white', color: '#0f1729', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>Start free trial</button>
+            <button onClick={() => onNavigate('welcome')} style={{ padding: '16px 32px', background: 'white', color: '#0f1729', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>Start here</button>
             <button onClick={() => onNavigate('welcome')} style={{ padding: '16px 32px', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>Talk to engineering</button>
           </div>
           <div style={{ marginTop: 28, fontSize: 12, color: '#94a3b8' }}>No credit card · 30-day pilot · BAA on day 1</div>
