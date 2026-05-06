@@ -28,7 +28,6 @@ export default function Landing({ onNavigate }) {
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={() => onNavigate('welcome')} style={{ background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '8px 16px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>Sign in</button>
-          <button onClick={() => onNavigate('welcome')} style={{ background: 'white', color: '#0f1729', border: 'none', padding: '8px 16px', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Book a demo →</button>
         </div>
       </div>
 
