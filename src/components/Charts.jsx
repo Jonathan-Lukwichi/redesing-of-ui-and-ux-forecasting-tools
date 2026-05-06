@@ -12,13 +12,13 @@ export function Sparkline({ data, color = '#1e6091', width = 80, height = 28, fi
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
       {fill && <path d={area} fill={color} opacity="0.12" />}
-      <path d={path} fill="none" stroke={color} strokeWidth="1.6" strokeLinejoin="round" />
+      <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" />
     </svg>
   );
 }
 
 export function LineChart({ series, height = 220, xLabels, showGrid = true }) {
-  const w = 720, h = height, pad = { l: 36, r: 12, t: 8, b: 22 };
+  const w = 720, h = height, pad = { l: 48, r: 16, t: 10, b: 30 };
   const allVals = series.flatMap((s) => s.data.filter((v) => v != null && v !== 0));
   const max = Math.max(...allVals) * 1.1;
   const min = Math.min(0, Math.min(...allVals));
@@ -35,11 +35,11 @@ export function LineChart({ series, height = 220, xLabels, showGrid = true }) {
       {showGrid && tickVals.map((v, i) => (
         <g key={i}>
           <line x1={pad.l} x2={w - pad.r} y1={y(v)} y2={y(v)} stroke="#eef0f3" strokeWidth="1" />
-          <text x={pad.l - 6} y={y(v) + 3} textAnchor="end" fontSize="10" fill="#94a3b8">{Math.round(v)}</text>
+          <text x={pad.l - 8} y={y(v) + 4} textAnchor="end" fontSize="12" fill="#94a3b8">{Math.round(v)}</text>
         </g>
       ))}
       {xLabels && xLabels.map((lbl, i) => (
-        <text key={i} x={x(i * Math.floor((n - 1) / (xLabels.length - 1)))} y={h - 6} textAnchor="middle" fontSize="10" fill="#94a3b8">{lbl}</text>
+        <text key={i} x={x(i * Math.floor((n - 1) / (xLabels.length - 1)))} y={h - 6} textAnchor="middle" fontSize="12" fill="#94a3b8">{lbl}</text>
       ))}
       {series.map((s, si) => {
         const validPts = s.data.map((v, i) => [i, v]).filter(([, v]) => v != null && v !== 0);
@@ -56,14 +56,14 @@ export function LineChart({ series, height = 220, xLabels, showGrid = true }) {
                   ' Z'
                 }
                 fill={s.color}
-                opacity="0.12"
+                opacity="0.14"
                 stroke="none"
               />
             )}
             {s.dashed ? (
-              <path d={path} fill="none" stroke={s.color} strokeWidth="2" strokeDasharray="4 4" />
+              <path d={path} fill="none" stroke={s.color} strokeWidth="2.5" strokeDasharray="5 4" />
             ) : (
-              <path d={path} fill="none" stroke={s.color} strokeWidth="2" />
+              <path d={path} fill="none" stroke={s.color} strokeWidth="2.5" />
             )}
           </g>
         );
@@ -73,7 +73,7 @@ export function LineChart({ series, height = 220, xLabels, showGrid = true }) {
 }
 
 export function BarChart({ data, height = 200, color = '#1e6091', labels, valueFmt = (v) => v }) {
-  const w = 720, h = height, pad = { l: 36, r: 12, t: 8, b: 22 };
+  const w = 720, h = height, pad = { l: 48, r: 16, t: 16, b: 30 };
   const max = Math.max(...data) * 1.15;
   const innerW = w - pad.l - pad.r, innerH = h - pad.t - pad.b;
   const bw = (innerW / data.length) * 0.6;
@@ -87,9 +87,9 @@ export function BarChart({ data, height = 200, color = '#1e6091', labels, valueF
         const bh = (v / max) * innerH;
         return (
           <g key={i}>
-            <rect x={cx - bw / 2} y={pad.t + innerH - bh} width={bw} height={bh} fill={color} rx="2" />
-            <text x={cx} y={h - 6} textAnchor="middle" fontSize="10" fill="#94a3b8">{labels[i]}</text>
-            <text x={cx} y={pad.t + innerH - bh - 4} textAnchor="middle" fontSize="10" fill="#334155" fontWeight="500">{valueFmt(v)}</text>
+            <rect x={cx - bw / 2} y={pad.t + innerH - bh} width={bw} height={bh} fill={color} rx="3" />
+            <text x={cx} y={h - 6} textAnchor="middle" fontSize="12" fill="#94a3b8">{labels[i]}</text>
+            <text x={cx} y={pad.t + innerH - bh - 6} textAnchor="middle" fontSize="12" fill="#334155" fontWeight="600">{valueFmt(v)}</text>
           </g>
         );
       })}
@@ -97,7 +97,7 @@ export function BarChart({ data, height = 200, color = '#1e6091', labels, valueF
   );
 }
 
-export function Donut({ data, size = 180, thickness = 26 }) {
+export function Donut({ data, size = 180, thickness = 28 }) {
   const r = size / 2, ri = r - thickness;
   const total = data.reduce((s, d) => s + d.value, 0);
   let a = -Math.PI / 2;
@@ -120,17 +120,17 @@ export function Donut({ data, size = 180, thickness = 26 }) {
 }
 
 export function Heatmap({ data, rows, cols, height = 200, max: maxProp }) {
-  const w = 720, h = height, pad = { l: 60, r: 12, t: 10, b: 22 };
+  const w = 720, h = height, pad = { l: 68, r: 16, t: 12, b: 30 };
   const cellW = (w - pad.l - pad.r) / cols.length;
   const cellH = (h - pad.t - pad.b) / rows.length;
   const m = maxProp || Math.max(...data.flat());
   return (
     <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {rows.map((rl, ri) => (
-        <text key={'r' + ri} x={pad.l - 6} y={pad.t + (ri + 0.65) * cellH} textAnchor="end" fontSize="10" fill="#64748b">{rl}</text>
+        <text key={'r' + ri} x={pad.l - 8} y={pad.t + (ri + 0.65) * cellH} textAnchor="end" fontSize="12" fill="#64748b">{rl}</text>
       ))}
       {cols.map((cl, ci) => (
-        <text key={'c' + ci} x={pad.l + (ci + 0.5) * cellW} y={h - 6} textAnchor="middle" fontSize="10" fill="#64748b">{cl}</text>
+        <text key={'c' + ci} x={pad.l + (ci + 0.5) * cellW} y={h - 6} textAnchor="middle" fontSize="12" fill="#64748b">{cl}</text>
       ))}
       {data.map((row, ri) =>
         row.map((v, ci) => {
