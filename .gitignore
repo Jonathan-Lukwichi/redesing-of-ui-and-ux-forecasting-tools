@@ -1,0 +1,4 @@
+node_modules/
+dist/
+healthforecast-ai.zip
+*.zip
