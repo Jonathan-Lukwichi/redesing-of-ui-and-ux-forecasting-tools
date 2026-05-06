@@ -146,18 +146,6 @@ export default function Landing({ onNavigate }) {
           </div>
         </div>
 
-        {/* Trust strip */}
-        <div id="section-customers" style={{ maxWidth: 1320, margin: '80px auto 0', paddingTop: 32, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-          <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 18 }}>Trusted by leading hospitals</div>
-          <div style={{ display: 'flex', gap: 56, alignItems: 'center', opacity: 0.7, fontSize: 16, fontWeight: 600, color: '#cbd5e1', flexWrap: 'wrap' }}>
-            <span>MEMORIAL GENERAL</span>
-            <span>· STEVE BIKO ACADEMIC</span>
-            <span>· HOSPITAL DE MADRID</span>
-            <span>· KAISER PERMANENTE</span>
-            <span>· NHS LOTHIAN</span>
-            <span>· GENEVA UNIVERSITY</span>
-          </div>
-        </div>
       </div>
 
       {/* PROBLEM STRIP */}
