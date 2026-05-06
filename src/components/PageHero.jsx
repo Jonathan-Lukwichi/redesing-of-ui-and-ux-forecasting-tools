@@ -1,8 +1,8 @@
-export default function PageHero({ title, sub, image, actions, kicker, height }) {
+export default function PageHero({ title, sub, image, actions, kicker }) {
   return (
     <div style={{
       position: 'relative',
-      height: height || 'clamp(140px, 14vw, 200px)',
+      minHeight: 'clamp(140px, 14vw, 200px)',
       borderRadius: 'clamp(8px, 1vw, 14px)',
       overflow: 'hidden',
       background: image
@@ -15,7 +15,6 @@ export default function PageHero({ title, sub, image, actions, kicker, height })
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
-      marginBottom: 4,
       boxSizing: 'border-box',
     }}>
       {kicker && (
@@ -30,25 +29,21 @@ export default function PageHero({ title, sub, image, actions, kicker, height })
           {kicker}
         </div>
       )}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 24 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <h1 style={{
             margin: 0,
             fontSize: 'clamp(20px, 2.5vw, 36px)',
             fontWeight: 700,
             letterSpacing: '-0.5px',
-            lineHeight: 1.15,
+            lineHeight: 1.2,
           }}>{title}</h1>
           {sub && (
             <div style={{
               fontSize: 'clamp(12px, 1.1vw, 15px)',
               color: '#cbd5e1',
               marginTop: 8,
-              maxWidth: 760,
               lineHeight: 1.6,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
             }}>{sub}</div>
           )}
         </div>
