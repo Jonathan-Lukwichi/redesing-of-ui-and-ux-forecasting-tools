@@ -70,9 +70,6 @@ export default function Landing({ onNavigate }) {
               <button onClick={() => onNavigate('welcome')} style={{ padding: '14px 28px', background: 'white', color: '#0f1729', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>
                 Start free trial
               </button>
-              <button style={{ padding: '14px 28px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer', backdropFilter: 'blur(8px)' }}>
-                Watch 2-min demo ▸
-              </button>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, auto)', gap: 32, paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.15)' }}>
