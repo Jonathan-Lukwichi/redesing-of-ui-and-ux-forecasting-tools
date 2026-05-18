@@ -1,25 +1,62 @@
-# CODING AGENTS: READ THIS FIRST
+# HealthForecast AI — Frontend and Backend
 
-This is a **handoff bundle** from Claude Design (claude.ai/design).
+React + Vite frontend with a FastAPI backend for the HealthForecast AI hospital
+demand forecasting application. Companion project to
+[msc-thesis--exploratory-data-analysis](https://github.com/Jonathan-Lukwichi/msc-thesis--exploratory-data-analysis).
 
-A user mocked up designs in HTML/CSS/JS using an AI design tool, then exported this bundle so a coding agent can implement the designs for real.
+## Project structure
 
-## What you should do — IMPORTANT
+```
+.
+├── api/                    FastAPI backend
+│   ├── main.py             app entry, CORS, router wiring
+│   ├── requirements.txt
+│   ├── core/               forecasting + optimisation
+│   │   ├── forecasting.py  ARIMA / SARIMA + ML
+│   │   ├── optimization.py staff + supply heuristics
+│   │   └── schemas.py
+│   └── routers/            forecast, staff, supply, kpis, upload, actions
+├── src/                    React frontend
+│   ├── App.jsx             page switcher
+│   ├── components/         AppShell, Charts, KPI, PageHero
+│   ├── pages/              15 dashboard pages
+│   └── api/client.js       fetch wrapper for the backend
+├── public/images/          hero images
+├── project/                original HTML/CSS/JS prototypes
+├── package.json
+├── vite.config.js
+└── RUN.md                  how to start both servers locally
+```
 
-**Read the chat transcripts first.** There are 1 chat transcript(s) in `chats/`. The transcripts show the full back-and-forth between the user and the design assistant — they tell you **what the user actually wants** and **where they landed** after iterating. Don't skip them. The final HTML files are the output, but the chat is where the intent lives.
+## Run locally
 
-**Read `project/HealthForecast AI Redesign.html` in full.** The user had this file open when they triggered the handoff, so it's almost certainly the primary design they want built. Read it top to bottom — don't skim. Then **follow its imports**: open every file it pulls in (shared components, CSS, scripts) so you understand how the pieces fit together before you start implementing.
+Backend (port 8000):
 
-**If anything is ambiguous, ask the user to confirm before you start implementing.** It's much cheaper to clarify scope up front than to build the wrong thing.
+```powershell
+cd api
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
 
-## About the design files
+Frontend (port 5173):
 
-The design medium is **HTML/CSS/JS** — these are prototypes, not production code. Your job is to **recreate them pixel-perfectly** in whatever technology makes sense for the target codebase (React, Vue, native, whatever fits). Match the visual output; don't copy the prototype's internal structure unless it happens to fit.
+```powershell
+npm install
+npm run dev
+```
 
-**Don't render these files in a browser or take screenshots unless the user asks you to.** Everything you need — dimensions, colors, layout rules — is spelled out in the source. Read the HTML and CSS directly; a screenshot won't tell you anything they don't.
+Open http://localhost:5173 and navigate to **Forecast** for the first wired page.
 
-## Bundle contents
+## Wired pages
 
-- `README.md` — this file
-- `chats/` — conversation transcripts (read these!)
-- `project/` — the `DESIGN FORECASTING TOOLS` project files (HTML prototypes, assets, components)
+| Page | Endpoint |
+|---|---|
+| Forecast | `GET /api/forecast/demo` |
+| others | mock data, wiring in progress |
+
+## Companion repositories
+
+- EDA pipeline: [msc-thesis--exploratory-data-analysis](https://github.com/Jonathan-Lukwichi/msc-thesis--exploratory-data-analysis)
+- Upstream ETL: [msc-thesis--data-transformation-pipeline-](https://github.com/Jonathan-Lukwichi/msc-thesis--data-transformation-pipeline-)
