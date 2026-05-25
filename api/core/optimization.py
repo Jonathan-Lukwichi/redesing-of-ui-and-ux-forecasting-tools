@@ -1,6 +1,6 @@
+import math
 import numpy as np
 from typing import List, Dict, Any, Optional
-from scipy.stats import norm
 from datetime import datetime, timedelta
 
 # ─── Staff Scheduling ────────────────────────────────────────────────────────

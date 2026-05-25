@@ -1,6 +1,4 @@
 #!/bin/bash
-# Install dependencies (first run only)
-pip install -r requirements.txt -q
+pip install --no-cache-dir -r requirements.txt -q
 
-# Start the API
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+exec python -m uvicorn main:app --host 0.0.0.0 --port "${PORT:-8000}" --workers 1
