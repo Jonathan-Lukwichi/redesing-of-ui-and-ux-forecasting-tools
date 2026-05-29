@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from routers import forecast, staff, supply, kpis, upload, actions
+from routers import forecast, staff, supply, kpis, upload, actions, datasets, prepare
 
 app = FastAPI(
     title="HealthForecast AI — Backend API",
@@ -25,6 +25,8 @@ app.include_router(supply.router)
 app.include_router(kpis.router)
 app.include_router(upload.router)
 app.include_router(actions.router)
+app.include_router(datasets.router)
+app.include_router(prepare.router)
 
 
 @app.get("/")
@@ -33,6 +35,17 @@ def root():
         "status": "running",
         "docs":   "/docs",
         "endpoints": [
+            "GET  /api/datasets/inventory",
+            "POST /api/datasets/{id}/upload",
+            "GET  /api/datasets/{id}",
+            "GET  /api/datasets/{id}/preview",
+            "DELETE /api/datasets/{id}",
+            "GET  /api/prepare/groups",
+            "POST /api/prepare/build",
+            "GET  /api/prepare/{group_id}",
+            "GET  /api/prepare/{group_id}/preview",
+            "GET  /api/prepare/{group_id}/quality",
+            "DELETE /api/prepare/{group_id}",
             "GET  /api/forecast/demo",
             "POST /api/forecast",
             "GET  /api/staff/demo",
