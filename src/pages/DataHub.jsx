@@ -19,13 +19,17 @@ export default function DataHub() {
   const [uploadState, setUploadState] = useState({}); // {id: {status, error?, detail?, file?}}
   const [previews, setPreviews] = useState({});       // {id: previewObject}
   const [selectedId, setSelectedId] = useState(null);
+  const [sourceStatus, setSourceStatus] = useState(null);
   const fileInputRef = useRef(null);
   const pendingIdRef = useRef(null);
 
   useEffect(() => {
     const ctrl = new AbortController();
-    api.datasets.inventory(ctrl.signal)
-      .then(setInventory)
+    Promise.all([
+      api.datasets.inventory(ctrl.signal),
+      api.datasets.sourceStatus(ctrl.signal).catch(() => null),
+    ])
+      .then(([inv, src]) => { setInventory(inv); setSourceStatus(src); })
       .catch((e) => { if (e.name !== 'AbortError') setError(e.message); });
     return () => ctrl.abort();
   }, []);
@@ -86,6 +90,26 @@ export default function DataHub() {
     pendingIdRef.current = null;
     if (!file || !id) return;
     await doUpload(id, file);
+  };
+
+  const onFetch = async (id) => {
+    patchUpload(id, { status: 'uploading', error: null, detail: null });
+    try {
+      const result = await api.datasets.fetch(id);
+      setPreviews((prev) => ({
+        ...prev,
+        [id]: { columns: result.columns, records: result.preview },
+      }));
+      clearUploadState(id);
+      setSelectedId(id);
+      await refreshInventory();
+    } catch (e) {
+      patchUpload(id, {
+        status: 'error',
+        error: extractMessage(e),
+        detail: e.detail && typeof e.detail === 'object' ? e.detail : null,
+      });
+    }
   };
 
   const onClear = async (id) => {
@@ -192,7 +216,9 @@ export default function DataHub() {
             item={item}
             uploadState={uploadState[item.schema.id]}
             selected={selectedId === item.schema.id}
+            fetchAvailable={!!sourceStatus?.configured}
             onUpload={() => onPickFile(item.schema.id)}
+            onFetch={() => onFetch(item.schema.id)}
             onClear={() => onClear(item.schema.id)}
             onSelect={() => onSelect(item.schema.id, item.loaded)}
             onDismiss={() => clearUploadState(item.schema.id)}
@@ -213,7 +239,9 @@ export default function DataHub() {
             item={item}
             uploadState={uploadState[item.schema.id]}
             selected={selectedId === item.schema.id}
+            fetchAvailable={!!sourceStatus?.configured}
             onUpload={() => onPickFile(item.schema.id)}
+            onFetch={() => onFetch(item.schema.id)}
             onClear={() => onClear(item.schema.id)}
             onSelect={() => onSelect(item.schema.id, item.loaded)}
             onDismiss={() => clearUploadState(item.schema.id)}
@@ -235,8 +263,8 @@ export default function DataHub() {
 // ---- Tile -------------------------------------------------------------------
 
 function DatasetTile({
-  item, uploadState, selected,
-  onUpload, onClear, onSelect, onDismiss, onSendToBestFit,
+  item, uploadState, selected, fetchAvailable,
+  onUpload, onFetch, onClear, onSelect, onDismiss, onSendToBestFit,
 }) {
   const { schema, loaded, metadata } = item;
   const state = uploadState?.status || (loaded ? 'loaded' : 'idle');
@@ -360,13 +388,24 @@ function DatasetTile({
             </button>
           </>
         ) : (
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={onUpload}
-            style={{ flex: 1, justifyContent: 'center' }}
-          >
-            <Icon name="upload" size={12} /> Upload CSV
-          </button>
+          <>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={onFetch}
+              disabled={!fetchAvailable}
+              title={fetchAvailable ? '' : 'Configure DATA_REPO + GITHUB_TOKEN in api/.env to enable Fetch'}
+              style={{ flex: 1, justifyContent: 'center', opacity: fetchAvailable ? 1 : 0.55 }}
+            >
+              <Icon name="download" size={12} /> Fetch
+            </button>
+            <button
+              className="btn btn-sm"
+              onClick={onUpload}
+              style={{ flex: 1, justifyContent: 'center' }}
+            >
+              <Icon name="upload" size={12} /> Upload CSV
+            </button>
+          </>
         )}
       </div>
 

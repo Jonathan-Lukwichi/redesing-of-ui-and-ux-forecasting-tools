@@ -47,6 +47,8 @@ export const api = {
       fd.append('file', file);
       return request(`/api/datasets/${id}/upload`, { method: 'POST', body: fd });
     },
+    fetch:        (id) => request(`/api/datasets/${id}/fetch`, { method: 'POST' }),
+    sourceStatus: (signal) => request('/api/datasets/source/status', { signal }),
     clear: (id) => request(`/api/datasets/${id}`, { method: 'DELETE' }),
     clearAll: () => request('/api/datasets', { method: 'DELETE' }),
   },

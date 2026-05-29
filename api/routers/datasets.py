@@ -12,7 +12,7 @@ from typing import Any
 import pandas as pd
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from core import registry, prepare_registry
+from core import registry, prepare_registry, data_source
 from core.datasets import (
     ALL_SCHEMAS,
     DatasetSchema,
@@ -199,26 +199,18 @@ async def inventory() -> dict[str, Any]:
     return {"items": items, "loaded_count": len(loaded), "total": len(ALL_SCHEMAS)}
 
 
-@router.post("/{dataset_id}/upload")
-async def upload(dataset_id: str, file: UploadFile = File(...)) -> dict[str, Any]:
-    schema = get_schema(dataset_id)
-    if schema is None:
-        raise HTTPException(404, f"Unknown dataset id '{dataset_id}'. "
-                                  f"Valid ids: {schema_ids()}")
-
-    raw = await file.read()
+def _ingest_csv(schema: DatasetSchema, raw: bytes, filename: str) -> dict[str, Any]:
+    """Parse + validate + register the raw bytes of a CSV against a schema.
+    Shared by the upload and fetch endpoints."""
     df = _parse_csv(raw)
-
-    meta = _build_metadata(schema, df, file.filename or "uploaded.csv", raw)
+    meta = _build_metadata(schema, df, filename, raw)
 
     if meta["missing_required"]:
-        # Hard reject — the dataset cannot be used downstream without these.
-        # Suggest a better-fitting slot if the columns match another schema.
         detail: dict[str, Any] = {
             "error": "missing_required_columns",
             "target_id": schema.id,
             "target_label": schema.label,
-            "filename": file.filename,
+            "filename": filename,
             "missing_required": meta["missing_required"],
             "uploaded_columns": meta["columns"],
             "expected_required": list(schema.required_columns),
@@ -237,11 +229,53 @@ async def upload(dataset_id: str, file: UploadFile = File(...)) -> dict[str, Any
         raise HTTPException(400, detail)
 
     registry.put(schema.id, df, meta)
-    # Re-upload of a source dataset stales any merged group that used it.
-    invalidated = _invalidate_dependent_groups(schema.id)
+    # A new copy stales any merged group that used it.
+    meta["invalidated_groups"] = _invalidate_dependent_groups(schema.id)
     meta["preview"] = _records(df, 10)
-    meta["invalidated_groups"] = invalidated
     return meta
+
+
+@router.post("/{dataset_id}/upload")
+async def upload(dataset_id: str, file: UploadFile = File(...)) -> dict[str, Any]:
+    schema = get_schema(dataset_id)
+    if schema is None:
+        raise HTTPException(404, f"Unknown dataset id '{dataset_id}'. "
+                                  f"Valid ids: {schema_ids()}")
+    raw = await file.read()
+    return _ingest_csv(schema, raw, file.filename or "uploaded.csv")
+
+
+@router.get("/source/status")
+async def source_status() -> dict[str, Any]:
+    """Tell the frontend whether the Fetch button can be enabled."""
+    return data_source.status()
+
+
+@router.post("/{dataset_id}/fetch")
+async def fetch_from_source(dataset_id: str) -> dict[str, Any]:
+    """Pull this dataset's CSV from the configured private data repo and run it
+    through the same validation/storage path as an upload."""
+    schema = get_schema(dataset_id)
+    if schema is None:
+        raise HTTPException(404, f"Unknown dataset id '{dataset_id}'. "
+                                  f"Valid ids: {schema_ids()}")
+
+    filename = schema.source_filename_hint
+    if not filename:
+        raise HTTPException(500, f"No filename hint configured for '{dataset_id}'.")
+
+    try:
+        raw = await data_source.fetch_raw(filename)
+    except data_source.FetchError as e:
+        status_code = e.http_status or 502
+        raise HTTPException(status_code, {
+            "error":   "fetch_failed",
+            "target_id": schema.id,
+            "filename": filename,
+            "message":  str(e),
+        })
+
+    return _ingest_csv(schema, raw, filename)
 
 
 @router.get("/{dataset_id}")
