@@ -65,4 +65,20 @@ export const api = {
     clear: (id) => request(`/api/prepare/${id}`, { method: 'DELETE' }),
     clearAll: () => request('/api/prepare', { method: 'DELETE' }),
   },
+
+  explore: {
+    index:           (signal) => request('/api/explore/index', { signal }),
+    missingness:     (group = 'g1', signal) => request(`/api/explore/missingness?group=${group}`, { signal }),
+    outliers:        (group = 'g1', signal) => request(`/api/explore/outliers?group=${group}`, { signal }),
+    covidRegimes:    (group = 'g1', signal) => request(`/api/explore/covid_regimes?group=${group}`, { signal }),
+    task1Distribution:    (group = 'g1', signal) => request(`/api/explore/task1/distribution?group=${group}`, { signal }),
+    task1Stl:             (group = 'g1', signal) => request(`/api/explore/task1/stl?group=${group}`, { signal }),
+    task1AcfPacf:         (group = 'g1', signal) => request(`/api/explore/task1/acf_pacf?group=${group}`, { signal }),
+    task1CalendarEffects: (group = 'g1', signal) => request(`/api/explore/task1/calendar_effects?group=${group}`, { signal }),
+    task2SpecialtyMix:    (group = 'g3', signal) => request(`/api/explore/task2/specialty_mix?group=${group}`, { signal }),
+    task2SpecialtyCorr:   (group = 'g3', signal) => request(`/api/explore/task2/specialty_corr?group=${group}`, { signal }),
+    task3ClassBalance:    (group = 'g3', signal) => request(`/api/explore/task3/class_balance?group=${group}`, { signal }),
+    layer2HourlyProfile:  (group = 'g2', signal) => request(`/api/explore/layer2/hourly_profile?group=${group}`, { signal }),
+    impactMatrix:         (group = 'g1', signal) => request(`/api/explore/impact_matrix?group=${group}`, { signal }),
+  },
 };

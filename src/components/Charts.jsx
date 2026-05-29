@@ -119,6 +119,195 @@ export function Donut({ data, size = 180, thickness = 28 }) {
   );
 }
 
+export function StemPlot({ data, height = 200, color = '#1e6091', confidenceBand, labels }) {
+  const w = 720, h = height, pad = { l: 48, r: 16, t: 16, b: 30 };
+  const max = Math.max(1, ...data.map((v) => Math.abs(v)));
+  const innerW = w - pad.l - pad.r, innerH = h - pad.t - pad.b;
+  const x = (i) => pad.l + (i / Math.max(1, data.length - 1)) * innerW;
+  const y = (v) => pad.t + innerH / 2 - (v / max) * (innerH / 2 - 6);
+  const yZero = pad.t + innerH / 2;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+      {confidenceBand != null && (
+        <g>
+          <rect x={pad.l} y={y(confidenceBand)} width={innerW} height={Math.max(0, y(-confidenceBand) - y(confidenceBand))} fill="#1e6091" opacity="0.08" />
+          <line x1={pad.l} x2={w - pad.r} y1={y(confidenceBand)} y2={y(confidenceBand)} stroke="#94a3b8" strokeDasharray="3 3" strokeWidth="1" />
+          <line x1={pad.l} x2={w - pad.r} y1={y(-confidenceBand)} y2={y(-confidenceBand)} stroke="#94a3b8" strokeDasharray="3 3" strokeWidth="1" />
+        </g>
+      )}
+      <line x1={pad.l} x2={w - pad.r} y1={yZero} y2={yZero} stroke="#cbd5e1" strokeWidth="1" />
+      {data.map((v, i) => (
+        <g key={i}>
+          <line x1={x(i)} x2={x(i)} y1={yZero} y2={y(v)} stroke={color} strokeWidth="2" />
+          <circle cx={x(i)} cy={y(v)} r="3" fill={color} />
+        </g>
+      ))}
+      {labels && labels.map((lbl, i) => (
+        <text key={i} x={x(Math.round((i / (labels.length - 1)) * (data.length - 1)))} y={h - 6} textAnchor="middle" fontSize="11" fill="#94a3b8">{lbl}</text>
+      ))}
+    </svg>
+  );
+}
+
+export function BoxPlot({ data, labels, height = 220, color = '#1e6091' }) {
+  // data: [{ min, q1, median, q3, max, whisker_low?, whisker_high?, mean? }, ...]
+  const w = 720, h = height, pad = { l: 48, r: 16, t: 16, b: 30 };
+  const allMin = Math.min(...data.map((d) => d.whisker_low ?? d.min ?? 0));
+  const allMax = Math.max(...data.map((d) => d.whisker_high ?? d.max ?? 1));
+  const span = (allMax - allMin) * 1.1 || 1;
+  const yMin = allMin - span * 0.05;
+  const yMax = allMax + span * 0.05;
+  const innerW = w - pad.l - pad.r, innerH = h - pad.t - pad.b;
+  const y = (v) => pad.t + innerH - ((v - yMin) / (yMax - yMin)) * innerH;
+  const cw = (innerW / data.length) * 0.5;
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+      {[0, 0.25, 0.5, 0.75, 1].map((t, i) => {
+        const yv = yMin + t * (yMax - yMin);
+        return (
+          <g key={i}>
+            <line x1={pad.l} x2={w - pad.r} y1={y(yv)} y2={y(yv)} stroke="#eef0f3" strokeWidth="1" />
+            <text x={pad.l - 8} y={y(yv) + 4} textAnchor="end" fontSize="11" fill="#94a3b8">{Math.round(yv)}</text>
+          </g>
+        );
+      })}
+      {data.map((d, i) => {
+        const cx = pad.l + (i + 0.5) * (innerW / data.length);
+        if (!d || d.n === 0) return null;
+        const wl = d.whisker_low ?? d.min;
+        const wh = d.whisker_high ?? d.max;
+        return (
+          <g key={i}>
+            <line x1={cx} x2={cx} y1={y(wl)} y2={y(wh)} stroke={color} strokeWidth="1.2" />
+            <line x1={cx - cw / 3} x2={cx + cw / 3} y1={y(wl)} y2={y(wl)} stroke={color} strokeWidth="1.2" />
+            <line x1={cx - cw / 3} x2={cx + cw / 3} y1={y(wh)} y2={y(wh)} stroke={color} strokeWidth="1.2" />
+            <rect x={cx - cw / 2} y={y(d.q3)} width={cw} height={Math.max(1, y(d.q1) - y(d.q3))} fill={color} opacity="0.22" stroke={color} />
+            <line x1={cx - cw / 2} x2={cx + cw / 2} y1={y(d.median)} y2={y(d.median)} stroke="#0f172a" strokeWidth="2" />
+            {labels && <text x={cx} y={h - 6} textAnchor="middle" fontSize="11" fill="#94a3b8">{labels[i]}</text>}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+export function StackedArea({ series, dates, colors, height = 220 }) {
+  // series: { Label1: [v...], Label2: [v...] }, dates: [...]
+  const labels = Object.keys(series);
+  const n = dates.length;
+  if (!labels.length || !n) return null;
+  const w = 760, h = height, pad = { l: 48, r: 16, t: 12, b: 30 };
+  const innerW = w - pad.l - pad.r, innerH = h - pad.t - pad.b;
+  const stack = labels.map((l) => series[l]);
+  const totals = Array.from({ length: n }, (_, i) => stack.reduce((s, arr) => s + (arr[i] || 0), 0));
+  const max = Math.max(1, ...totals);
+  const x = (i) => pad.l + (i / Math.max(1, n - 1)) * innerW;
+  const y = (v) => pad.t + innerH - (v / max) * innerH;
+
+  // Build cumulative bands top-down.
+  const cum = Array.from({ length: n }, () => 0);
+  const paths = labels.map((label, li) => {
+    const top = stack[li].map((v, i) => cum[i] + (v || 0));
+    const path = top.map((v, i) => (i === 0 ? 'M' : 'L') + x(i) + ' ' + y(v)).join(' ') + ' ' +
+      [...cum].reverse().map((v, i) => 'L' + x(n - 1 - i) + ' ' + y(v)).join(' ') + ' Z';
+    for (let i = 0; i < n; i++) cum[i] = top[i];
+    return { label, path, color: (colors && colors[li]) || COLOR_CYCLE[li % COLOR_CYCLE.length] };
+  });
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+      {paths.map((p) => <path key={p.label} d={p.path} fill={p.color} opacity="0.8" />)}
+      <line x1={pad.l} x2={w - pad.r} y1={pad.t + innerH} y2={pad.t + innerH} stroke="#cbd5e1" />
+      {[0, 0.5, 1].map((t, i) => (
+        <text key={i} x={x((n - 1) * t)} y={h - 6} textAnchor="middle" fontSize="11" fill="#94a3b8">
+          {dates[Math.round((n - 1) * t)]}
+        </text>
+      ))}
+    </svg>
+  );
+}
+
+const COLOR_CYCLE = ['#1e6091', '#0d9488', '#d97706', '#7c3aed', '#dc2626', '#16a34a', '#475569', '#f59e0b'];
+
+export function ScatterPlot({ points, height = 240, xLabels = [], colorMap = {} }) {
+  // points: [{ x: index, y: number, category, regime }] OR [{ date, value, category }]
+  const w = 760, h = height, pad = { l: 48, r: 16, t: 12, b: 30 };
+  const ys = points.map((p) => p.y ?? p.value).filter((v) => v != null);
+  if (!ys.length) return null;
+  const yMin = 0;
+  const yMax = Math.max(...ys) * 1.05;
+  const innerW = w - pad.l - pad.r, innerH = h - pad.t - pad.b;
+  const x = (i) => pad.l + (i / Math.max(1, points.length - 1)) * innerW;
+  const y = (v) => pad.t + innerH - ((v - yMin) / (yMax - yMin)) * innerH;
+  const DEFAULT_COLORS = {
+    normal: '#1e6091', high: '#d97706', peak: '#dc2626', zero: '#94a3b8', missing: '#e4e7eb',
+  };
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+      {[0, 0.25, 0.5, 0.75, 1].map((t, i) => (
+        <line key={i} x1={pad.l} x2={w - pad.r} y1={pad.t + innerH * (1 - t)} y2={pad.t + innerH * (1 - t)} stroke="#eef0f3" />
+      ))}
+      {points.map((p, i) => {
+        const v = p.y ?? p.value;
+        if (v == null) return null;
+        const cat = p.category || 'normal';
+        const color = colorMap[cat] || DEFAULT_COLORS[cat] || '#1e6091';
+        return <circle key={i} cx={x(i)} cy={y(v)} r={cat === 'peak' ? 3 : 1.6} fill={color} opacity={cat === 'normal' ? 0.45 : 0.9} />;
+      })}
+      {xLabels.length > 1 && xLabels.map((lbl, i) => (
+        <text key={i} x={pad.l + (i / (xLabels.length - 1)) * innerW} y={h - 6} textAnchor="middle" fontSize="11" fill="#94a3b8">{lbl}</text>
+      ))}
+    </svg>
+  );
+}
+
+export function DivergingMatrix({ rows, columns, data, height = 280, max: maxOverride }) {
+  // data: 2D array of numbers (rows × columns), centred at 0
+  const w = 760, h = height, pad = { l: 140, r: 12, t: 12, b: 80 };
+  const cellW = (w - pad.l - pad.r) / columns.length;
+  const cellH = (h - pad.t - pad.b) / Math.max(1, rows.length);
+  const flat = data.flat().filter((v) => v != null && Number.isFinite(v));
+  const m = maxOverride || Math.max(1, ...flat.map(Math.abs));
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+      {rows.map((rl, ri) => (
+        <text key={'r' + ri} x={pad.l - 8} y={pad.t + (ri + 0.65) * cellH} textAnchor="end" fontSize="11" fill="#475569">{rl}</text>
+      ))}
+      {columns.map((cl, ci) => (
+        <text key={'c' + ci} x={pad.l + (ci + 0.5) * cellW} y={h - pad.b + 14} textAnchor="end" fontSize="11" fill="#475569"
+          transform={`rotate(-40 ${pad.l + (ci + 0.5) * cellW} ${h - pad.b + 14})`}>{cl}</text>
+      ))}
+      {data.map((row, ri) =>
+        row.map((v, ci) => {
+          if (v == null || !Number.isFinite(v)) {
+            return (
+              <rect key={ri + '-' + ci} x={pad.l + ci * cellW + 1} y={pad.t + ri * cellH + 1}
+                width={cellW - 2} height={cellH - 2} fill="#f1f5f9" stroke="none" rx="2" />
+            );
+          }
+          const t = Math.max(-1, Math.min(1, v / m));
+          const fill = t >= 0
+            ? `rgba(220,38,38,${(0.1 + Math.abs(t) * 0.75).toFixed(2)})`
+            : `rgba(13,148,136,${(0.1 + Math.abs(t) * 0.75).toFixed(2)})`;
+          return (
+            <g key={ri + '-' + ci}>
+              <rect x={pad.l + ci * cellW + 1} y={pad.t + ri * cellH + 1}
+                width={cellW - 2} height={cellH - 2} fill={fill} stroke="white" strokeWidth="0.5" rx="2" />
+              {Math.abs(t) > 0.15 && cellW > 36 && (
+                <text x={pad.l + (ci + 0.5) * cellW} y={pad.t + (ri + 0.6) * cellH} textAnchor="middle"
+                  fontSize="10" fill={Math.abs(t) > 0.5 ? 'white' : '#0f172a'} fontWeight="600">
+                  {Math.round(v)}
+                </text>
+              )}
+            </g>
+          );
+        })
+      )}
+    </svg>
+  );
+}
+
 export function Heatmap({ data, rows, cols, height = 200, max: maxProp }) {
   const w = 720, h = height, pad = { l: 68, r: 16, t: 12, b: 30 };
   const cellW = (w - pad.l - pad.r) / cols.length;
