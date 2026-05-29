@@ -16,8 +16,25 @@ DataFrame metadata.
 from __future__ import annotations
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
+import ssl
+
+import certifi
 import httpx
+from dotenv import load_dotenv
+
+# Use the OS trust store (Windows / macOS keychain) when available so corporate
+# TLS inspection certificates are honoured. Falls back to certifi otherwise.
+try:
+    import truststore
+    _SSL_CONTEXT = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+except ImportError:  # pragma: no cover
+    _SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
+
+
+# Re-load api/.env each time so edits take effect without an uvicorn restart.
+_ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 
 
 @dataclass(frozen=True)
@@ -34,6 +51,8 @@ class DataSourceConfig:
 
 def get_config() -> DataSourceConfig:
     """Read fresh from env every call so .env edits take effect without restart."""
+    if _ENV_PATH.exists():
+        load_dotenv(_ENV_PATH, override=True)
     subpath = (os.getenv("DATA_REPO_SUBPATH") or "").strip().strip("/")
     if subpath:
         subpath = subpath + "/"
@@ -84,7 +103,7 @@ async def fetch_raw(filename: str) -> bytes:
     }
     params = {"ref": cfg.branch}
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    async with httpx.AsyncClient(timeout=60.0, verify=_SSL_CONTEXT) as client:
         resp = await client.get(url, headers=headers, params=params)
 
     if resp.status_code == 200:

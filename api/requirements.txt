@@ -9,3 +9,5 @@ python-multipart>=0.0.20
 httpx>=0.27
 python-dotenv>=1.0
 scipy>=1.14.1
+truststore>=0.10  # use OS cert store for httpx on corporate Windows networks
+certifi>=2024.7  # explicit fallback bundle when truststore is unavailable
