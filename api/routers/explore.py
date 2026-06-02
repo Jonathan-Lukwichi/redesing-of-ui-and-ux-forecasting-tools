@@ -46,6 +46,13 @@ async def findings_run() -> dict[str, Any]:
     return F.run_findings()
 
 
+@router.get("/metrics")
+async def metrics_run() -> dict[str, Any]:
+    """Pipeline-driven KPI strip for the Headlines page. Every card is
+    produced by a MetricAnalyzer; nothing is hard-coded."""
+    return F.run_metrics()
+
+
 @router.get("/findings/index")
 async def findings_index() -> dict[str, Any]:
     """Static index of registered analyzers — independent of what's loaded.

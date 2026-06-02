@@ -11,6 +11,124 @@ export function categoryToken(category) {
   return CATEGORY_TOKEN[category] || CATEGORY_TOKEN.stable;
 }
 
+// ---- Number formatting -----------------------------------------------------
+
+export function formatNum(n, opts = {}) {
+  const { decimals = 0, fallback = '—' } = opts;
+  if (n == null || Number.isNaN(Number(n))) return fallback;
+  const v = Number(n);
+  if (Math.abs(v) >= 10000) return v.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (decimals === 0) return Math.round(v).toLocaleString();
+  return v.toFixed(decimals).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
+}
+
+export function formatPct(n, decimals = 1) {
+  if (n == null || Number.isNaN(Number(n))) return '—';
+  const v = Number(n);
+  const sign = v > 0 ? '+' : '';
+  return `${sign}${v.toFixed(decimals)}%`;
+}
+
+export function formatHero(value, unit) {
+  if (typeof value === 'string') {
+    return unit ? `${value}${unit}` : value;
+  }
+  if (value == null) return '—';
+  return `${formatNum(value, { decimals: typeof value === 'number' && value % 1 !== 0 ? 1 : 0 })}${unit ? '' : ''}`;
+}
+
+// ---- KPI strip primitives --------------------------------------------------
+
+export function KPICard({ label, value, unit, deltaPct, deltaLabel, sparkline, accent = 'stable', sparklineColor }) {
+  const tok = categoryToken(accent);
+  const showDelta = deltaPct !== undefined && deltaPct !== null;
+  return (
+    <div style={{
+      background: 'white', border: '1px solid #e4e7eb', borderRadius: 10,
+      padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8,
+      minHeight: 110, boxShadow: '0 1px 2px rgba(15, 23, 41, 0.04)',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+        <span style={{
+          fontSize: 10, fontWeight: 700, color: '#94a3b8',
+          textTransform: 'uppercase', letterSpacing: 1.2,
+        }}>{label}</span>
+        {showDelta && <DeltaPill value={deltaPct} positive={accent !== 'risk'} />}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+        <span style={{
+          fontSize: 24, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.5px',
+          fontVariantNumeric: 'tabular-nums', lineHeight: 1,
+        }}>{typeof value === 'number' ? formatNum(value) : value}</span>
+        {unit && <span style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>{unit}</span>}
+      </div>
+      {sparkline && sparkline.length > 1 && (
+        <Sparkline data={sparkline} color={sparklineColor || tok.color} width={180} height={30} fill={true} />
+      )}
+      {deltaLabel && <div style={{ fontSize: 10, color: '#94a3b8' }}>{deltaLabel}</div>}
+    </div>
+  );
+}
+
+function DeltaPill({ value, positive = true }) {
+  const isPositive = positive ? value >= 0 : value < 0;
+  const arrow = value >= 0 ? '↗' : '↘';
+  const color = isPositive ? '#16a34a' : '#dc2626';
+  const bg = isPositive ? '#dcfce7' : '#fee2e2';
+  return (
+    <span style={{
+      fontSize: 10, fontWeight: 700, color, background: bg,
+      borderRadius: 4, padding: '2px 6px', whiteSpace: 'nowrap',
+    }}>
+      {arrow} {Math.abs(value).toFixed(1)}%
+    </span>
+  );
+}
+
+export function ProgressRing({ value, max = 100, size = 56, thickness = 6, color = '#0d9488', trackColor = '#eef0f3' }) {
+  const pct = Math.max(0, Math.min(1, value / max));
+  const r = size / 2 - thickness / 2;
+  const c = Math.PI * 2 * r;
+  return (
+    <div style={{ position: 'relative', width: size, height: size }}>
+      <svg width={size} height={size}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={trackColor} strokeWidth={thickness} />
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={thickness}
+          strokeDasharray={c} strokeDashoffset={c * (1 - pct)} strokeLinecap="round"
+          transform={`rotate(-90 ${size/2} ${size/2})`} />
+      </svg>
+      <div style={{
+        position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
+        justifyContent: 'center', flexDirection: 'column',
+      }}>
+        <span style={{ fontSize: Math.round(size * 0.22), fontWeight: 700, color: '#0f172a' }}>
+          {Math.round(pct * 100)}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export function ValueLegend({ items, format = formatNum }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {items.map((it) => (
+        <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 3, background: it.color, flexShrink: 0 }} />
+          <span style={{ fontSize: 12, color: '#334155', flex: 1, lineHeight: 1.3 }}>{it.label}</span>
+          {it.sub && (
+            <span style={{ fontSize: 10, color: '#94a3b8' }}>{it.sub}</span>
+          )}
+          <span style={{
+            fontSize: 13, fontWeight: 700, color: '#0f172a',
+            fontVariantNumeric: 'tabular-nums', minWidth: 48, textAlign: 'right',
+          }}>{typeof it.value === 'number' ? format(it.value) : it.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function HeroStat({ value, label, sub, category = 'stable', size = 'lg', onClick }) {
   const tok = categoryToken(category);
   const fontSize = size === 'xl' ? 64 : size === 'lg' ? 48 : 32;
@@ -70,31 +188,45 @@ export function ActionPanel({ mechanism, action }) {
 }
 
 export function RankedBars({ rows, valueKey = 'pct_deviation', labelKey = 'category', height = 240, highlightThreshold = 0 }) {
-  // rows pre-sorted by caller. Values may be negative. Highlight rows whose value sign != median sign.
-  const w = 720, h = height, pad = { l: 140, r: 60, t: 12, b: 12 };
+  // Layout: [labels | + value reserve | bars | - value reserve]
+  // The zero line stays well inside the bar area so positive labels never
+  // collide with negative ones, and the leftmost row label sits in its own
+  // gutter that the bars never overlap.
+  const w = 760, h = height;
+  const labelGutter = 160;
+  const valueGutter = 60;          // reserved on each side for "+45%" tags
+  const pad = { l: labelGutter, r: valueGutter, t: 12, b: 12 };
   const values = rows.map((r) => r[valueKey]);
   const maxAbs = Math.max(1, ...values.map((v) => Math.abs(v)));
   const innerW = w - pad.l - pad.r;
-  const bh = (h - pad.t - pad.b) / rows.length - 4;
   const xZero = pad.l + innerW / 2;
+  const rowH = (h - pad.t - pad.b) / rows.length;
+  const bh = Math.max(10, rowH - 8);
   return (
     <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       <line x1={xZero} x2={xZero} y1={pad.t} y2={h - pad.b} stroke="#cbd5e1" />
       {rows.map((r, i) => {
-        const v = r[valueKey];
-        const widthPx = (Math.abs(v) / maxAbs) * (innerW / 2);
+        const v = Number(r[valueKey]) || 0;
+        const widthPx = Math.max(2, (Math.abs(v) / maxAbs) * (innerW / 2));
         const isAccent = highlightThreshold !== 0 && Math.abs(v) >= highlightThreshold;
         const fill = isAccent ? '#dc2626' : (v >= 0 ? '#0d9488' : '#94a3b8');
         const x = v >= 0 ? xZero : xZero - widthPx;
-        const y = pad.t + i * ((h - pad.t - pad.b) / rows.length) + 2;
+        const y = pad.t + i * rowH + (rowH - bh) / 2;
+        const valueLabel = `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
         return (
           <g key={i}>
-            <text x={pad.l - 8} y={y + bh / 2 + 4} textAnchor="end" fontSize="12" fill="#334155" fontWeight={isAccent ? 700 : 500}>
+            <text x={pad.l - 12} y={y + bh / 2 + 4} textAnchor="end" fontSize="12"
+              fill="#334155" fontWeight={isAccent ? 700 : 500}>
               {r[labelKey]}
             </text>
             <rect x={x} y={y} width={widthPx} height={bh} fill={fill} rx="3" />
-            <text x={v >= 0 ? x + widthPx + 6 : x - 6} y={y + bh / 2 + 4} textAnchor={v >= 0 ? 'start' : 'end'} fontSize="12" fill="#0f172a" fontWeight="600">
-              {v >= 0 ? '+' : ''}{Number(v).toFixed(1)}%
+            <text
+              x={v >= 0 ? x + widthPx + 6 : x - 6}
+              y={y + bh / 2 + 4}
+              textAnchor={v >= 0 ? 'start' : 'end'}
+              fontSize="12" fill={isAccent ? '#dc2626' : '#0f172a'} fontWeight="700"
+            >
+              {valueLabel}
             </text>
           </g>
         );
@@ -124,20 +256,29 @@ export function MonthlyIndexBars({ rows, baselineLabel = 'Annual mean', height =
       {rows.map((r, i) => {
         const cx = pad.l + (i + 0.5) * (innerW / rows.length);
         const v = r.index ?? 100;
+        const pct = v - 100;
         const isMin = v === min;
         const isMax = v === max;
-        const fill = isMin ? '#dc2626' : isMax ? '#0d9488' : '#22d3ee';
-        const bh = Math.abs(y(v) - y(100));
-        const yTop = v >= 100 ? y(v) : y(100);
+        // Cool teal for above-baseline, soft red for below-baseline, brighter for extremes.
+        const fill = pct >= 0
+          ? (isMax ? '#0d9488' : '#5eead4')
+          : (isMin ? '#dc2626' : '#fca5a5');
+        // Minimum bar height so months near the mean stay visible (4px).
+        const bh = Math.max(4, Math.abs(y(v) - y(100)));
+        const yTop = pct >= 0 ? y(100) - bh : y(100);
+        const showLabel = isMin || isMax || Math.abs(pct) >= 5;
         return (
           <g key={i}>
-            <rect x={cx - bw / 2} y={yTop} width={bw} height={bh} fill={fill} opacity={isMin || isMax ? 0.9 : 0.6} rx="3" />
-            {(isMin || isMax) && (
-              <text x={cx} y={yTop - 6} textAnchor="middle" fontSize="11" fill={fill} fontWeight="700">
-                {v >= 100 ? '+' : ''}{(v - 100).toFixed(1)}%
+            <rect x={cx - bw / 2} y={yTop} width={bw} height={bh} fill={fill} rx="3" />
+            {showLabel && (
+              <text x={cx} y={pct >= 0 ? yTop - 6 : yTop + bh + 12} textAnchor="middle"
+                fontSize="10" fill={isMin ? '#dc2626' : isMax ? '#0d9488' : '#475569'} fontWeight="700">
+                {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
               </text>
             )}
-            <text x={cx} y={h - 8} textAnchor="middle" fontSize="11" fill="#94a3b8">{r.label}</text>
+            <text x={cx} y={h - 8} textAnchor="middle" fontSize="11"
+              fill={isMin || isMax ? '#0f172a' : '#94a3b8'}
+              fontWeight={isMin || isMax ? 700 : 400}>{r.label}</text>
           </g>
         );
       })}
@@ -261,8 +402,12 @@ export function LineChart({ series, height = 220, xLabels, showGrid = true }) {
   );
 }
 
-export function BarChart({ data, height = 200, color = '#1e6091', labels, valueFmt = (v) => v }) {
-  const w = 720, h = height, pad = { l: 48, r: 16, t: 16, b: 30 };
+export function BarChart({ data, height = 200, color = '#1e6091', labels, valueFmt = (v) => v, rotateLabels }) {
+  // Auto-rotate x-axis labels when there are many labels OR any label is long.
+  const longestLabel = Math.max(0, ...(labels || []).map((l) => String(l || '').length));
+  const shouldRotate = rotateLabels ?? (data.length > 6 || longestLabel > 8);
+  const w = 720, h = height;
+  const pad = { l: 48, r: 16, t: 16, b: shouldRotate ? 56 : 30 };
   const max = Math.max(...data) * 1.15;
   const innerW = w - pad.l - pad.r, innerH = h - pad.t - pad.b;
   const bw = (innerW / data.length) * 0.6;
@@ -274,11 +419,16 @@ export function BarChart({ data, height = 200, color = '#1e6091', labels, valueF
       {data.map((v, i) => {
         const cx = pad.l + (i + 0.5) * (innerW / data.length);
         const bh = (v / max) * innerH;
+        const baseY = pad.t + innerH - bh;
+        const label = (labels && labels[i]) || '';
         return (
           <g key={i}>
-            <rect x={cx - bw / 2} y={pad.t + innerH - bh} width={bw} height={bh} fill={color} rx="3" />
-            <text x={cx} y={h - 6} textAnchor="middle" fontSize="12" fill="#94a3b8">{labels[i]}</text>
-            <text x={cx} y={pad.t + innerH - bh - 6} textAnchor="middle" fontSize="12" fill="#334155" fontWeight="600">{valueFmt(v)}</text>
+            <rect x={cx - bw / 2} y={baseY} width={bw} height={bh} fill={color} rx="3" />
+            {shouldRotate
+              ? <text x={cx} y={pad.t + innerH + 14} textAnchor="end" fontSize="11" fill="#475569"
+                  transform={`rotate(-35 ${cx} ${pad.t + innerH + 14})`}>{label}</text>
+              : <text x={cx} y={h - 6} textAnchor="middle" fontSize="12" fill="#94a3b8">{label}</text>}
+            <text x={cx} y={baseY - 6} textAnchor="middle" fontSize="11" fill="#334155" fontWeight="600">{valueFmt(v)}</text>
           </g>
         );
       })}

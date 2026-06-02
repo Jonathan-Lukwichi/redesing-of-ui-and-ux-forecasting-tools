@@ -96,6 +96,32 @@ class Finding:
 
 # -- context -------------------------------------------------------------------
 
+# -- metric (KPI strip cards) -------------------------------------------------
+
+@dataclass
+class Metric:
+    """One KPI card on the Headlines strip. Same pipeline contract as Finding
+    but tuned for at-a-glance numbers rather than narrative cards."""
+    id:           str
+    code:         str              # M1, M2, … — stable across releases
+    label:        str              # short uppercase header, e.g. "TOTAL ARRIVALS"
+    value:        float | int | str
+    unit:         str | None = None      # "/day", "%", "days", "depts"
+    delta_pct:    float | None = None    # for the green/red pill
+    delta_label:  str | None = None      # "vs pre-COVID", "vs annual mean", …
+    sparkline:    list[float] | None = None
+    accent:       Category = "stable"    # colour of the delta pill
+    section:      str = "headlines"
+    source_group: str = ""
+    detail:       dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+# -- analyzer ABCs ------------------------------------------------------------
+
+
 @dataclass
 class AnalysisContext:
     """Everything the pipeline can see at run time."""
@@ -145,6 +171,40 @@ class Analyzer(ABC):
         ...
 
 
+class MetricAnalyzer(ABC):
+    """Same applicability contract as Analyzer but emits a Metric (KPI card)
+    instead of a Finding. Subclass once per metric. Pipeline runs every metric
+    analyzer whose required roles are satisfied — adding a new dataset just
+    needs a profile and metrics auto-light-up."""
+
+    code:                str = ""
+    required_group_grain: Literal["daily", "hourly"] | None = None
+    required_roles:      tuple[str, ...] = ()
+    requires_categories: tuple[str, ...] = ()
+    requires_raw_datasets: tuple[str, ...] = ()
+    preferred_group_ids: tuple[str, ...] = ()
+
+    def applicable(self, group_id: str, profile: GroupProfile, ctx: AnalysisContext) -> bool:
+        if self.preferred_group_ids and group_id not in self.preferred_group_ids:
+            return False
+        if self.required_group_grain and profile.grain != self.required_group_grain:
+            return False
+        if not profile.has(*self.required_roles):
+            return False
+        for cat in self.requires_categories:
+            if not profile.category(cat):
+                return False
+        for d in self.requires_raw_datasets:
+            if ctx.raw(d) is None:
+                return False
+        return True
+
+    @abstractmethod
+    def run(self, group_id: str, df: pd.DataFrame, profile: GroupProfile,
+            ctx: AnalysisContext) -> Metric | None:
+        ...
+
+
 # -- pipeline ------------------------------------------------------------------
 
 class FindingPipeline:
@@ -189,6 +249,35 @@ class FindingPipeline:
                     if a.preferred_group_ids:
                         break
         return findings
+
+
+class MetricPipeline:
+    """Same shape as FindingPipeline but emits Metric records."""
+    def __init__(self, analyzers: list[MetricAnalyzer]):
+        self.analyzers = list(analyzers)
+
+    def run(self, ctx: AnalysisContext) -> list[Metric]:
+        out: list[Metric] = []
+        for a in self.analyzers:
+            target_groups: list[str]
+            if a.preferred_group_ids:
+                target_groups = [gid for gid in a.preferred_group_ids if gid in ctx.groups]
+            else:
+                target_groups = list(ctx.groups.keys())
+            for gid in target_groups:
+                df, prof = ctx.groups[gid]
+                if not a.applicable(gid, prof, ctx):
+                    continue
+                try:
+                    m = a.run(gid, df, prof, ctx)
+                except Exception as e:
+                    m = None
+                    _record_failure(a, gid, e)
+                if m is not None:
+                    out.append(m)
+                    if a.preferred_group_ids:
+                        break
+        return out
 
 
 # -- diagnostic ----------------------------------------------------------------

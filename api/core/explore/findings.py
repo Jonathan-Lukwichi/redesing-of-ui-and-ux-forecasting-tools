@@ -10,12 +10,14 @@ from typing import Any
 from core import prepare_registry, registry
 from core.joins import GROUPS
 
-from .pipeline import AnalysisContext, FindingPipeline, recent_failures
+from .pipeline import AnalysisContext, FindingPipeline, MetricPipeline, recent_failures
 from .profiles import profile_for
 from .analyzers import DEFAULT as DEFAULT_ANALYZERS
+from .metrics   import DEFAULT_METRICS
 
 
 PIPELINE = FindingPipeline(DEFAULT_ANALYZERS)
+METRICS_PIPELINE = MetricPipeline(DEFAULT_METRICS)
 
 
 def _build_context() -> AnalysisContext:
@@ -42,6 +44,19 @@ def run_findings() -> dict[str, Any]:
         "groups_seen": list(ctx.groups.keys()),
         "raw_datasets_seen": list(ctx.raw_datasets.keys()),
         "recent_failures": recent_failures(),
+    }
+
+
+def run_metrics() -> dict[str, Any]:
+    """Pipeline-driven KPI strip for the Headlines page. Adds zero hard-coded
+    cards: every Metric is produced by a MetricAnalyzer applicable to the
+    currently loaded groups."""
+    ctx = _build_context()
+    metrics = METRICS_PIPELINE.run(ctx)
+    return {
+        "metrics": [m.to_dict() for m in metrics],
+        "count":   len(metrics),
+        "groups_seen": list(ctx.groups.keys()),
     }
 
 

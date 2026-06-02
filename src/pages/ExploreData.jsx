@@ -3,9 +3,10 @@ import PageHero from '../components/PageHero';
 import Icon from '../components/Icon';
 import {
   LineChart, BarChart, Heatmap,
-  StemPlot, BoxPlot, StackedArea, ScatterPlot, DivergingMatrix,
+  StemPlot, StackedArea, ScatterPlot, DivergingMatrix,
   HeroStat, ActionPanel, RankedBars, MonthlyIndexBars, DonutWithCenter,
-  categoryToken,
+  KPICard, ProgressRing, ValueLegend,
+  formatNum, formatPct, categoryToken,
 } from '../components/Charts';
 import { api } from '../api/client';
 
@@ -180,74 +181,289 @@ const SECTION_FROM_CODE = {
 };
 
 function HeadlinesSection({ jumpTo }) {
-  const [data, err] = useAnalysis(() => api.explore.findings());
-  if (err) {
-    return <ErrorBanner msg={err} />;
-  }
-  if (!data) {
-    return <div style={{ padding: 24, color: '#64748b' }}>Computing headlines…</div>;
-  }
+  const [metrics, mErr]   = useAnalysis(() => api.explore.metrics());
+  const [findings, fErr]  = useAnalysis(() => api.explore.findings());
+  const [profile, pErr]   = useAnalysis(() => api.explore.layer2HourlyProfile('g2'));
+  const [regimes, rErr]   = useAnalysis(() => api.explore.covidRegimes('g1'));
+  const [mix, mixErr]     = useAnalysis(() => api.explore.task2SpecialtyMix('g3'));
 
-  const findings = data.findings || [];
+  if (mErr) return <ErrorBanner msg={mErr} />;
+  if (!metrics) return <div style={{ padding: 24, color: '#64748b' }}>Computing dashboard…</div>;
+
+  const kpis = metrics.metrics || [];
+  const fList = findings?.findings || [];
 
   return (
-    <>
-      <StoryHeader
-        kicker="What the data tells you"
-        title="Seven findings that already change operational decisions"
-        sub={`Computed from ${data.groups_seen.length} merged group${data.groups_seen.length === 1 ? '' : 's'} · click any card for the deep-dive`}
-      />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* ---- KPI strip ---- */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${Math.min(7, Math.max(kpis.length, 1))}, 1fr)`,
+        gap: 12,
+      }}>
+        {kpis.map((m) => (
+          <KPICard
+            key={m.id}
+            label={m.label}
+            value={m.value}
+            unit={m.unit}
+            deltaPct={m.delta_pct}
+            deltaLabel={m.delta_label}
+            sparkline={m.sparkline}
+            accent={m.accent}
+          />
+        ))}
+      </div>
 
-      {findings.length === 0 ? (
-        <div className="card"><div className="card-body" style={{ color: '#64748b' }}>
-          No findings could be produced from the currently loaded groups. Merge more groups on the Prepare page to unlock them.
-        </div></div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
-          {findings.map((f) => (
-            <HeroStat
-              key={f.id}
-              value={f.headline}
-              label={`${f.code} · ${f.title}`}
-              sub={f.summary}
-              category={f.category}
-              onClick={() => jumpTo && jumpTo(SECTION_FROM_CODE[f.section] || 'demand')}
-            />
-          ))}
+      {/* ---- Featured: hour x day-of-week heatmap + COVID regime donut ---- */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
+        <FeaturedHeatmap data={profile} loading={!profile && !pErr} err={pErr} />
+        <FeaturedRegimeDonut data={regimes} loading={!regimes && !rErr} err={rErr} />
+      </div>
+
+      {/* ---- Secondary row: three insight cards ---- */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+        <DepartmentMixCard data={mix} loading={!mix && !mixErr} err={mixErr} />
+        <WeekendEffectCard findings={fList} />
+        <KeyFindingsCard findings={fList} onJump={jumpTo} />
+      </div>
+
+      {/* ---- Optional: tucked-away action drawer ---- */}
+      {fList.length > 0 && <WhyThisMatters findings={fList} />}
+    </div>
+  );
+}
+
+// ---- Headlines sub-cards ---------------------------------------------------
+
+function FeaturedHeatmap({ data, loading, err }) {
+  if (err)     return <ChartCard title="Hospital activity heatmap" err={err} />;
+  if (loading) return <ChartCard title="Hospital activity heatmap" loading />;
+  if (!data?.dow_curves) return <ChartCard title="Hospital activity heatmap" subtitle="Requires hourly group G2" />;
+
+  const rows = Object.keys(data.dow_curves);
+  const dataArr = Object.values(data.dow_curves);
+  // Find peak cell for the corner overlay.
+  let peakV = 0, peakDay = '', peakH = 0;
+  dataArr.forEach((row, ri) => row.forEach((v, hi) => {
+    if (v > peakV) { peakV = v; peakDay = rows[ri]; peakH = hi; }
+  }));
+
+  return (
+    <div className="card" style={{ position: 'relative' }}>
+      <div className="card-header">
+        <div>
+          <div className="card-title">Hospital activity by hour and weekday</div>
+          <div className="card-sub">Mean arrivals per hour × day · {data.n.toLocaleString()} hours observed</div>
         </div>
-      )}
-
-      {findings.length > 0 && (
-        <div className="card" style={{ marginTop: 16 }}>
-          <div className="card-header">
-            <div className="card-title">What each finding means</div>
-            <div className="card-sub">Mechanism and recommended action for every card above</div>
+      </div>
+      <div className="card-body" style={{ position: 'relative' }}>
+        {/* Hero overlay: peak hour */}
+        <div style={{
+          position: 'absolute', top: 12, right: 24, textAlign: 'right', pointerEvents: 'none',
+        }}>
+          <div style={{ fontSize: 10, color: '#0d9488', textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 700 }}>
+            Peak hour
           </div>
-          <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-            {findings.map((f) => {
-              const tok = categoryToken(f.category);
-              return (
-                <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: 16, paddingBottom: 14, borderBottom: '1px solid #eef0f3' }}>
-                  <div>
-                    <div style={{
-                      fontSize: 10, fontWeight: 700, color: tok.color, textTransform: 'uppercase', letterSpacing: 1.2,
-                    }}>{tok.label} · {f.code}</div>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: tok.color, marginTop: 4, letterSpacing: '-0.5px', fontVariantNumeric: 'tabular-nums' }}>
-                      {f.headline}
-                    </div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#0f172a', lineHeight: 1, letterSpacing: '-0.5px' }}>
+            {peakDay} {peakH.toString().padStart(2, '0')}:00
+          </div>
+          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+            {peakV.toFixed(1)} arrivals/hour · peak-to-trough ×{data.peak_to_trough_ratio ?? '—'}
+          </div>
+        </div>
+        <Heatmap
+          data={dataArr}
+          rows={rows}
+          cols={Array.from({ length: 24 }, (_, i) => (i % 3 === 0 ? `${i}h` : ''))}
+          height={280}
+        />
+      </div>
+    </div>
+  );
+}
+
+function FeaturedRegimeDonut({ data, loading, err }) {
+  if (err)     return <ChartCard title="COVID regime split" err={err} />;
+  if (loading) return <ChartCard title="COVID regime split" loading />;
+  if (!data?.boxes) return <ChartCard title="COVID regime split" subtitle="Requires G1 with regime labels" />;
+
+  const COLORS = { pre: '#94a3b8', during: '#dc2626', post: '#0d9488' };
+  const slices = ['pre', 'during', 'post']
+    .filter((k) => data.boxes[k]?.n)
+    .map((k) => ({
+      label: k === 'pre' ? 'Pre-COVID' : k === 'during' ? 'During COVID' : 'Post-COVID',
+      value: data.boxes[k].n,
+      mean: data.boxes[k].mean,
+      color: COLORS[k],
+    }));
+  const total = slices.reduce((s, x) => s + x.value, 0);
+
+  return (
+    <div className="card">
+      <div className="card-header">
+        <div>
+          <div className="card-title">COVID regime split</div>
+          <div className="card-sub">Days per regime + mean arrivals each</div>
+        </div>
+      </div>
+      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+        <DonutWithCenter
+          slices={slices}
+          size={160}
+          thickness={26}
+          centerHeadline={total.toLocaleString()}
+          centerSub="Days"
+        />
+        <ValueLegend
+          items={slices.map((s) => ({
+            label: s.label,
+            color: s.color,
+            value: s.value,
+            sub: `mean ${formatNum(s.mean, { decimals: 1 })}/day`,
+          }))}
+        />
+      </div>
+    </div>
+  );
+}
+
+function DepartmentMixCard({ data, loading, err }) {
+  if (err)     return <ChartCard title="Department mix" err={err} />;
+  if (loading) return <ChartCard title="Department mix" loading />;
+  if (!data?.specialties) return <ChartCard title="Department mix" subtitle="Requires G3" />;
+
+  const COLORS = ['#1e6091', '#0d9488', '#d97706', '#7c3aed', '#dc2626', '#16a34a', '#475569'];
+  const totals = data.totals || {};
+  const slices = data.specialties.map((label, i) => ({
+    label, value: totals[label] || 0, color: COLORS[i % COLORS.length],
+  })).sort((a, b) => b.value - a.value);
+  const totalAll = slices.reduce((s, x) => s + x.value, 0) || 1;
+  const top = slices[0];
+
+  return (
+    <div className="card">
+      <div className="card-header">
+        <div>
+          <div className="card-title">Department mix</div>
+          <div className="card-sub">Share of total arrivals</div>
+        </div>
+      </div>
+      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+        <DonutWithCenter
+          slices={slices}
+          size={140}
+          thickness={22}
+          centerHeadline={`${Math.round((top.value / totalAll) * 100)}%`}
+          centerSub={top.label}
+        />
+        <ValueLegend
+          items={slices.slice(0, 5).map((s) => ({
+            label: s.label,
+            color: s.color,
+            value: `${Math.round((s.value / totalAll) * 100)}%`,
+          }))}
+        />
+      </div>
+    </div>
+  );
+}
+
+function WeekendEffectCard({ findings }) {
+  const f2 = findings.find((f) => f.code === 'F2');
+  if (!f2 || !f2.detail?.rows) return <ChartCard title="Weekend effect by department" subtitle="Awaiting G3" />;
+  const rows = f2.detail.rows.map((r) => ({ category: r.category, pct_deviation: r.pct_deviation }));
+  return (
+    <div className="card">
+      <div className="card-header">
+        <div>
+          <div className="card-title">Weekend effect by department</div>
+          <div className="card-sub">% change vs weekday baseline</div>
+        </div>
+      </div>
+      <div className="card-body">
+        <RankedBars rows={rows} highlightThreshold={20} height={Math.max(220, rows.length * 28)} />
+      </div>
+    </div>
+  );
+}
+
+function KeyFindingsCard({ findings, onJump }) {
+  if (!findings.length) return null;
+  return (
+    <div className="card">
+      <div className="card-header">
+        <div>
+          <div className="card-title">Operational signals</div>
+          <div className="card-sub">{findings.length} validated findings · click for the deep-dive</div>
+        </div>
+      </div>
+      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {findings.map((f) => {
+          const tok = categoryToken(f.category);
+          return (
+            <div
+              key={f.id}
+              onClick={() => onJump && onJump(SECTION_FROM_CODE[f.section] || 'demand')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
+                background: '#fafbfc', border: '1px solid #eef0f3', borderLeft: `3px solid ${tok.color}`,
+                borderRadius: 6, cursor: 'pointer',
+              }}>
+              <div style={{
+                fontSize: 16, fontWeight: 700, color: tok.color, minWidth: 70,
+                fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.4px',
+              }}>{f.headline}</div>
+              <div style={{ flex: 1, fontSize: 12, color: '#334155', lineHeight: 1.4 }}>{f.title}</div>
+              <Icon name="arrow" size={14} />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function WhyThisMatters({ findings }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="card">
+      <div
+        className="card-header"
+        onClick={() => setOpen(!open)}
+        style={{ cursor: 'pointer', userSelect: 'none' }}
+      >
+        <div>
+          <div className="card-title">Why this matters</div>
+          <div className="card-sub">Mechanism + recommended action for every signal</div>
+        </div>
+        <span style={{ fontSize: 12, color: '#64748b' }}>{open ? '−' : '+'}</span>
+      </div>
+      {open && (
+        <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {findings.map((f) => {
+            const tok = categoryToken(f.category);
+            return (
+              <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 14, paddingBottom: 12, borderBottom: '1px solid #eef0f3' }}>
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: tok.color, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+                    {f.code}
                   </div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', marginBottom: 6 }}>{f.title}</div>
-                    <div style={{ fontSize: 12, color: '#475569', marginBottom: 8, lineHeight: 1.5 }}>{f.summary}</div>
-                    <ActionPanel mechanism={f.mechanism} action={f.action} />
+                  <div style={{ fontSize: 18, fontWeight: 700, color: tok.color, marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
+                    {f.headline}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', marginBottom: 4 }}>{f.title}</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6, lineHeight: 1.5 }}>{f.summary}</div>
+                  <ActionPanel mechanism={f.mechanism} action={f.action} />
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -356,7 +572,13 @@ function CovidRegimeCard() {
       }
       chart={
         <>
-          <BoxPlot data={boxes} labels={['Pre-COVID', 'During', 'Post-COVID']} height={240} color="#0d9488" />
+          <BarChart
+            data={boxes.map((b) => b.mean || 0)}
+            labels={['Pre-COVID', 'During', 'Post-COVID']}
+            color="#0d9488"
+            height={240}
+            valueFmt={(v) => formatNum(v, { decimals: 1 })}
+          />
           <div style={{ marginTop: 10, fontSize: 12, color: '#475569' }}>
             {order.map((k) => {
               const b = data.boxes?.[k] || {};
@@ -482,13 +704,26 @@ function CalendarEffectsCard() {
   return (
     <ChartCard title="Calendar effects" subtitle="Day-of-week and month variation in daily arrivals" err={err}>
       {data.day_of_week && (
-        <SubChart title="By day of week">
-          <BoxPlot data={data.day_of_week} labels={data.day_of_week_labels} height={200} color="#1e6091" />
+        <SubChart title="By day of week — mean arrivals">
+          <BarChart
+            data={data.day_of_week.map((r) => r.mean || 0)}
+            labels={data.day_of_week_labels}
+            color="#1e6091"
+            height={200}
+            valueFmt={(v) => formatNum(v, { decimals: 0 })}
+          />
         </SubChart>
       )}
       {data.month && (
-        <SubChart title="By month">
-          <BoxPlot data={data.month} labels={data.month_labels} height={200} color="#0d9488" />
+        <SubChart title="By month — index vs annual mean">
+          <MonthlyIndexBars
+            rows={data.month.map((r, i) => ({
+              label: data.month_labels[i],
+              mean: r.mean,
+              index: r.mean ? (r.mean / (data.day_of_week.reduce((s, x) => s + (x.mean || 0), 0) / data.day_of_week.length)) * 100 : null,
+            }))}
+            height={220}
+          />
         </SubChart>
       )}
       {data.weekend_vs_weekday && (
