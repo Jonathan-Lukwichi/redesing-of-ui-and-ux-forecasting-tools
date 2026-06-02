@@ -18,6 +18,7 @@ from core.explore import (
     task3,
     layer2,
     impact_matrix as impact,
+    findings as F,
 )
 
 
@@ -34,6 +35,30 @@ def _require_df(group_id: str):
             f"Group '{group_id}' is not merged yet. Build it on the Prepare page first.",
         )
     return df
+
+
+# ---- Findings pipeline (headline cards) -------------------------------------
+
+@router.get("/findings")
+async def findings_run() -> dict[str, Any]:
+    """Run the full finding pipeline against the currently loaded groups +
+    raw datasets and return the resulting headline cards."""
+    return F.run_findings()
+
+
+@router.get("/findings/index")
+async def findings_index() -> dict[str, Any]:
+    """Static index of registered analyzers — independent of what's loaded.
+    Lets the UI describe what kinds of findings the pipeline produces."""
+    return F.index()
+
+
+@router.get("/findings/coverage")
+async def findings_coverage() -> dict[str, Any]:
+    """For the current context: which analyzers can run and against which
+    group. Drives the empty-state messaging on the Headlines tab when only
+    some groups are merged."""
+    return F.coverage()
 
 
 # ---- index -------------------------------------------------------------------

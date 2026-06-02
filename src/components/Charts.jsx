@@ -1,3 +1,192 @@
+// ---- Storytelling primitives ----------------------------------------------
+
+const CATEGORY_TOKEN = {
+  risk:   { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', label: 'Risk' },
+  watch:  { color: '#d97706', bg: '#fffbeb', border: '#fde68a', label: 'Watch' },
+  stable: { color: '#0d9488', bg: '#ecfeff', border: '#a5f3fc', label: 'Stable' },
+  trend:  { color: '#1e6091', bg: '#eff6ff', border: '#bfdbfe', label: 'Trend' },
+};
+
+export function categoryToken(category) {
+  return CATEGORY_TOKEN[category] || CATEGORY_TOKEN.stable;
+}
+
+export function HeroStat({ value, label, sub, category = 'stable', size = 'lg', onClick }) {
+  const tok = categoryToken(category);
+  const fontSize = size === 'xl' ? 64 : size === 'lg' ? 48 : 32;
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        background: tok.bg, border: `1px solid ${tok.border}`, borderRadius: 12,
+        padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 6,
+        cursor: onClick ? 'pointer' : 'default', minHeight: 168,
+        boxShadow: '0 1px 2px rgba(15, 23, 41, 0.04)',
+      }}
+    >
+      <span style={{
+        fontSize: 10, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase',
+        color: tok.color,
+      }}>{tok.label}</span>
+      <div style={{
+        fontSize, fontWeight: 700, color: tok.color, lineHeight: 1.05, letterSpacing: '-1px',
+        fontVariantNumeric: 'tabular-nums', marginTop: 4,
+      }}>{value}</div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', marginTop: 4, lineHeight: 1.3 }}>{label}</div>
+      {sub && <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.5 }}>{sub}</div>}
+    </div>
+  );
+}
+
+export function ActionPanel({ mechanism, action }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {mechanism && (
+        <div style={{
+          padding: '12px 14px', background: '#fafbfc',
+          border: '1px solid #eef0f3', borderRadius: 8,
+          fontSize: 12, color: '#475569', lineHeight: 1.6,
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 4 }}>
+            Mechanism
+          </div>
+          {mechanism}
+        </div>
+      )}
+      {action && (
+        <div style={{
+          padding: '12px 14px', background: '#ecfeff',
+          border: '1px solid #a5f3fc', borderRadius: 8, borderLeft: '3px solid #0d9488',
+          fontSize: 13, color: '#0f172a', lineHeight: 1.6,
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#0d9488', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 4 }}>
+            Recommended action
+          </div>
+          {action}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function RankedBars({ rows, valueKey = 'pct_deviation', labelKey = 'category', height = 240, highlightThreshold = 0 }) {
+  // rows pre-sorted by caller. Values may be negative. Highlight rows whose value sign != median sign.
+  const w = 720, h = height, pad = { l: 140, r: 60, t: 12, b: 12 };
+  const values = rows.map((r) => r[valueKey]);
+  const maxAbs = Math.max(1, ...values.map((v) => Math.abs(v)));
+  const innerW = w - pad.l - pad.r;
+  const bh = (h - pad.t - pad.b) / rows.length - 4;
+  const xZero = pad.l + innerW / 2;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+      <line x1={xZero} x2={xZero} y1={pad.t} y2={h - pad.b} stroke="#cbd5e1" />
+      {rows.map((r, i) => {
+        const v = r[valueKey];
+        const widthPx = (Math.abs(v) / maxAbs) * (innerW / 2);
+        const isAccent = highlightThreshold !== 0 && Math.abs(v) >= highlightThreshold;
+        const fill = isAccent ? '#dc2626' : (v >= 0 ? '#0d9488' : '#94a3b8');
+        const x = v >= 0 ? xZero : xZero - widthPx;
+        const y = pad.t + i * ((h - pad.t - pad.b) / rows.length) + 2;
+        return (
+          <g key={i}>
+            <text x={pad.l - 8} y={y + bh / 2 + 4} textAnchor="end" fontSize="12" fill="#334155" fontWeight={isAccent ? 700 : 500}>
+              {r[labelKey]}
+            </text>
+            <rect x={x} y={y} width={widthPx} height={bh} fill={fill} rx="3" />
+            <text x={v >= 0 ? x + widthPx + 6 : x - 6} y={y + bh / 2 + 4} textAnchor={v >= 0 ? 'start' : 'end'} fontSize="12" fill="#0f172a" fontWeight="600">
+              {v >= 0 ? '+' : ''}{Number(v).toFixed(1)}%
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+export function MonthlyIndexBars({ rows, baselineLabel = 'Annual mean', height = 240 }) {
+  const w = 720, h = height, pad = { l: 48, r: 16, t: 26, b: 30 };
+  const innerW = w - pad.l - pad.r;
+  const innerH = h - pad.t - pad.b;
+  const values = rows.map((r) => r.index ?? 100);
+  const max = Math.max(115, ...values);
+  const min = Math.min(60, ...values);
+  const y = (v) => pad.t + innerH - ((v - min) / (max - min)) * innerH;
+  const bw = (innerW / rows.length) * 0.68;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+      {[60, 80, 100, 110].map((v) => (
+        <g key={v}>
+          <line x1={pad.l} x2={w - pad.r} y1={y(v)} y2={y(v)} stroke={v === 100 ? '#cbd5e1' : '#eef0f3'} strokeDasharray={v === 100 ? '4 4' : '0'} />
+          <text x={pad.l - 8} y={y(v) + 4} textAnchor="end" fontSize="11" fill="#94a3b8">{v}</text>
+        </g>
+      ))}
+      <text x={w - pad.r} y={y(100) - 4} textAnchor="end" fontSize="10" fill="#94a3b8" fontStyle="italic">{baselineLabel}</text>
+      {rows.map((r, i) => {
+        const cx = pad.l + (i + 0.5) * (innerW / rows.length);
+        const v = r.index ?? 100;
+        const isMin = v === min;
+        const isMax = v === max;
+        const fill = isMin ? '#dc2626' : isMax ? '#0d9488' : '#22d3ee';
+        const bh = Math.abs(y(v) - y(100));
+        const yTop = v >= 100 ? y(v) : y(100);
+        return (
+          <g key={i}>
+            <rect x={cx - bw / 2} y={yTop} width={bw} height={bh} fill={fill} opacity={isMin || isMax ? 0.9 : 0.6} rx="3" />
+            {(isMin || isMax) && (
+              <text x={cx} y={yTop - 6} textAnchor="middle" fontSize="11" fill={fill} fontWeight="700">
+                {v >= 100 ? '+' : ''}{(v - 100).toFixed(1)}%
+              </text>
+            )}
+            <text x={cx} y={h - 8} textAnchor="middle" fontSize="11" fill="#94a3b8">{r.label}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+export function DonutWithCenter({ slices, size = 200, thickness = 30, centerHeadline, centerSub }) {
+  const r = size / 2;
+  const ri = r - thickness;
+  const total = slices.reduce((s, x) => s + (x.value || 0), 0);
+  let a = -Math.PI / 2;
+  return (
+    <div style={{ position: 'relative', width: size, height: size, margin: '0 auto' }}>
+      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}>
+        {slices.map((s, i) => {
+          const frac = (s.value || 0) / total;
+          const a2 = a + frac * Math.PI * 2;
+          const large = frac > 0.5 ? 1 : 0;
+          const x1 = r + r * Math.cos(a), y1 = r + r * Math.sin(a);
+          const x2 = r + r * Math.cos(a2), y2 = r + r * Math.sin(a2);
+          const x3 = r + ri * Math.cos(a2), y3 = r + ri * Math.sin(a2);
+          const x4 = r + ri * Math.cos(a), y4 = r + ri * Math.sin(a);
+          const path = `M${x1} ${y1} A${r} ${r} 0 ${large} 1 ${x2} ${y2} L${x3} ${y3} A${ri} ${ri} 0 ${large} 0 ${x4} ${y4} Z`;
+          a = a2;
+          return <path key={i} d={path} fill={s.color} />;
+        })}
+      </svg>
+      <div style={{
+        position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
+        justifyContent: 'center', flexDirection: 'column', textAlign: 'center', pointerEvents: 'none',
+      }}>
+        {centerHeadline && (
+          <div style={{ fontSize: 28, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.5px' }}>
+            {centerHeadline}
+          </div>
+        )}
+        {centerSub && (
+          <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 2 }}>
+            {centerSub}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---- Existing primitives -----------------------------------------------------
+
 export function Sparkline({ data, color = '#1e6091', width = 80, height = 28, fill = true }) {
   const max = Math.max(...data);
   const min = Math.min(...data);

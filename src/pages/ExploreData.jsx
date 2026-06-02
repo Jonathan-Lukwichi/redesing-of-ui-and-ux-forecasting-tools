@@ -4,30 +4,36 @@ import Icon from '../components/Icon';
 import {
   LineChart, BarChart, Heatmap,
   StemPlot, BoxPlot, StackedArea, ScatterPlot, DivergingMatrix,
+  HeroStat, ActionPanel, RankedBars, MonthlyIndexBars, DonutWithCenter,
+  categoryToken,
 } from '../components/Charts';
 import { api } from '../api/client';
 
-const SECTIONS = [
-  { id: 'quality',    label: 'Data quality' },
-  { id: 'task1',      label: 'Daily demand · Task 1' },
-  { id: 'task2',      label: 'Specialty composition · Task 2' },
-  { id: 'task3',      label: 'Critical events · Task 3' },
-  { id: 'layer2',     label: 'Hourly profile · Layer 2' },
-  { id: 'synthesis',  label: 'Impact synthesis' },
+
+const TABS = [
+  { id: 'headlines',  label: 'Headlines' },
+  { id: 'quality',    label: 'Data health' },
+  { id: 'demand',     label: 'How demand behaves' },
+  { id: 'departments',label: 'By department' },
+  { id: 'critical',   label: 'Critical events' },
+  { id: 'hours',      label: 'Within the day' },
+  { id: 'drivers',    label: 'What drives demand' },
 ];
 
 const SECTION_REQUIRES = {
-  quality: ['g1'],
-  task1: ['g1'],
-  task2: ['g3'],
-  task3: ['g3'],
-  layer2: ['g2'],
-  synthesis: ['g1'],
+  headlines:   [],          // headlines view needs nothing — uses whatever's available
+  quality:     ['g1'],
+  demand:      ['g1'],
+  departments: ['g3'],
+  critical:    ['g3'],
+  hours:       ['g2'],
+  drivers:     ['g1'],
 };
+
 
 export default function ExploreData({ onNavigate }) {
   const [groups, setGroups] = useState(null);
-  const [section, setSection] = useState('quality');
+  const [section, setSection] = useState('headlines');
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -41,7 +47,6 @@ export default function ExploreData({ onNavigate }) {
   );
   const requirements = SECTION_REQUIRES[section] || [];
   const missingGroups = requirements.filter((g) => !builtIds.has(g));
-
   const noGroupsBuilt = groups && builtIds.size === 0;
 
   return (
@@ -49,7 +54,7 @@ export default function ExploreData({ onNavigate }) {
       <PageHero
         kicker="Data · Explore"
         title="Explore Data"
-        sub="Distributions, seasonality, COVID regimes, specialty composition, surge classification, hourly profiles, and an impact-matrix synthesis"
+        sub="Seven validated findings, told as a story · every number is auditable and every finding has an operational action"
         image="/images/explore-bg.jpg"
         actions={
           <span className="tag tag-success" style={{ fontSize: 11 }}>
@@ -63,7 +68,7 @@ export default function ExploreData({ onNavigate }) {
       ) : (
         <>
           <div className="tabs">
-            {SECTIONS.map((s) => (
+            {TABS.map((s) => (
               <div
                 key={s.id}
                 className={'tab' + (section === s.id ? ' active' : '')}
@@ -74,10 +79,10 @@ export default function ExploreData({ onNavigate }) {
             ))}
           </div>
 
-          {missingGroups.length > 0 ? (
-            <RequiresMerge sectionId={section} missing={missingGroups} onGoToPrepare={() => onNavigate && onNavigate('prepare')} />
+          {missingGroups.length > 0 && section !== 'headlines' ? (
+            <RequiresMerge missing={missingGroups} onGoToPrepare={() => onNavigate && onNavigate('prepare')} />
           ) : (
-            <SectionView section={section} />
+            <SectionView section={section} jumpTo={setSection} />
           )}
         </>
       )}
@@ -85,7 +90,8 @@ export default function ExploreData({ onNavigate }) {
   );
 }
 
-// ---- empty states ----------------------------------------------------------
+
+// ---- empty + warning states ------------------------------------------------
 
 function EmptyAnalyses({ onGoToPrepare }) {
   return (
@@ -101,8 +107,8 @@ function EmptyAnalyses({ onGoToPrepare }) {
       </div>
       <div style={{ fontSize: 18, fontWeight: 600, color: '#0f172a' }}>No analyses to show yet</div>
       <div style={{ fontSize: 13, color: '#64748b', maxWidth: 560, lineHeight: 1.5 }}>
-        The Explore page reads from the merged analysis groups <strong>G1–G4</strong>.
-        Build at least one group on the <strong>Prepare</strong> page to start running analyses here.
+        Explore reads from the merged analysis groups. Build at least one group on the
+        <strong> Prepare </strong> page first.
       </div>
       {onGoToPrepare && (
         <button className="btn btn-primary" onClick={onGoToPrepare} style={{ marginTop: 6 }}>
@@ -113,12 +119,12 @@ function EmptyAnalyses({ onGoToPrepare }) {
   );
 }
 
-function RequiresMerge({ sectionId, missing, onGoToPrepare }) {
+function RequiresMerge({ missing, onGoToPrepare }) {
   return (
     <div className="card" style={{ borderColor: '#fde68a', background: '#fffbeb' }}>
       <div className="card-body" style={{ color: '#78350f', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <div>
-          <strong>This section needs {missing.join(', ').toUpperCase()}.</strong>{' '}
+          <strong>This chapter needs {missing.join(', ').toUpperCase()}.</strong>{' '}
           Merge {missing.length === 1 ? 'it' : 'them'} on the Prepare page first.
         </div>
         {onGoToPrepare && (
@@ -131,17 +137,20 @@ function RequiresMerge({ sectionId, missing, onGoToPrepare }) {
   );
 }
 
+
 // ---- section dispatch ------------------------------------------------------
 
-function SectionView({ section }) {
-  if (section === 'quality')   return <QualitySection />;
-  if (section === 'task1')     return <Task1Section />;
-  if (section === 'task2')     return <Task2Section />;
-  if (section === 'task3')     return <Task3Section />;
-  if (section === 'layer2')    return <Layer2Section />;
-  if (section === 'synthesis') return <SynthesisSection />;
+function SectionView({ section, jumpTo }) {
+  if (section === 'headlines')  return <HeadlinesSection jumpTo={jumpTo} />;
+  if (section === 'quality')    return <QualitySection />;
+  if (section === 'demand')     return <DemandSection />;
+  if (section === 'departments')return <DepartmentsSection />;
+  if (section === 'critical')   return <CriticalSection />;
+  if (section === 'hours')      return <HoursSection />;
+  if (section === 'drivers')    return <DriversSection />;
   return null;
 }
+
 
 function useAnalysis(fetcher, deps = []) {
   const [data, setData] = useState(null);
@@ -158,11 +167,101 @@ function useAnalysis(fetcher, deps = []) {
   return [data, error];
 }
 
-// ---- §5.2 Quality ----------------------------------------------------------
+
+// ---- Headlines (NEW default) -----------------------------------------------
+
+const SECTION_FROM_CODE = {
+  quality:     'quality',
+  demand:      'demand',
+  departments: 'departments',
+  critical:    'critical',
+  hours:       'hours',
+  drivers:     'drivers',
+};
+
+function HeadlinesSection({ jumpTo }) {
+  const [data, err] = useAnalysis(() => api.explore.findings());
+  if (err) {
+    return <ErrorBanner msg={err} />;
+  }
+  if (!data) {
+    return <div style={{ padding: 24, color: '#64748b' }}>Computing headlines…</div>;
+  }
+
+  const findings = data.findings || [];
+
+  return (
+    <>
+      <StoryHeader
+        kicker="What the data tells you"
+        title="Seven findings that already change operational decisions"
+        sub={`Computed from ${data.groups_seen.length} merged group${data.groups_seen.length === 1 ? '' : 's'} · click any card for the deep-dive`}
+      />
+
+      {findings.length === 0 ? (
+        <div className="card"><div className="card-body" style={{ color: '#64748b' }}>
+          No findings could be produced from the currently loaded groups. Merge more groups on the Prepare page to unlock them.
+        </div></div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+          {findings.map((f) => (
+            <HeroStat
+              key={f.id}
+              value={f.headline}
+              label={`${f.code} · ${f.title}`}
+              sub={f.summary}
+              category={f.category}
+              onClick={() => jumpTo && jumpTo(SECTION_FROM_CODE[f.section] || 'demand')}
+            />
+          ))}
+        </div>
+      )}
+
+      {findings.length > 0 && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="card-header">
+            <div className="card-title">What each finding means</div>
+            <div className="card-sub">Mechanism and recommended action for every card above</div>
+          </div>
+          <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            {findings.map((f) => {
+              const tok = categoryToken(f.category);
+              return (
+                <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: 16, paddingBottom: 14, borderBottom: '1px solid #eef0f3' }}>
+                  <div>
+                    <div style={{
+                      fontSize: 10, fontWeight: 700, color: tok.color, textTransform: 'uppercase', letterSpacing: 1.2,
+                    }}>{tok.label} · {f.code}</div>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: tok.color, marginTop: 4, letterSpacing: '-0.5px', fontVariantNumeric: 'tabular-nums' }}>
+                      {f.headline}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', marginBottom: 6 }}>{f.title}</div>
+                    <div style={{ fontSize: 12, color: '#475569', marginBottom: 8, lineHeight: 1.5 }}>{f.summary}</div>
+                    <ActionPanel mechanism={f.mechanism} action={f.action} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+
+// ---- Data Health (was Quality) ---------------------------------------------
 
 function QualitySection() {
   return (
     <>
+      <StoryHeader
+        kicker="Chapter 1"
+        title="Every number you see is auditable"
+        sub="The data passes four independent checks before any claim is made"
+      />
       <MissingnessCard />
       <OutlierCard />
       <CovidRegimeCard />
@@ -173,10 +272,13 @@ function QualitySection() {
 function MissingnessCard() {
   const [data, err] = useAnalysis(() => api.explore.missingness('g1'));
   return (
-    <ChartCard title="Missingness summary" subtitle="Top columns by % missing"
-      err={err} loading={!data && !err}>
+    <ChartCard
+      title="Completeness"
+      subtitle="Top columns by % missing — the audit foundation"
+      err={err} loading={!data && !err}
+    >
       {data && (data.columns_with_missing === 0 ? (
-        <div style={{ color: '#16a34a', fontSize: 14 }}>
+        <div style={{ color: '#16a34a', fontSize: 14, fontWeight: 500 }}>
           ✓ All {data.columns_total} columns have full coverage across {data.rows.toLocaleString()} rows.
         </div>
       ) : (
@@ -200,24 +302,35 @@ function MissingnessCard() {
 
 function OutlierCard() {
   const [data, err] = useAnalysis(() => api.explore.outliers('g1'));
-  if (!data) return <ChartCard title="Outlier scatter" err={err} loading subtitle="" />;
-  const xLabels = data.points.length
+  if (!data) return <ChartCard title="Outlier days" err={err} loading subtitle="Classified by IQR rule" />;
+  const xLabels = data.points?.length
     ? [data.points[0].date, data.points[Math.floor(data.points.length / 2)].date, data.points[data.points.length - 1].date]
     : [];
   return (
-    <ChartCard
-      title="Outlier scatter"
-      subtitle={`${data.summary?.normal || 0} normal · ${data.summary?.high || 0} high · ${data.summary?.peak || 0} peak · ${data.summary?.zero || 0} zero days`}
-      err={err}
-    >
-      <ScatterPlot points={data.points} xLabels={xLabels} height={260} />
-      <Legend items={[
-        { label: 'Normal', color: '#1e6091' },
-        { label: 'High',   color: '#d97706' },
-        { label: 'Peak',   color: '#dc2626' },
-        { label: 'Zero',   color: '#94a3b8' },
-      ]} />
-    </ChartCard>
+    <SplitCard
+      title="Outlier days"
+      subtitle="Daily arrivals classified by IQR — colour shows category"
+      hero={
+        <HeroStat
+          value={(data.summary?.peak || 0) + (data.summary?.high || 0)}
+          label="High and peak days"
+          sub={`${data.summary?.zero || 0} zero-arrival days flagged as data-capture lapses · ${data.summary?.normal || 0} normal days`}
+          category="watch"
+          size="md"
+        />
+      }
+      chart={
+        <>
+          <ScatterPlot points={data.points} xLabels={xLabels} height={260} />
+          <Legend items={[
+            { label: 'Normal', color: '#1e6091' },
+            { label: 'High',   color: '#d97706' },
+            { label: 'Peak',   color: '#dc2626' },
+            { label: 'Zero',   color: '#94a3b8' },
+          ]} />
+        </>
+      }
+    />
   );
 }
 
@@ -226,36 +339,55 @@ function CovidRegimeCard() {
   if (!data) return <ChartCard title="COVID regime split" subtitle="" err={err} loading />;
   const order = ['pre', 'during', 'post'];
   const boxes = order.map((k) => ({ key: k, ...(data.boxes?.[k] || {}) }));
+  const pre = data.boxes?.pre?.mean, post = data.boxes?.post?.mean;
+  const pct = (pre && post) ? Math.round((post - pre) / pre * 1000) / 10 : null;
   return (
-    <ChartCard
+    <SplitCard
       title="COVID regime split"
-      subtitle="Distribution of daily arrivals during each regime"
-      err={err}
-    >
-      <BoxPlot data={boxes} labels={['Pre-COVID', 'During', 'Post-COVID']} height={240} color="#0d9488" />
-      <div style={{ marginTop: 10, fontSize: 12, color: '#475569' }}>
-        {order.map((k) => {
-          const b = data.boxes?.[k] || {};
-          if (!b.n) return null;
-          return (
-            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-              <span style={{ textTransform: 'capitalize' }}>{k}-COVID</span>
-              <span className="mono tnum" style={{ color: '#0f172a', fontWeight: 600 }}>
-                median {Math.round(b.median)} · mean {Math.round(b.mean)} · n={b.n.toLocaleString()}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </ChartCard>
+      subtitle="Distribution of daily arrivals in each regime"
+      hero={
+        <HeroStat
+          value={pct != null ? `${pct >= 0 ? '+' : ''}${pct}%` : '—'}
+          label="Post vs pre-COVID shift"
+          sub={`Post-COVID averages ${Math.round(post || 0)} arrivals/day, pre-COVID ${Math.round(pre || 0)}. The shift is permanent.`}
+          category={pct && pct > 5 ? 'risk' : 'watch'}
+          size="lg"
+        />
+      }
+      chart={
+        <>
+          <BoxPlot data={boxes} labels={['Pre-COVID', 'During', 'Post-COVID']} height={240} color="#0d9488" />
+          <div style={{ marginTop: 10, fontSize: 12, color: '#475569' }}>
+            {order.map((k) => {
+              const b = data.boxes?.[k] || {};
+              if (!b.n) return null;
+              return (
+                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                  <span style={{ textTransform: 'capitalize' }}>{k}-COVID</span>
+                  <span className="mono tnum" style={{ color: '#0f172a', fontWeight: 600 }}>
+                    median {Math.round(b.median)} · mean {Math.round(b.mean)} · n={b.n.toLocaleString()}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      }
+    />
   );
 }
 
-// ---- §5.3 Task 1 -----------------------------------------------------------
 
-function Task1Section() {
+// ---- How Demand Behaves ----------------------------------------------------
+
+function DemandSection() {
   return (
     <>
+      <StoryHeader
+        kicker="Chapter 2"
+        title="How demand behaves over time"
+        sub="The shape, the trend, the seasonality, the lags"
+      />
       <DistributionCard />
       <StlCard />
       <AcfPacfCard />
@@ -266,41 +398,52 @@ function Task1Section() {
 
 function DistributionCard() {
   const [data, err] = useAnalysis(() => api.explore.task1Distribution('g1'));
-  if (!data || !data.histogram) return <ChartCard title="Distribution + fitted PDFs" subtitle="" err={err} loading />;
+  if (!data || !data.histogram) return <ChartCard title="The shape of demand" err={err} loading subtitle="Histogram of daily arrivals" />;
   const { bin_centers, counts } = data.histogram;
   const labels = bin_centers.map((c, i) => (i % 5 === 0 ? Math.round(c).toString() : ''));
   const fitSeries = (data.fits || []).map((f, i) => ({
     data: f.pdf, color: ['#0d9488', '#1e6091', '#d97706'][i % 3],
   }));
   return (
-    <ChartCard
-      title="Distribution + fitted PDFs"
-      subtitle={`mean ${data.stats.mean} · sd ${data.stats.std} · skew ${data.stats.skewness} · VMR ${data.stats.variance_to_mean_ratio ?? '—'}`}
-      err={err}
-    >
-      <BarChart data={counts} labels={labels} height={200} color="#cbd5e1" valueFmt={(v) => ''} />
-      {fitSeries.length > 0 && (
-        <div style={{ marginTop: -200, height: 200, position: 'relative' }}>
-          <LineChart series={fitSeries} height={200} />
-        </div>
-      )}
-      <div style={{ marginTop: 8, display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12 }}>
-        {(data.fits || []).map((f, i) => (
-          <span key={f.name} style={{ color: ['#0d9488', '#1e6091', '#d97706'][i % 3], fontWeight: 600 }}>
-            {f.name} · AIC {Math.round(f.aic).toLocaleString()}
-          </span>
-        ))}
-      </div>
-    </ChartCard>
+    <SplitCard
+      title="The shape of demand"
+      subtitle="Histogram of daily arrivals with three candidate distributions"
+      hero={
+        <HeroStat
+          value={`${data.stats.mean}/day`}
+          label="Mean daily arrivals"
+          sub={`Variance-to-mean ratio ${data.stats.variance_to_mean_ratio ?? '—'} · skew ${data.stats.skewness} · sd ${data.stats.std}`}
+          category="stable"
+          size="md"
+        />
+      }
+      chart={
+        <>
+          <BarChart data={counts} labels={labels} height={200} color="#cbd5e1" valueFmt={() => ''} />
+          {fitSeries.length > 0 && (
+            <div style={{ marginTop: -200, height: 200, position: 'relative' }}>
+              <LineChart series={fitSeries} height={200} />
+            </div>
+          )}
+          <div style={{ marginTop: 8, display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12 }}>
+            {(data.fits || []).map((f, i) => (
+              <span key={f.name} style={{ color: ['#0d9488', '#1e6091', '#d97706'][i % 3], fontWeight: 600 }}>
+                {f.name} · AIC {Math.round(f.aic).toLocaleString()}
+              </span>
+            ))}
+          </div>
+        </>
+      }
+    />
   );
 }
 
 function StlCard() {
   const [data, err] = useAnalysis(() => api.explore.task1Stl('g1'));
-  if (!data || !data.observed) return <ChartCard title="STL decomposition" subtitle="" err={err} loading />;
+  if (!data || !data.observed) return <ChartCard title="Trend, seasonality, residual" subtitle="" err={err} loading />;
   const xLabels = [data.dates[0], data.dates[Math.floor(data.dates.length / 2)], data.dates[data.dates.length - 1]];
   return (
-    <ChartCard title="STL decomposition" subtitle={`weekly period · ${data.observed.length.toLocaleString()} points`} err={err}>
+    <ChartCard title="Trend, seasonality, residual" subtitle={`Weekly seasonality decomposed across ${data.observed.length.toLocaleString()} points`} err={err}>
       <SubChart title="Observed">
         <LineChart series={[{ data: data.observed, color: '#475569' }]} xLabels={xLabels} height={110} />
       </SubChart>
@@ -319,10 +462,10 @@ function StlCard() {
 
 function AcfPacfCard() {
   const [data, err] = useAnalysis(() => api.explore.task1AcfPacf('g1'));
-  if (!data || !data.acf) return <ChartCard title="Autocorrelation (ACF / PACF)" subtitle="" err={err} loading />;
+  if (!data || !data.acf) return <ChartCard title="Autocorrelation" subtitle="" err={err} loading />;
   const labels = data.lags.map((l) => (l % 5 === 0 ? String(l) : ''));
   return (
-    <ChartCard title="Autocorrelation (ACF / PACF)" subtitle={`lags 0–${data.nlags} · 95% confidence band ±${data.confidence_band}`} err={err}>
+    <ChartCard title="Autocorrelation (ACF / PACF)" subtitle={`Lags 0–${data.nlags} · 95% confidence band ±${data.confidence_band}`} err={err}>
       <SubChart title="ACF">
         <StemPlot data={data.acf} confidenceBand={data.confidence_band} labels={labels} height={150} color="#1e6091" />
       </SubChart>
@@ -363,12 +506,19 @@ function CalendarEffectsCard() {
   );
 }
 
-// ---- §5.4 Task 2 -----------------------------------------------------------
 
-function Task2Section() {
+// ---- By Department ---------------------------------------------------------
+
+function DepartmentsSection() {
   return (
     <>
+      <StoryHeader
+        kicker="Chapter 3"
+        title="The seven departments behave differently"
+        sub="Volume, weekend behaviour, and how independently they move"
+      />
       <SpecialtyMixCard />
+      <SpecialtyWeekendCard />
       <SpecialtyCorrCard />
     </>
   );
@@ -377,15 +527,70 @@ function Task2Section() {
 function SpecialtyMixCard() {
   const [data, err] = useAnalysis(() => api.explore.task2SpecialtyMix('g3'));
   if (!data || !data.specialties) return <ChartCard title="Specialty mix over time" subtitle="" err={err} loading />;
+  const COLORS = ['#1e6091', '#0d9488', '#d97706', '#7c3aed', '#dc2626', '#16a34a', '#475569'];
+  const totals = data.totals || {};
+  const totalAll = Object.values(totals).reduce((s, v) => s + v, 0) || 1;
+  const slices = data.specialties.map((label, i) => ({
+    label, value: totals[label] || 0, color: COLORS[i % COLORS.length],
+  }));
+  const top = [...slices].sort((a, b) => b.value - a.value)[0];
   return (
-    <ChartCard title="Specialty mix over time" subtitle={`stacked daily counts · ${data.smoothing_window}-day rolling mean`} err={err}>
-      <StackedArea series={data.series} dates={data.dates} height={260} />
-      <Legend items={data.specialties.map((s, i) => ({
-        label: s,
-        color: ['#1e6091', '#0d9488', '#d97706', '#7c3aed', '#dc2626', '#16a34a', '#475569'][i % 7],
-        suffix: ` (${(data.totals[s] || 0).toLocaleString()})`,
-      }))} />
-    </ChartCard>
+    <SplitCard
+      title="Specialty composition"
+      subtitle="Share of total arrivals across the seven specialties"
+      hero={
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <DonutWithCenter
+            slices={slices}
+            size={180}
+            thickness={28}
+            centerHeadline={`${Math.round((top.value / totalAll) * 100)}%`}
+            centerSub={top.label}
+          />
+          <div style={{ fontSize: 12, color: '#475569', textAlign: 'center', lineHeight: 1.5 }}>
+            {top.label} dominates · {slices.length} specialties total
+          </div>
+        </div>
+      }
+      chart={
+        <>
+          <StackedArea series={data.series} dates={data.dates} colors={slices.map((s) => s.color)} height={240} />
+          <Legend items={slices.map((s) => ({
+            label: s.label, color: s.color,
+            suffix: ` (${s.value.toLocaleString()})`,
+          }))} />
+        </>
+      }
+    />
+  );
+}
+
+function SpecialtyWeekendCard() {
+  const [data, err] = useAnalysis(() => api.explore.findings());
+  const f2 = data?.findings?.find((f) => f.code === 'F2');
+  if (err) return <ErrorBanner msg={err} />;
+  if (!data) return <ChartCard title="Weekend behaviour by specialty" subtitle="" loading />;
+  if (!f2 || !f2.detail?.rows) {
+    return <ChartCard title="Weekend behaviour by specialty" subtitle="Requires G3 with a weekend flag" />;
+  }
+  const rows = f2.detail.rows.map((r) => ({ category: r.category, pct_deviation: r.pct_deviation }));
+  return (
+    <SplitCard
+      title="Weekend behaviour by specialty"
+      subtitle="Percentage change vs weekday baseline for each specialty"
+      hero={
+        <HeroStat
+          value={f2.headline}
+          label={f2.title}
+          sub={f2.summary}
+          category={f2.category}
+          size="lg"
+        />
+      }
+      chart={<RankedBars rows={rows} highlightThreshold={20} height={Math.max(220, rows.length * 32)} />}
+    >
+      <ActionPanel mechanism={f2.mechanism} action={f2.action} />
+    </SplitCard>
   );
 }
 
@@ -393,54 +598,141 @@ function SpecialtyCorrCard() {
   const [data, err] = useAnalysis(() => api.explore.task2SpecialtyCorr('g3'));
   if (!data || !data.matrix) return <ChartCard title="Specialty correlation" subtitle="" err={err} loading />;
   return (
-    <ChartCard title="Specialty correlation" subtitle="Pearson correlation between specialty daily counts" err={err}>
+    <ChartCard title="Are specialties correlated?" subtitle="Pearson correlation between specialty daily counts" err={err}>
       <DivergingMatrix rows={data.labels} columns={data.labels} data={data.matrix} max={1} height={300} />
     </ChartCard>
   );
 }
 
-// ---- §5.5 Task 3 -----------------------------------------------------------
 
-function Task3Section() {
+// ---- Critical Events -------------------------------------------------------
+
+function CriticalSection() {
+  return (
+    <>
+      <StoryHeader
+        kicker="Chapter 4"
+        title="Surge days for critical events"
+        sub="Days above the 90th percentile for each critical event category"
+      />
+      <CriticalCard />
+    </>
+  );
+}
+
+function CriticalCard() {
   const [data, err] = useAnalysis(() => api.explore.task3ClassBalance('g3'));
   if (!data || !data.categories) return <ChartCard title="Critical-event class balance" subtitle="" err={err} loading />;
   const labels = data.categories.map((c) => c.category);
   const rates  = data.categories.map((c) => c.surge_rate);
+  const top = data.categories[0];
   return (
-    <ChartCard
+    <SplitCard
       title="Critical-event class balance"
-      subtitle={`surge defined as daily total > P${data.percentile} · expected rate ${data.expected_rate_pct}%`}
-      err={err}
-    >
-      <BarChart data={rates} labels={labels} height={220} color="#dc2626" valueFmt={(v) => v + '%'} />
-      <table className="tbl" style={{ marginTop: 12 }}>
-        <thead><tr>
-          <th>Category</th><th className="num">Surge rate</th><th className="num">Surge days</th>
-          <th className="num">Threshold</th><th className="num">Mean / max</th>
-        </tr></thead>
-        <tbody>
-          {data.categories.map((c) => (
-            <tr key={c.category}>
-              <td>{c.category}</td>
-              <td className="num mono" style={{ color: c.surge_rate > data.expected_rate_pct * 1.5 ? '#dc2626' : '#0f172a', fontWeight: 600 }}>
-                {c.surge_rate}%
-              </td>
-              <td className="num mono">{c.surge_days.toLocaleString()} / {c.total_days.toLocaleString()}</td>
-              <td className="num mono">{c.threshold}</td>
-              <td className="num mono">{c.mean} / {c.max}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </ChartCard>
+      subtitle={`Surge defined as daily total > P${data.percentile} · expected rate ${data.expected_rate_pct}%`}
+      hero={
+        <HeroStat
+          value={`${top.surge_rate}%`}
+          label={`${top.category} has the highest surge rate`}
+          sub={`${top.surge_days.toLocaleString()} surge days out of ${top.total_days.toLocaleString()} · threshold > ${top.threshold} events/day`}
+          category={top.surge_rate > data.expected_rate_pct * 1.2 ? 'risk' : 'watch'}
+          size="lg"
+        />
+      }
+      chart={
+        <>
+          <BarChart data={rates} labels={labels} height={220} color="#dc2626" valueFmt={(v) => v + '%'} />
+          <table className="tbl" style={{ marginTop: 12 }}>
+            <thead><tr>
+              <th>Category</th><th className="num">Surge rate</th><th className="num">Surge days</th>
+              <th className="num">Threshold</th><th className="num">Mean / max</th>
+            </tr></thead>
+            <tbody>
+              {data.categories.map((c) => (
+                <tr key={c.category}>
+                  <td>{c.category}</td>
+                  <td className="num mono" style={{ color: c.surge_rate > data.expected_rate_pct * 1.5 ? '#dc2626' : '#0f172a', fontWeight: 600 }}>
+                    {c.surge_rate}%
+                  </td>
+                  <td className="num mono">{c.surge_days.toLocaleString()} / {c.total_days.toLocaleString()}</td>
+                  <td className="num mono">{c.threshold}</td>
+                  <td className="num mono">{c.mean} / {c.max}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      }
+    />
   );
 }
 
-// ---- §5.6 Layer 2 ----------------------------------------------------------
 
-function Layer2Section() {
+// ---- Within the Day --------------------------------------------------------
+
+function HoursSection() {
+  return (
+    <>
+      <StoryHeader
+        kicker="Chapter 5"
+        title="What a day in the ED looks like"
+        sub="The hourly profile, the shift split, and the weekly heatmap"
+      />
+      <ShiftSplitCard />
+      <HourlyProfileCard />
+    </>
+  );
+}
+
+function ShiftSplitCard() {
+  const [data, err] = useAnalysis(() => api.explore.findings());
+  const f4 = data?.findings?.find((f) => f.code === 'F4');
+  if (err) return <ErrorBanner msg={err} />;
+  if (!data) return <ChartCard title="Day / Evening / Night split" subtitle="" loading />;
+  if (!f4 || !f4.detail?.buckets) {
+    return <ChartCard title="Day / Evening / Night split" subtitle="Requires hourly group G2" />;
+  }
+  const buckets = f4.detail.buckets;
+  const COLORS = ['#0d9488', '#1e6091', '#0f1729'];
+  const slices = buckets.map((b, i) => ({ label: b.label, value: b.share_pct, color: COLORS[i] }));
+  return (
+    <SplitCard
+      title="Day / Evening / Night split"
+      subtitle="Share of total arrivals by 8-hour shift"
+      hero={
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <DonutWithCenter
+            slices={slices} size={180} thickness={30}
+            centerHeadline={f4.headline}
+            centerSub="Day / Eve / Night"
+          />
+          <div style={{ fontSize: 12, color: '#475569', textAlign: 'center', lineHeight: 1.5, maxWidth: 240 }}>
+            {f4.summary}
+          </div>
+        </div>
+      }
+      chart={
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {buckets.map((b, i) => (
+            <div key={b.key}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+                <span style={{ color: '#0f172a', fontWeight: 600 }}>{b.label}</span>
+                <span className="mono tnum" style={{ color: COLORS[i], fontWeight: 700 }}>{b.share_pct}%</span>
+              </div>
+              <div className="bar"><div className="bar-fill" style={{ width: b.share_pct + '%', background: COLORS[i] }} /></div>
+            </div>
+          ))}
+        </div>
+      }
+    >
+      <ActionPanel mechanism={f4.mechanism} action={f4.action} />
+    </SplitCard>
+  );
+}
+
+function HourlyProfileCard() {
   const [data, err] = useAnalysis(() => api.explore.layer2HourlyProfile('g2'));
-  if (!data || !data.rows) return <ChartCard title="Aggregate hourly profile" subtitle="" err={err} loading />;
+  if (!data || !data.rows) return <ChartCard title="Hourly profile" subtitle="" err={err} loading />;
   const means = data.rows.map((r) => r.mean);
   const upper = data.rows.map((r) => r.ci_high);
   const lower = data.rows.map((r) => r.ci_low);
@@ -449,7 +741,7 @@ function Layer2Section() {
     <>
       <ChartCard
         title="Aggregate hourly profile"
-        subtitle={`mean ± 95% CI · peak-to-trough ratio ${data.peak_to_trough_ratio ?? '—'} · n=${data.n.toLocaleString()} hours`}
+        subtitle={`Mean ± 95% CI · peak-to-trough ratio ${data.peak_to_trough_ratio ?? '—'} · n=${data.n.toLocaleString()} hours`}
         err={err}
       >
         <LineChart
@@ -472,39 +764,99 @@ function Layer2Section() {
   );
 }
 
-// ---- §5.7 Impact synthesis -------------------------------------------------
 
-function SynthesisSection() {
-  const [data, err] = useAnalysis(() => api.explore.impactMatrix('g1'));
-  if (!data || !data.rows) return <ChartCard title="Impact matrix" subtitle="" err={err} loading />;
+// ---- What Drives Demand ----------------------------------------------------
 
-  const binaryRows = data.rows.filter((r) => r.kind === 'binary');
-  const quartileRows = data.rows.filter((r) => r.kind === 'quartile');
-
-  const binMatrix = binaryRows.map((r) => [r.true?.pct ?? null]);
-  const qLevels = data.quartile_levels;
-  const qMatrix = quartileRows.map((r) => qLevels.map((lvl) => r[lvl]?.pct ?? null));
-
+function DriversSection() {
   return (
     <>
-      <ChartCard
-        title="Calendar features · % deviation from baseline"
-        subtitle="red = higher arrivals when the flag is true, teal = lower"
-        err={err}
-      >
-        <DivergingMatrix rows={binaryRows.map((r) => r.feature)} columns={['Effect when true']} data={binMatrix} height={220} />
-      </ChartCard>
-      <ChartCard
-        title="Weather quartiles · % deviation from grand mean"
-        subtitle="each row: a continuous weather variable split into quartiles Q1–Q4"
-      >
-        <DivergingMatrix rows={quartileRows.map((r) => r.feature)} columns={qLevels} data={qMatrix} height={260} />
-      </ChartCard>
+      <StoryHeader
+        kicker="Chapter 6"
+        title="What pushes demand up and down"
+        sub="Calendar and weather features ranked by impact"
+      />
+      <MonthlyIndexCard />
+      <ImpactCalendarCard />
+      <ImpactWeatherCard />
     </>
   );
 }
 
-// ---- shared ----------------------------------------------------------------
+function MonthlyIndexCard() {
+  const [data, err] = useAnalysis(() => api.explore.findings());
+  const f3 = data?.findings?.find((f) => f.code === 'F3');
+  if (err) return <ErrorBanner msg={err} />;
+  if (!data) return <ChartCard title="Year-end decompresses the ED" subtitle="" loading />;
+  if (!f3 || !f3.detail?.rows) {
+    return <ChartCard title="Year-end decompresses the ED" subtitle="Requires daily group G1 with a month column" />;
+  }
+  return (
+    <SplitCard
+      title="Monthly index vs annual mean"
+      subtitle={`Annual mean baseline = 100 · annual mean ${f3.detail.annual_mean}/day`}
+      hero={
+        <HeroStat
+          value={f3.headline}
+          label={f3.title}
+          sub={f3.summary}
+          category={f3.category}
+          size="lg"
+        />
+      }
+      chart={<MonthlyIndexBars rows={f3.detail.rows} height={260} />}
+    >
+      <ActionPanel mechanism={f3.mechanism} action={f3.action} />
+    </SplitCard>
+  );
+}
+
+function ImpactCalendarCard() {
+  const [data, err] = useAnalysis(() => api.explore.impactMatrix('g1'));
+  if (!data || !data.rows) return <ChartCard title="Calendar features · % deviation" subtitle="" err={err} loading />;
+  const binaryRows = data.rows.filter((r) => r.kind === 'binary');
+  const rows = binaryRows
+    .map((r) => ({ category: r.feature, pct_deviation: r['true']?.pct ?? 0 }))
+    .sort((a, b) => Math.abs(b.pct_deviation) - Math.abs(a.pct_deviation));
+  return (
+    <ChartCard
+      title="Calendar features · % deviation"
+      subtitle="Effect on mean daily arrivals when the flag is true"
+      err={err}
+    >
+      <RankedBars rows={rows} height={Math.max(220, rows.length * 32)} highlightThreshold={10} />
+    </ChartCard>
+  );
+}
+
+function ImpactWeatherCard() {
+  const [data, err] = useAnalysis(() => api.explore.impactMatrix('g1'));
+  if (!data || !data.rows) return <ChartCard title="Weather quartiles · % deviation" subtitle="" err={err} loading />;
+  const qLevels = data.quartile_levels;
+  const quartileRows = data.rows.filter((r) => r.kind === 'quartile');
+  const matrix = quartileRows.map((r) => qLevels.map((lvl) => r[lvl]?.pct ?? null));
+  return (
+    <ChartCard
+      title="Weather quartiles · % deviation"
+      subtitle="Each row: a weather variable split into quartiles Q1–Q4"
+      err={err}
+    >
+      <DivergingMatrix rows={quartileRows.map((r) => r.feature)} columns={qLevels} data={matrix} height={260} />
+    </ChartCard>
+  );
+}
+
+
+// ---- Layout primitives -----------------------------------------------------
+
+function StoryHeader({ kicker, title, sub }) {
+  return (
+    <div style={{ marginTop: 8, marginBottom: 4 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#0d9488', textTransform: 'uppercase', letterSpacing: 1.4 }}>{kicker}</div>
+      <div style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginTop: 4, letterSpacing: '-0.4px' }}>{title}</div>
+      {sub && <div style={{ fontSize: 13, color: '#64748b', marginTop: 4, lineHeight: 1.5 }}>{sub}</div>}
+    </div>
+  );
+}
 
 function ChartCard({ title, subtitle, err, loading, children }) {
   return (
@@ -521,6 +873,26 @@ function ChartCard({ title, subtitle, err, loading, children }) {
           : loading
             ? <div style={{ color: '#64748b', fontSize: 13 }}>Loading…</div>
             : children}
+      </div>
+    </div>
+  );
+}
+
+function SplitCard({ title, subtitle, hero, chart, children }) {
+  return (
+    <div className="card">
+      <div className="card-header">
+        <div>
+          <div className="card-title">{title}</div>
+          {subtitle && <div className="card-sub">{subtitle}</div>}
+        </div>
+      </div>
+      <div className="card-body" style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 280px) 1fr', gap: 20, alignItems: 'start' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {hero}
+          {children}
+        </div>
+        <div>{chart}</div>
       </div>
     </div>
   );
@@ -544,6 +916,14 @@ function Legend({ items }) {
           {it.label}{it.suffix || ''}
         </span>
       ))}
+    </div>
+  );
+}
+
+function ErrorBanner({ msg }) {
+  return (
+    <div className="card" style={{ borderColor: '#dc2626', background: '#fef5f5' }}>
+      <div className="card-body" style={{ color: '#991b1b', fontSize: 13 }}>{msg}</div>
     </div>
   );
 }
