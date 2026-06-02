@@ -1,7 +1,8 @@
-"""Daily volatility — coefficient of variation of the daily target.
+"""Day-to-day swing — how much a typical day differs from the average.
 
-Operationally: how tight the model's prediction intervals will be. Below
-20% is calm and predictable; above 35% is noisy and forecasts will widen.
+Computed as the coefficient of variation (std / mean × 100) but presented
+as a band (Tight / Moderate / Wide) so non-technical readers get an
+immediate read on how steady the demand is. The CV value is in detail.
 """
 from __future__ import annotations
 import pandas as pd
@@ -21,17 +22,25 @@ class DailyVolatilityMetric(MetricAnalyzer):
         if s.size < 30 or float(s.mean()) <= 0:
             return None
         cv = round(float(s.std(ddof=1)) / float(s.mean()) * 100, 1)
-        accent = "stable" if cv < 25 else "watch" if cv < 40 else "risk"
+        if cv < 20:
+            label = "Tight"; accent = "stable"
+        elif cv < 35:
+            label = "Moderate"; accent = "stable"
+        elif cv < 55:
+            label = "Wide"; accent = "watch"
+        else:
+            label = "Very wide"; accent = "risk"
         return Metric(
             id=f"{self.code}:{group_id}",
             code=self.code,
-            label="DAILY VOLATILITY",
-            value=cv,
-            unit="% CV",
+            label="DAY-TO-DAY SWING",
+            value=label,
+            unit=None,
             delta_pct=None,
-            delta_label="lower = tighter forecast bands",
+            delta_label=f"±{cv:.0f}% around an average day · tighter = more predictable",
             sparkline=None,
             accent=accent,
             polarity="neutral",
             source_group=group_id,
+            detail={"cv_pct": cv},
         )

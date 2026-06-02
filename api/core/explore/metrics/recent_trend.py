@@ -1,8 +1,8 @@
-"""Recent trend — last-60d mean vs the long-run mean.
+"""Recent demand — what the last 60 days look like vs the historical norm.
 
 Operationally: is the model about to face higher- or lower-than-average
 demand? Drops the descriptive "mean per day" framing in favour of an
-explicit delta.
+explicit delta against the full-history average.
 """
 from __future__ import annotations
 import pandas as pd
@@ -27,6 +27,7 @@ class RecentTrendMetric(MetricAnalyzer):
             return None
         delta = round((recent - baseline) / baseline * 100, 1)
         accent = "watch" if abs(delta) > 10 else "stable"
+        direction = "above" if delta > 0 else "below" if delta < 0 else "in line with"
 
         sparkline = (
             s.rolling(window=30, min_periods=1).mean().dropna().tail(40).round(1).tolist()
@@ -35,11 +36,11 @@ class RecentTrendMetric(MetricAnalyzer):
         return Metric(
             id=f"{self.code}:{group_id}",
             code=self.code,
-            label="RECENT TREND",
+            label="RECENT DEMAND",
             value=round(recent, 1),
-            unit="/day",
+            unit="patients/day",
             delta_pct=delta,
-            delta_label="last 60d vs long-run mean",
+            delta_label=f"Last 60 days are {abs(delta):.1f}% {direction} the long-run average ({baseline:.0f}/day)",
             sparkline=sparkline,
             accent=accent,
             polarity="neutral",

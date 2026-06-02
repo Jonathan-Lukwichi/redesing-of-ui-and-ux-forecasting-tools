@@ -1,8 +1,9 @@
-"""Calendar drivers — how many calendar flags significantly move the target.
+"""Calendar effects — how many calendar conditions (holidays, weekends,
+school terms, etc.) measurably move daily demand.
 
-A higher count means the model has more calendar levers to lean on; if
-the count is near zero, the forecast will be driven mostly by lags and
-weather.
+Plain-English value: a count of calendar conditions whose impact passes a
+statistical significance threshold (Welch t-test, p < 0.05). The
+delta_label names the strongest one so the card is self-describing.
 """
 from __future__ import annotations
 import numpy as np
@@ -12,12 +13,18 @@ from scipy import stats
 from ..pipeline import Metric, MetricAnalyzer, GroupProfile
 
 
-_CANDIDATE_FLAGS = (
-    "is_weekend", "is_public_holiday", "is_long_weekend",
-    "is_near_holiday", "is_festive_season", "is_school_holiday",
-    "is_month_end_period", "is_december", "is_january",
-    "is_winter_holiday",
-)
+_FLAG_LABELS = {
+    "is_weekend":           "Weekends",
+    "is_public_holiday":    "Public holidays",
+    "is_long_weekend":      "Long weekends",
+    "is_near_holiday":      "Days near a holiday",
+    "is_festive_season":    "Festive season",
+    "is_school_holiday":    "School holidays",
+    "is_month_end_period":  "Month-end",
+    "is_december":          "December",
+    "is_january":           "January",
+    "is_winter_holiday":    "Winter holidays",
+}
 
 
 class CalendarDriversMetric(MetricAnalyzer):
@@ -29,11 +36,11 @@ class CalendarDriversMetric(MetricAnalyzer):
 
     def run(self, group_id, df: pd.DataFrame, prof: GroupProfile, ctx) -> Metric | None:
         y = pd.to_numeric(df[prof.target], errors="coerce")
-        present = [c for c in _CANDIDATE_FLAGS if c in df.columns]
+        present = [c for c in _FLAG_LABELS if c in df.columns]
         if not present:
             return None
         significant = 0
-        biggest = None
+        biggest_label = None
         biggest_effect = 0.0
         for col in present:
             flag = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
@@ -53,21 +60,24 @@ class CalendarDriversMetric(MetricAnalyzer):
                     effect = abs(float(on.mean()) - float(off.mean())) / float(off.mean()) * 100
                     if effect > biggest_effect:
                         biggest_effect = effect
-                        biggest = col
+                        biggest_label = _FLAG_LABELS[col]
 
         if not significant:
             return None
+        # Plain-English caption naming the strongest driver.
+        if biggest_label is not None:
+            caption = f"Biggest swing: {biggest_label} (~{biggest_effect:.0f}%)"
+        else:
+            caption = "Calendar conditions that meaningfully change demand"
+
         return Metric(
             id=f"{self.code}:{group_id}",
             code=self.code,
-            label="CALENDAR DRIVERS",
-            value=significant,
-            unit=f"of {len(present)}",
+            label="CALENDAR EFFECTS",
+            value=f"{significant} of {len(present)}",
+            unit="matter",
             delta_pct=None,
-            delta_label=(
-                f"biggest: {biggest} (~{biggest_effect:.0f}%)"
-                if biggest else "significant calendar flags"
-            ),
+            delta_label=caption,
             sparkline=None,
             accent="stable" if significant >= 3 else "watch",
             polarity="neutral",

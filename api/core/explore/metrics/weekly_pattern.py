@@ -1,11 +1,11 @@
-"""Weekly pattern strength — autocorrelation at lag 7.
+"""Weekly rhythm — how strongly each week mirrors the one before it.
 
-A high value means a strong week-over-week pattern that the forecasting
-model can lean on for short-horizon predictions.
+Computed as autocorrelation at lag 7. We surface the magnitude as a
+qualitative band (Strong / Moderate / Weak) so non-technical readers
+get a one-word read on whether the model can lean on the week-over-week
+pattern. The raw ACF(7) value is in the detail field.
 """
 from __future__ import annotations
-import math
-import numpy as np
 import pandas as pd
 from statsmodels.tsa.stattools import acf
 
@@ -24,24 +24,37 @@ class WeeklyPatternMetric(MetricAnalyzer):
         if s.size < 30:
             return None
         try:
-            a = acf(s.to_numpy(), nlags=14, fft=True)
+            a = acf(s.to_numpy(), nlags=7, fft=True)
         except Exception:
             return None
         if len(a) < 8:
             return None
         a7 = float(a[7])
-        a1 = float(a[1])
-        accent = "stable" if abs(a7) >= 0.4 else "watch"
+        mag = abs(a7)
+        if mag >= 0.6:
+            label = "Strong"
+            accent = "stable"
+        elif mag >= 0.35:
+            label = "Moderate"
+            accent = "stable"
+        elif mag >= 0.15:
+            label = "Weak"
+            accent = "watch"
+        else:
+            label = "Almost none"
+            accent = "watch"
+
         return Metric(
             id=f"{self.code}:{group_id}",
             code=self.code,
-            label="WEEKLY PATTERN",
-            value=round(a7, 2),
-            unit="ACF(7)",
+            label="WEEKLY RHYTHM",
+            value=label,
+            unit=None,
             delta_pct=None,
-            delta_label=f"lag-1 ACF {a1:.2f}",
+            delta_label=f"Same shape each week · score {a7:.2f} of 1.00",
             sparkline=None,
             accent=accent,
             polarity="neutral",
             source_group=group_id,
+            detail={"acf_lag7": round(a7, 3)},
         )

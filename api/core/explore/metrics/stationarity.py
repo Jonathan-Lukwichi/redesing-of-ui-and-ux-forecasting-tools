@@ -1,11 +1,10 @@
-"""Stationarity — Augmented Dickey-Fuller p-value.
+"""Demand stability — plain-English wrapper around the Augmented Dickey-Fuller
+test. A "stable" series fluctuates around a fixed mean and is easier to
+forecast; a "drifting" series is wandering and needs the trend modelled
+explicitly.
 
-A low p-value means the series is stationary in mean, which is what
-ARIMA-class baselines assume. If non-stationary, the forecast either has
-to model the trend explicitly or work on differenced data.
-
-Mirrors the ADF check the Streamlit EDA already runs in
-04_Explore_Data._render_time_series_diagnostics.
+The ADF p-value is preserved in the detail field for technical users; the
+card itself shows only the operational summary.
 """
 from __future__ import annotations
 import pandas as pd
@@ -29,17 +28,21 @@ class StationarityMetric(MetricAnalyzer):
             stat, p, *_ = adfuller(s.to_numpy(), autolag="AIC")
         except Exception:
             return None
-        is_stationary = p < 0.05
+        is_stable = p < 0.05
         return Metric(
             id=f"{self.code}:{group_id}",
             code=self.code,
-            label="STATIONARITY",
-            value="Yes" if is_stationary else "No",
-            unit=f"ADF p={p:.3f}",
+            label="DEMAND STABILITY",
+            value="Stable" if is_stable else "Drifting",
+            unit=None,
             delta_pct=None,
-            delta_label="trend-stationary if Yes",
+            delta_label=(
+                "Fluctuates around a steady baseline — straightforward to forecast"
+                if is_stable
+                else "Trending or wandering — the model needs to handle the drift explicitly"
+            ),
             sparkline=None,
-            accent="stable" if is_stationary else "watch",
+            accent="stable" if is_stable else "watch",
             polarity="neutral",
             source_group=group_id,
             detail={"adf_statistic": round(float(stat), 3), "p_value": round(float(p), 4)},

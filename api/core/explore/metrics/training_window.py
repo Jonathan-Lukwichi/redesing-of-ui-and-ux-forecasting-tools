@@ -1,7 +1,9 @@
-"""Training window — how much usable data the model has to learn from.
+"""Data span — how much data the Explore page is looking at.
 
-Folds together the date span and the post-regime usable cut into one card,
-so the strip doesn't waste two slots on closely-related descriptors.
+Explore is retrospective on the *full* dataset (every day on record); the
+training-window decision is made elsewhere (Train Models page). So this
+card simply reports the number of observed days + the calendar span, with
+no regime filtering applied.
 """
 from __future__ import annotations
 import pandas as pd
@@ -10,6 +12,9 @@ from ..pipeline import Metric, MetricAnalyzer, GroupProfile
 
 
 class TrainingWindowMetric(MetricAnalyzer):
+    """Kept under the old class name for backwards-compatible imports — the
+    user-facing label is now DATA SPAN and the value reflects the full
+    dataset, not the post-regime cut."""
     code = "MF1"
     section = "forecast"
     required_roles = ("date",)
@@ -21,24 +26,15 @@ class TrainingWindowMetric(MetricAnalyzer):
         if d.empty:
             return None
         total = int(len(d))
-        # If we know the regime, prefer the post-regime block as the trainable cut.
-        usable = total
-        usable_label = "days available"
-        if prof.regime_label and prof.regime_label in df.columns:
-            r = df[prof.regime_label].astype(str)
-            usable = int((r == "post").sum())
-            if usable > 0 and usable < total:
-                usable_label = f"post-regime usable · {total:,} total"
-            else:
-                usable = total
+        years = round((d.max() - d.min()).days / 365.25, 1)
         return Metric(
             id=f"{self.code}:{group_id}",
             code=self.code,
-            label="TRAINING WINDOW",
-            value=usable,
-            unit="days",
+            label="DATA SPAN",
+            value=total,
+            unit="days observed",
             delta_pct=None,
-            delta_label=usable_label,
+            delta_label=f"{years} years · {d.min().strftime('%b %Y')} – {d.max().strftime('%b %Y')}",
             sparkline=None,
             accent="trend",
             polarity="neutral",
