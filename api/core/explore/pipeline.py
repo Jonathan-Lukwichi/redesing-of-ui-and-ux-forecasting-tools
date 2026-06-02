@@ -182,6 +182,10 @@ class MetricAnalyzer(ABC):
     needs a profile and metrics auto-light-up."""
 
     code:                str = ""
+    # Which surface this metric belongs to. The Headlines KPI strip filters
+    # on 'forecast' (signals a forecaster cares about); 'data_health' metrics
+    # show up only in the Data Health tab.
+    section:             Literal["forecast", "data_health"] = "forecast"
     required_group_grain: Literal["daily", "hourly"] | None = None
     required_roles:      tuple[str, ...] = ()
     requires_categories: tuple[str, ...] = ()

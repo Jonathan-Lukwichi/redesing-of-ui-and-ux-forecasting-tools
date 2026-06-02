@@ -71,7 +71,8 @@ export const api = {
   explore: {
     index:           (signal) => request('/api/explore/index', { signal }),
     findings:        (signal) => request('/api/explore/findings', { signal }),
-    metrics:         (signal) => request('/api/explore/metrics', { signal }),
+    metrics:         (section = 'forecast', signal) =>
+      request(`/api/explore/metrics?section=${section}`, { signal }),
     findingsIndex:   (signal) => request('/api/explore/findings/index', { signal }),
     findingsCoverage:(signal) => request('/api/explore/findings/coverage', { signal }),
     missingness:     (group = 'g1', signal) => request(`/api/explore/missingness?group=${group}`, { signal }),

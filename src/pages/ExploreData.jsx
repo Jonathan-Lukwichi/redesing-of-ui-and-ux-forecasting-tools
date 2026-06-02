@@ -181,11 +181,11 @@ const SECTION_FROM_CODE = {
 };
 
 function HeadlinesSection({ jumpTo }) {
-  const [metrics, mErr]   = useAnalysis(() => api.explore.metrics());
-  const [findings, fErr]  = useAnalysis(() => api.explore.findings());
-  const [profile, pErr]   = useAnalysis(() => api.explore.layer2HourlyProfile('g2'));
-  const [regimes, rErr]   = useAnalysis(() => api.explore.covidRegimes('g1'));
-  const [mix, mixErr]     = useAnalysis(() => api.explore.task2SpecialtyMix('g3'));
+  const [metrics, mErr]    = useAnalysis(() => api.explore.metrics('forecast'));
+  const [findings, fErr]   = useAnalysis(() => api.explore.findings());
+  const [profile, pErr]    = useAnalysis(() => api.explore.layer2HourlyProfile('g2'));
+  const [calEffects, cErr] = useAnalysis(() => api.explore.task1CalendarEffects('g1'));
+  const [mix, mixErr]      = useAnalysis(() => api.explore.task2SpecialtyMix('g3'));
 
   if (mErr) return <ErrorBanner msg={mErr} />;
   if (!metrics) return <div style={{ padding: 24, color: '#64748b' }}>Computing dashboard…</div>;
@@ -216,10 +216,10 @@ function HeadlinesSection({ jumpTo }) {
         ))}
       </div>
 
-      {/* ---- Featured: hourly arrival rhythm + COVID regime donut ---- */}
+      {/* ---- Featured: hourly arrival rhythm + day-of-week pattern ---- */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
         <FeaturedHourlyLines data={profile} loading={!profile && !pErr} err={pErr} />
-        <FeaturedRegimeDonut data={regimes} loading={!regimes && !rErr} err={rErr} />
+        <FeaturedDayOfWeek data={calEffects} loading={!calEffects && !cErr} err={cErr} />
       </div>
 
       {/* ---- Secondary row: three insight cards ---- */}
@@ -326,6 +326,65 @@ function HeroStatInline({ kicker, value, sub, color = '#0f172a' }) {
         marginTop: 2, fontFamily: SERIF, fontVariantNumeric: 'tabular-nums',
       }}>{value}</div>
       <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{sub}</div>
+    </div>
+  );
+}
+
+function FeaturedDayOfWeek({ data, loading, err }) {
+  if (err)     return <ChartCard title="Day-of-week pattern" err={err} />;
+  if (loading) return <ChartCard title="Day-of-week pattern" loading />;
+  if (!data?.day_of_week) return <ChartCard title="Day-of-week pattern" subtitle="Requires G1 calendar features" />;
+
+  const rows = data.day_of_week.map((r, i) => ({
+    label: data.day_of_week_labels?.[i] || `D${i}`,
+    mean: r.mean || 0,
+  }));
+  const overall = rows.reduce((s, r) => s + r.mean, 0) / Math.max(rows.length, 1);
+  const peak   = rows.reduce((b, r) => (r.mean > b.mean ? r : b), rows[0]);
+  const trough = rows.reduce((b, r) => (r.mean < b.mean ? r : b), rows[0]);
+  const peakDev   = ((peak.mean   - overall) / overall) * 100;
+  const troughDev = ((trough.mean - overall) / overall) * 100;
+
+  return (
+    <div className="card">
+      <div className="card-header">
+        <div>
+          <div className="card-title" style={{ fontFamily: SERIF, fontSize: 18 }}>
+            Day-of-week pattern
+          </div>
+          <div className="card-sub">Mean arrivals per weekday · the short-horizon forecast driver</div>
+        </div>
+      </div>
+      <div className="card-body">
+        <BarChart
+          data={rows.map((r) => r.mean)}
+          labels={rows.map((r) => r.label)}
+          color="#1e6091"
+          height={220}
+          valueFmt={(v) => formatNum(v, { decimals: 0 })}
+        />
+        <div style={{
+          marginTop: 12, paddingTop: 12, borderTop: '1px solid #eef0f3',
+          display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#475569' }}>
+            <span><strong style={{ color: '#0d9488' }}>{peak.label}</strong> busiest</span>
+            <span className="mono tnum" style={{ color: '#0f172a', fontWeight: 700 }}>
+              {peak.mean.toFixed(0)} <span style={{ color: '#16a34a' }}>(+{peakDev.toFixed(1)}%)</span>
+            </span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#475569' }}>
+            <span><strong style={{ color: '#dc2626' }}>{trough.label}</strong> quietest</span>
+            <span className="mono tnum" style={{ color: '#0f172a', fontWeight: 700 }}>
+              {trough.mean.toFixed(0)} <span style={{ color: '#dc2626' }}>({troughDev.toFixed(1)}%)</span>
+            </span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#475569' }}>
+            <span>Overall mean</span>
+            <span className="mono tnum" style={{ color: '#0f172a', fontWeight: 700 }}>{overall.toFixed(0)}</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

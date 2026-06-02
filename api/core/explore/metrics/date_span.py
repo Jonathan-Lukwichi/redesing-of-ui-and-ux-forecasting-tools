@@ -7,6 +7,7 @@ from ..pipeline import Metric, MetricAnalyzer, GroupProfile
 
 class DateSpanMetric(MetricAnalyzer):
     code = "M7"
+    section = "data_health"
     required_roles = ("date",)
     required_group_grain = "daily"
     preferred_group_ids = ("g1",)

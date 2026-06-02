@@ -7,6 +7,7 @@ from ..pipeline import Metric, MetricAnalyzer, GroupProfile
 
 class ZeroDayCountMetric(MetricAnalyzer):
     code = "M6"
+    section = "data_health"
     required_roles = ("zero_day_flag",)
     required_group_grain = "daily"
     preferred_group_ids = ("g1",)

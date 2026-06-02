@@ -7,6 +7,7 @@ from ..pipeline import Metric, MetricAnalyzer, GroupProfile
 
 class TotalArrivalsMetric(MetricAnalyzer):
     code = "M1"
+    section = "data_health"
     required_roles = ("target",)
     required_group_grain = "daily"
     preferred_group_ids = ("g1",)

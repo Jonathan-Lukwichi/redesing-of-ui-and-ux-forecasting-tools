@@ -47,10 +47,11 @@ async def findings_run() -> dict[str, Any]:
 
 
 @router.get("/metrics")
-async def metrics_run() -> dict[str, Any]:
-    """Pipeline-driven KPI strip for the Headlines page. Every card is
-    produced by a MetricAnalyzer; nothing is hard-coded."""
-    return F.run_metrics()
+async def metrics_run(section: str = "forecast") -> dict[str, Any]:
+    """Pipeline-driven KPI strip. ?section=forecast (default) returns
+    forecaster-relevant signals. ?section=data_health returns the descriptive
+    book-keeping cards. ?section=all returns everything."""
+    return F.run_metrics(section=section)
 
 
 @router.get("/findings/index")

@@ -7,6 +7,7 @@ from ..pipeline import Metric, MetricAnalyzer, GroupProfile
 
 class PostCovidShiftMetric(MetricAnalyzer):
     code = "M3"
+    section = "data_health"
     required_roles = ("target", "regime_label")
     required_group_grain = "daily"
     preferred_group_ids = ("g1",)
