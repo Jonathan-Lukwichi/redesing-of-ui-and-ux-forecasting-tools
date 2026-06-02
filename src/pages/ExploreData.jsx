@@ -6,7 +6,7 @@ import {
   StemPlot, StackedArea, ScatterPlot, DivergingMatrix,
   HeroStat, ActionPanel, RankedBars, MonthlyIndexBars, DonutWithCenter,
   KPICard, ProgressRing, ValueLegend,
-  formatNum, formatPct, categoryToken,
+  formatNum, formatPct, categoryToken, SERIF,
 } from '../components/Charts';
 import { api } from '../api/client';
 
@@ -211,13 +211,14 @@ function HeadlinesSection({ jumpTo }) {
             deltaLabel={m.delta_label}
             sparkline={m.sparkline}
             accent={m.accent}
+            polarity={m.polarity || 'normal'}
           />
         ))}
       </div>
 
-      {/* ---- Featured: hour x day-of-week heatmap + COVID regime donut ---- */}
+      {/* ---- Featured: hourly arrival rhythm + COVID regime donut ---- */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
-        <FeaturedHeatmap data={profile} loading={!profile && !pErr} err={pErr} />
+        <FeaturedHourlyLines data={profile} loading={!profile && !pErr} err={pErr} />
         <FeaturedRegimeDonut data={regimes} loading={!regimes && !rErr} err={rErr} />
       </div>
 
@@ -236,49 +237,95 @@ function HeadlinesSection({ jumpTo }) {
 
 // ---- Headlines sub-cards ---------------------------------------------------
 
-function FeaturedHeatmap({ data, loading, err }) {
-  if (err)     return <ChartCard title="Hospital activity heatmap" err={err} />;
-  if (loading) return <ChartCard title="Hospital activity heatmap" loading />;
-  if (!data?.dow_curves) return <ChartCard title="Hospital activity heatmap" subtitle="Requires hourly group G2" />;
+function FeaturedHourlyLines({ data, loading, err }) {
+  if (err)     return <ChartCard title="Hospital activity through the day" err={err} />;
+  if (loading) return <ChartCard title="Hospital activity through the day" loading />;
+  if (!data?.dow_curves) return <ChartCard title="Hospital activity through the day" subtitle="Requires hourly group G2" />;
 
-  const rows = Object.keys(data.dow_curves);
-  const dataArr = Object.values(data.dow_curves);
-  // Find peak cell for the corner overlay.
-  let peakV = 0, peakDay = '', peakH = 0;
-  dataArr.forEach((row, ri) => row.forEach((v, hi) => {
-    if (v > peakV) { peakV = v; peakDay = rows[ri]; peakH = hi; }
-  }));
+  const curves = data.dow_curves;
+  const weekdayKeys = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+  const weekendKeys = ['Sat', 'Sun'];
+
+  const mean = (keys, h) => {
+    const vals = keys.map((k) => (curves[k]?.[h] ?? null)).filter((v) => v != null);
+    return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
+  };
+
+  const weekdayCurve = Array.from({ length: 24 }, (_, h) => mean(weekdayKeys, h));
+  const weekendCurve = Array.from({ length: 24 }, (_, h) => mean(weekendKeys, h));
+
+  const peakHour   = weekdayCurve.indexOf(Math.max(...weekdayCurve));
+  const peakValue  = weekdayCurve[peakHour];
+  const troughHour = weekdayCurve.indexOf(Math.min(...weekdayCurve));
+  const troughValue = weekdayCurve[troughHour];
 
   return (
-    <div className="card" style={{ position: 'relative' }}>
+    <div className="card">
       <div className="card-header">
         <div>
-          <div className="card-title">Hospital activity by hour and weekday</div>
-          <div className="card-sub">Mean arrivals per hour × day · {data.n.toLocaleString()} hours observed</div>
+          <div className="card-title" style={{ fontFamily: SERIF, fontSize: 18 }}>
+            Hospital activity through the day
+          </div>
+          <div className="card-sub">Mean arrivals per hour · weekday vs weekend</div>
         </div>
       </div>
-      <div className="card-body" style={{ position: 'relative' }}>
-        {/* Hero overlay: peak hour */}
+      <div className="card-body">
+        {/* Top-row hero stats — clear of the chart area, no overlap. */}
         <div style={{
-          position: 'absolute', top: 12, right: 24, textAlign: 'right', pointerEvents: 'none',
+          display: 'flex', gap: 32, marginBottom: 12, paddingBottom: 12,
+          borderBottom: '1px solid #eef0f3',
         }}>
-          <div style={{ fontSize: 10, color: '#0d9488', textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 700 }}>
-            Peak hour
-          </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: '#0f172a', lineHeight: 1, letterSpacing: '-0.5px' }}>
-            {peakDay} {peakH.toString().padStart(2, '0')}:00
-          </div>
-          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-            {peakV.toFixed(1)} arrivals/hour · peak-to-trough ×{data.peak_to_trough_ratio ?? '—'}
-          </div>
+          <HeroStatInline
+            kicker="Peak hour"
+            value={`${peakHour.toString().padStart(2, '0')}:00`}
+            sub={`${peakValue.toFixed(1)} arrivals/hour · weekday`}
+            color="#0d9488"
+          />
+          <HeroStatInline
+            kicker="Trough"
+            value={`${troughHour.toString().padStart(2, '0')}:00`}
+            sub={`${troughValue.toFixed(1)} arrivals/hour`}
+            color="#64748b"
+          />
+          <HeroStatInline
+            kicker="Peak-to-trough"
+            value={`×${data.peak_to_trough_ratio ?? '—'}`}
+            sub="weekday amplitude"
+            color="#1e6091"
+          />
         </div>
-        <Heatmap
-          data={dataArr}
-          rows={rows}
-          cols={Array.from({ length: 24 }, (_, i) => (i % 3 === 0 ? `${i}h` : ''))}
-          height={280}
+        <LineChart
+          series={[
+            { data: weekdayCurve, color: '#1e6091' },
+            { data: weekendCurve, color: '#dc2626' },
+          ]}
+          xLabels={['0h', '3h', '6h', '9h', '12h', '15h', '18h', '21h', '23h']}
+          height={240}
         />
+        <div style={{ display: 'flex', gap: 18, marginTop: 8, fontSize: 12, color: '#475569' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 14, height: 3, background: '#1e6091', borderRadius: 2 }} /> Weekday (Mon–Fri)
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 14, height: 3, background: '#dc2626', borderRadius: 2 }} /> Weekend (Sat–Sun)
+          </span>
+        </div>
       </div>
+    </div>
+  );
+}
+
+function HeroStatInline({ kicker, value, sub, color = '#0f172a' }) {
+  return (
+    <div style={{ minWidth: 130 }}>
+      <div style={{ fontSize: 10, color, textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 700 }}>
+        {kicker}
+      </div>
+      <div style={{
+        fontSize: 22, fontWeight: 700, color: '#0f172a', lineHeight: 1.1,
+        marginTop: 2, fontFamily: SERIF, fontVariantNumeric: 'tabular-nums',
+      }}>{value}</div>
+      <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{sub}</div>
     </div>
   );
 }
@@ -303,18 +350,31 @@ function FeaturedRegimeDonut({ data, loading, err }) {
     <div className="card">
       <div className="card-header">
         <div>
-          <div className="card-title">COVID regime split</div>
+          <div className="card-title" style={{ fontFamily: SERIF, fontSize: 18 }}>COVID regime split</div>
           <div className="card-sub">Days per regime + mean arrivals each</div>
         </div>
       </div>
-      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
         <DonutWithCenter
           slices={slices}
-          size={160}
-          thickness={26}
+          size={210}
+          thickness={32}
           centerHeadline={total.toLocaleString()}
           centerSub="Days"
         />
+        {/* 100%-stacked share strip — frames how much of the dataset is each regime */}
+        <div style={{ display: 'flex', width: '100%', height: 6, borderRadius: 3, overflow: 'hidden' }}>
+          {slices.map((s) => (
+            <div key={s.label} style={{
+              width: `${(s.value / total) * 100}%`, background: s.color,
+            }} />
+          ))}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: 11, color: '#64748b' }}>
+          {slices.map((s) => (
+            <span key={s.label}><strong style={{ color: '#0f172a' }}>{Math.round((s.value / total) * 100)}%</strong> {s.label.split('-')[0]}</span>
+          ))}
+        </div>
         <ValueLegend
           items={slices.map((s) => ({
             label: s.label,
@@ -345,24 +405,28 @@ function DepartmentMixCard({ data, loading, err }) {
     <div className="card">
       <div className="card-header">
         <div>
-          <div className="card-title">Department mix</div>
-          <div className="card-sub">Share of total arrivals</div>
+          <div className="card-title" style={{ fontFamily: SERIF, fontSize: 18 }}>Department mix</div>
+          <div className="card-sub">Share of total arrivals — all {slices.length} specialties</div>
         </div>
       </div>
       <div className="card-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
         <DonutWithCenter
           slices={slices}
-          size={140}
-          thickness={22}
+          size={210}
+          thickness={32}
           centerHeadline={`${Math.round((top.value / totalAll) * 100)}%`}
           centerSub={top.label}
         />
         <ValueLegend
-          items={slices.slice(0, 5).map((s) => ({
-            label: s.label,
-            color: s.color,
-            value: `${Math.round((s.value / totalAll) * 100)}%`,
-          }))}
+          items={slices.map((s) => {
+            const pct = (s.value / totalAll) * 100;
+            return {
+              label: s.label,
+              color: s.color,
+              value: pct >= 1 ? `${Math.round(pct)}%` : `<1%`,
+              sub: s.value.toLocaleString(),
+            };
+          })}
         />
       </div>
     </div>
@@ -1087,7 +1151,10 @@ function StoryHeader({ kicker, title, sub }) {
   return (
     <div style={{ marginTop: 8, marginBottom: 4 }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: '#0d9488', textTransform: 'uppercase', letterSpacing: 1.4 }}>{kicker}</div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginTop: 4, letterSpacing: '-0.4px' }}>{title}</div>
+      <div style={{
+        fontSize: 22, fontWeight: 700, color: '#0f172a', marginTop: 4, letterSpacing: '-0.4px',
+        fontFamily: SERIF,
+      }}>{title}</div>
       {sub && <div style={{ fontSize: 13, color: '#64748b', marginTop: 4, lineHeight: 1.5 }}>{sub}</div>}
     </div>
   );

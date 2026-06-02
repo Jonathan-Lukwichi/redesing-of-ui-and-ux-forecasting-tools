@@ -98,6 +98,9 @@ class Finding:
 
 # -- metric (KPI strip cards) -------------------------------------------------
 
+Polarity = Literal["normal", "inverse", "neutral"]
+
+
 @dataclass
 class Metric:
     """One KPI card on the Headlines strip. Same pipeline contract as Finding
@@ -110,7 +113,8 @@ class Metric:
     delta_pct:    float | None = None    # for the green/red pill
     delta_label:  str | None = None      # "vs pre-COVID", "vs annual mean", …
     sparkline:    list[float] | None = None
-    accent:       Category = "stable"    # colour of the delta pill
+    accent:       Category = "stable"    # colour token for the card
+    polarity:     Polarity = "normal"    # how the delta pill should colour itself
     section:      str = "headlines"
     source_group: str = ""
     detail:       dict[str, Any] = field(default_factory=dict)

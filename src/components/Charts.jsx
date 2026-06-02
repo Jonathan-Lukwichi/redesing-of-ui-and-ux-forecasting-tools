@@ -7,6 +7,11 @@ const CATEGORY_TOKEN = {
   trend:  { color: '#1e6091', bg: '#eff6ff', border: '#bfdbfe', label: 'Trend' },
 };
 
+// Editorial serif stack — used on hero numbers and card titles to give the
+// dashboard a boardroom feel without sacrificing data legibility (body text
+// stays sans-serif).
+export const SERIF = '"Times New Roman", Georgia, "Iowan Old Style", serif';
+
 export function categoryToken(category) {
   return CATEGORY_TOKEN[category] || CATEGORY_TOKEN.stable;
 }
@@ -39,7 +44,7 @@ export function formatHero(value, unit) {
 
 // ---- KPI strip primitives --------------------------------------------------
 
-export function KPICard({ label, value, unit, deltaPct, deltaLabel, sparkline, accent = 'stable', sparklineColor }) {
+export function KPICard({ label, value, unit, deltaPct, deltaLabel, sparkline, accent = 'stable', sparklineColor, polarity = 'normal' }) {
   const tok = categoryToken(accent);
   const showDelta = deltaPct !== undefined && deltaPct !== null;
   return (
@@ -53,12 +58,13 @@ export function KPICard({ label, value, unit, deltaPct, deltaLabel, sparkline, a
           fontSize: 10, fontWeight: 700, color: '#94a3b8',
           textTransform: 'uppercase', letterSpacing: 1.2,
         }}>{label}</span>
-        {showDelta && <DeltaPill value={deltaPct} positive={accent !== 'risk'} />}
+        {showDelta && <DeltaPill value={deltaPct} polarity={polarity} />}
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
         <span style={{
-          fontSize: 24, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.5px',
+          fontSize: 30, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.5px',
           fontVariantNumeric: 'tabular-nums', lineHeight: 1,
+          fontFamily: SERIF,
         }}>{typeof value === 'number' ? formatNum(value) : value}</span>
         {unit && <span style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>{unit}</span>}
       </div>
@@ -70,15 +76,29 @@ export function KPICard({ label, value, unit, deltaPct, deltaLabel, sparkline, a
   );
 }
 
-function DeltaPill({ value, positive = true }) {
-  const isPositive = positive ? value >= 0 : value < 0;
+function DeltaPill({ value, polarity = 'normal' }) {
+  // polarity:
+  //   'normal'  — up is good (green ↗) / down is bad (red ↘)
+  //   'inverse' — up is bad  (amber ↗) / down is good (green ↘)
+  //   'neutral' — never colour, only show magnitude
   const arrow = value >= 0 ? '↗' : '↘';
-  const color = isPositive ? '#16a34a' : '#dc2626';
-  const bg = isPositive ? '#dcfce7' : '#fee2e2';
+  let color, bg;
+  if (polarity === 'neutral') {
+    color = '#475569'; bg = '#f1f5f9';
+  } else if (polarity === 'inverse') {
+    const bad = value >= 0;
+    color = bad ? '#d97706' : '#16a34a';
+    bg    = bad ? '#fef3c7' : '#dcfce7';
+  } else {
+    const good = value >= 0;
+    color = good ? '#16a34a' : '#dc2626';
+    bg    = good ? '#dcfce7' : '#fee2e2';
+  }
   return (
     <span style={{
       fontSize: 10, fontWeight: 700, color, background: bg,
       borderRadius: 4, padding: '2px 6px', whiteSpace: 'nowrap',
+      fontVariantNumeric: 'tabular-nums',
     }}>
       {arrow} {Math.abs(value).toFixed(1)}%
     </span>
@@ -312,12 +332,16 @@ export function DonutWithCenter({ slices, size = 200, thickness = 30, centerHead
         justifyContent: 'center', flexDirection: 'column', textAlign: 'center', pointerEvents: 'none',
       }}>
         {centerHeadline && (
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.5px' }}>
+          <div style={{
+            fontSize: Math.max(22, Math.round(size * 0.18)),
+            fontWeight: 700, color: '#0f172a', letterSpacing: '-0.5px',
+            fontFamily: SERIF, fontVariantNumeric: 'tabular-nums',
+          }}>
             {centerHeadline}
           </div>
         )}
         {centerSub && (
-          <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 2 }}>
+          <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 4 }}>
             {centerSub}
           </div>
         )}

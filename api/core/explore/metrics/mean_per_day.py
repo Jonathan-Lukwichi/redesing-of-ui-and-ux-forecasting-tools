@@ -17,16 +17,18 @@ class MeanPerDayMetric(MetricAnalyzer):
             return None
         mean = round(float(s.mean()), 1)
 
+        # Compute a meaningful delta — recent 60-day mean vs the overall mean.
+        # The blended-overall-vs-pre delta is mathematically tiny and operationally
+        # useless, so we report a "are we currently above or below the long-run
+        # average" signal instead.
+        recent = s.tail(60)
         delta_pct = None
         delta_label = None
-        if prof.regime_label and prof.regime_label in df.columns:
-            r = df[prof.regime_label].astype(str)
-            pre = pd.to_numeric(df[prof.target], errors="coerce")[r == "pre"].dropna()
-            if not pre.empty and pre.mean() > 0:
-                delta_pct = round((mean - float(pre.mean())) / float(pre.mean()) * 100, 1)
-                delta_label = "vs pre-COVID"
+        if not recent.empty and mean > 0:
+            delta_pct = round((float(recent.mean()) - mean) / mean * 100, 1)
+            delta_label = "last 60d vs full window"
 
-        # 60-day rolling for sparkline
+        # 30-day rolling for the sparkline.
         sparkline = (
             pd.to_numeric(df[prof.target], errors="coerce")
               .rolling(window=30, min_periods=1).mean()

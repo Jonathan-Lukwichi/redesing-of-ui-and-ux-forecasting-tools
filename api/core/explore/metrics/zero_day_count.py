@@ -27,5 +27,6 @@ class ZeroDayCountMetric(MetricAnalyzer):
             delta_pct=share,
             delta_label=f"of {total:,} days",
             accent="watch" if n_zero > 0 else "stable",
+            polarity="inverse",  # more zero-days = worse data quality
             source_group=group_id,
         )
