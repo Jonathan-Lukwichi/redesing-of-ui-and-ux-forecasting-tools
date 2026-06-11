@@ -37,6 +37,15 @@ async function request(path, { method = 'GET', body, signal } = {}) {
 export const api = {
   forecastDemo: (signal) => request('/api/forecast/demo', { signal }),
 
+  forecast: {
+    run: ({ model = 'statistical', horizon = 7 } = {}) =>
+      request('/api/forecast/run', {
+        method: 'POST',
+        body: { model, horizon },
+      }),
+    demo: (signal) => request('/api/forecast/demo', { signal }),
+  },
+
   datasets: {
     inventory: (signal) => request('/api/datasets/inventory', { signal }),
     get: (id, signal) => request(`/api/datasets/${id}`, { signal }),

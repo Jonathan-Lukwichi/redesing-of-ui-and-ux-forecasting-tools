@@ -6,11 +6,6 @@ import Dashboard from './pages/Dashboard';
 import DataHub from './pages/DataHub';
 import PrepareData from './pages/PrepareData';
 import ExploreData from './pages/ExploreData';
-import Baselines from './pages/Baselines';
-import FeatureStudio from './pages/FeatureStudio';
-import FeatureSelection from './pages/FeatureSelection';
-import TrainModels from './pages/TrainModels';
-import ModelResults from './pages/ModelResults';
 import Forecast from './pages/Forecast';
 import StaffPlanner from './pages/StaffPlanner';
 import SupplyPlanner from './pages/SupplyPlanner';
@@ -21,11 +16,6 @@ const PAGES = {
   upload: DataHub,
   prepare: PrepareData,
   explore: ExploreData,
-  baseline: Baselines,
-  features: FeatureStudio,
-  selection: FeatureSelection,
-  train: TrainModels,
-  results: ModelResults,
   forecast: Forecast,
   staff: StaffPlanner,
   supply: SupplyPlanner,
