@@ -66,13 +66,6 @@ const HEAT_FALLBACK = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((_, r) =>
     return +(base * (r < 5 ? 1 : 0.8) * (0.85 + 0.3 * Math.sin(h / 3))).toFixed(1);
   })
 );
-const FINDINGS_FALLBACK = [
-  { f:'Average day is 58 patients; a busy day is 80 or more', src:'Demand',         color:C.navy   },
-  { f:'Day and Evening absorb 41% each; Night absorbs 18%',   src:'Within the day', color:C.teal   },
-  { f:'12 calendar events shift daily volume materially',     src:'Drivers',        color:C.amber  },
-  { f:'Surgery rises on weekends; every other specialty falls', src:'Departments',  color:C.red    },
-  { f:'2025 brings 18% more arrivals than 2022–2024',         src:'Data health',    color:C.purple },
-];
 const TEMP_X5_FALLBACK   = ['<10°','10–18°','18–24°','24–30°','>30°'];
 const TEMP_SPEC_FALLBACK = [
   { name:'Trauma & assault', color:C.red,  data:[-8,-3,0, 7,14] },
@@ -1120,7 +1113,6 @@ function Dashboard({ onRerun }) {
   }, []);
 
   const metrics      = useAnalysis(() => api.explore.metrics('forecast'),         [refreshKey]);
-  const findings     = useAnalysis(() => api.explore.findings(),                  [refreshKey]);
   const stl          = useAnalysis(() => api.explore.task1Stl('g1'),              [refreshKey]);
   const hourly       = useAnalysis(() => api.explore.layer2HourlyProfile('g2'),   [refreshKey]);
   const mix          = useAnalysis(() => api.explore.task2SpecialtyMix('g3'),     [refreshKey]);
@@ -1283,16 +1275,6 @@ function Dashboard({ onRerun }) {
         { name:'Gynaecology',  v: 1.5, color:C.red    },
       ];
 
-  // --- findings ---
-  const CATEGORY_COLOR = { risk: C.red, watch: C.amber, stable: C.teal, trend: C.navy };
-  const findingsRows = Array.isArray(findings?.findings) && findings.findings.length
-    ? findings.findings.slice(0, 5).map((f) => ({
-        f:     f.title || f.summary || f.headline || '',
-        src:   f.section || 'Source',
-        color: CATEGORY_COLOR[f.category] || C.purple,
-      }))
-    : FINDINGS_FALLBACK;
-
   // --- KPI strip (assign now that all upstream derivations are ready) ---
   kpiCards = buildManagerKpis({ stlDates, stlObs, hourly, calEffects, mix });
 
@@ -1432,31 +1414,7 @@ function Dashboard({ onRerun }) {
         <SpecVolumeCard rows={specVolumeRows} />
       </div>
 
-      {/* findings table */}
-      <div className="exp-card exp-np" style={{ marginTop: 14 }}>
-        <div className="exp-chead" style={{ padding: '16px 18px 0' }}>
-          <div>
-            <div className="exp-ct">What we learned from your data</div>
-            <div className="exp-cs">Each finding comes from a specific chart above — click through to see why.</div>
-          </div>
-        </div>
-        <table className="exp-tbl" style={{ marginTop: 12 }}>
-          <thead><tr><th style={{ width: '68%' }}>Finding</th><th>Source</th></tr></thead>
-          <tbody>
-            {findingsRows.map((r, i) => (
-              <tr key={i}>
-                <td style={{ fontWeight: 600 }}>
-                  <span className="exp-chip" style={{ background: r.color }} />
-                  {r.f}
-                </td>
-                <td><span style={{ color: C.navy, fontWeight: 600 }}>{r.src} →</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div style={{ marginTop: 12, fontSize: 11, color: '#94a3b8', textAlign: 'right' }}>
+      <div style={{ marginTop: 24, fontSize: 11, color: '#94a3b8', textAlign: 'right' }}>
         {stlDates && <span>{stlDates.length.toLocaleString()} daily points in the record</span>}
       </div>
     </div>
