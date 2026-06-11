@@ -962,10 +962,18 @@ function dataWindowOf(stlDates) {
   if (!Array.isArray(stlDates) || stlDates.length === 0) return null;
   const first = new Date(stlDates[0]);
   const last  = new Date(stlDates[stlDates.length - 1]);
-  const f = `${MONTHS_SHORT_2[first.getMonth()]} '${String(first.getFullYear()).slice(2)}`;
-  const l = `${MONTHS_SHORT_2[last.getMonth()]} '${String(last.getFullYear()).slice(2)}`;
-  const years = ((last - first) / (365.25 * 86400000));
-  return { range: `${f} → ${l}`, yearsText: years >= 1 ? `${years.toFixed(1)} years` : `${Math.round(years * 12)} months` };
+  const yearsExact = (last - first) / (365.25 * 86400000);
+  const f = `${MONTHS_SHORT_2[first.getMonth()]} ${first.getFullYear()}`;
+  const l = `${MONTHS_SHORT_2[last.getMonth()]} ${last.getFullYear()}`;
+  let headline, unit;
+  if (yearsExact >= 1) {
+    headline = yearsExact.toFixed(1);
+    unit = yearsExact >= 1.95 ? 'years' : 'year';
+  } else {
+    headline = String(Math.round(yearsExact * 12));
+    unit = 'months';
+  }
+  return { range: `${f} → ${l}`, headline, unit };
 }
 
 // Compare last full 365 days to the prior 365 days. More robust than
@@ -1072,12 +1080,13 @@ function buildManagerKpis({ stlDates, stlObs, hourly, calEffects, mix }) {
     color: C.purple,
   });
 
-  // 6. DATA WINDOW
+  // 6. HISTORY (duration first, dates as subtitle so the tile reads at a glance)
   const win2 = dataWindowOf(stlDates);
   cards.push({
-    lab: 'DATA WINDOW',
-    val: win2 ? win2.range : '—',
-    foot: win2 ? win2.yearsText : 'historic record',
+    lab: 'HISTORY',
+    val: win2 ? win2.headline : '—',
+    u: win2 ? win2.unit : null,
+    foot: win2 ? win2.range : 'of patient records',
     color: C.navy,
   });
 
@@ -1283,14 +1292,19 @@ function Dashboard({ onRerun }) {
       {/* control bar */}
       <div className="exp-bar">
         <div>
-          <h1>What your hospital data is telling us</h1>
+          <h1>What your hospital data is telling you</h1>
           <div className="exp-sub">
             {stlDates
               ? `Patterns and trends in ${stlDates.length.toLocaleString()} days of patient arrivals.`
               : 'Loading data…'}
           </div>
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }} className="exp-no-print">
+          <button className="exp-filter"
+                  onClick={() => window.print()}
+                  title="Save this page as a PDF (uses your browser's print dialog — choose 'Save as PDF')">
+            ⬇ Download PDF
+          </button>
           <button className="exp-filter"
                   onClick={() => { setRefreshKey((k) => k + 1); setAutoRefreshedAt(new Date()); }}
                   title={autoRefreshedAt ? `Last refreshed ${autoRefreshedAt.toLocaleTimeString()}` : 'Refresh data'}>

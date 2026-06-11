@@ -919,3 +919,77 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
 @media (max-width: 720px) {
   .exp-kpis { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* =============================================================================
+   PRINT — clean A4 layout for "Download PDF" via window.print().
+   Hides the AppShell chrome and all interactive controls, then forces card-
+   grid rows to stay together across page breaks. Charts are SVG so they print
+   crisp at any DPI; we just trim shadows / hover effects / glow filters that
+   look noisy on paper.
+   ============================================================================= */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 12mm 10mm;
+  }
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .sidebar,
+  .topbar,
+  .exp-no-print {
+    display: none !important;
+  }
+  .app, .main, .content {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+  .exp-page {
+    padding: 0 !important;
+  }
+  .exp-bar {
+    margin: 0 0 14px 0 !important;
+    border-bottom: 1px solid #e9ecf1;
+    padding-bottom: 8px;
+    page-break-after: avoid;
+  }
+  .exp-bar h1 { font-size: 18px !important; }
+  .exp-bar .exp-sub { font-size: 11px !important; }
+  .exp-kpis {
+    page-break-inside: avoid;
+    grid-template-columns: repeat(6, 1fr) !important;
+    gap: 8px !important;
+    margin-bottom: 10px !important;
+  }
+  .exp-kpi {
+    box-shadow: none !important;
+    transform: none !important;
+    border: 1px solid #d8dee7 !important;
+    padding: 10px 12px !important;
+  }
+  .exp-kpi .exp-val { font-size: 22px !important; }
+  .exp-grid {
+    page-break-inside: avoid;
+    margin-top: 8px !important;
+    gap: 8px !important;
+  }
+  .exp-card {
+    box-shadow: none !important;
+    transform: none !important;
+    border: 1px solid #d8dee7 !important;
+    page-break-inside: avoid;
+    padding: 10px 12px !important;
+  }
+  .exp-card:hover { box-shadow: none !important; transform: none !important; }
+  .exp-ct { font-size: 12px !important; }
+  .exp-cs { font-size: 10px !important; }
+  /* Hide the "⋯" decorative dots and any SVG glow filters in print */
+  .exp-dots { display: none !important; }
+}
