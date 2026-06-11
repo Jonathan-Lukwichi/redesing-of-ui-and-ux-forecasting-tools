@@ -863,3 +863,59 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
   color: var(--text-3);
 }
 .context-strip strong { color: var(--text); font-weight: 600; }
+
+/* =============================================================================
+   EXPLORE PAGE — single-page EDA dashboard (matches docs/explore-reference.html)
+   Scoped under .exp-page so it does not collide with the global .card / .kpi etc.
+   ============================================================================= */
+.exp-page { --exp-line: #eef0f3; padding-top: 4px; }
+
+.exp-bar { display: flex; align-items: center; gap: 16px; margin: 18px 0; flex-wrap: wrap; }
+.exp-bar h1 { font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -0.3px; color: var(--text); }
+.exp-bar .exp-sub { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+.exp-ranges { margin-left: auto; display: flex; gap: 4px; background: #fff; border: 1px solid #e4e7eb; border-radius: 9px; padding: 4px; }
+.exp-ranges button { border: 0; background: transparent; font-family: inherit; font-size: 12px; font-weight: 600; color: var(--text-3); padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+.exp-ranges button.on { background: #0d9488; color: #fff; }
+
+.exp-filter { display: flex; align-items: center; gap: 7px; background: #fff; border: 1px solid #e4e7eb; border-radius: 9px; padding: 8px 13px; font-size: 12px; font-weight: 600; color: #334155; cursor: pointer; font-family: inherit; }
+
+.exp-kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 14px; }
+.exp-kpi { background: #fff; border: 1px solid #e9ecf1; border-radius: 13px; padding: 16px 16px 14px; position: relative; overflow: hidden; box-shadow: 0 1px 2px rgba(15,23,41,.04); transition: box-shadow .16s, transform .16s; }
+.exp-kpi:hover { box-shadow: 0 8px 22px rgba(15,23,41,.09); transform: translateY(-2px); }
+.exp-kpi .exp-accent { position: absolute; top: 0; left: 0; right: 0; height: 3px; opacity: .9; }
+.exp-kpi .exp-lab { font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .8px; }
+.exp-kpi .exp-val { font-size: 30px; font-weight: 800; letter-spacing: -1px; line-height: 1.05; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.exp-kpi .exp-val .exp-u { font-size: 15px; color: var(--text-3); font-weight: 700; }
+.exp-kpi .exp-foot { display: flex; align-items: center; gap: 6px; margin-top: 7px; font-size: 11px; color: var(--text-3); }
+.exp-kpi .exp-pill { font-weight: 700; font-size: 10.5px; padding: 2px 6px; border-radius: 5px; display: inline-flex; align-items: center; gap: 3px; }
+.exp-kpi .exp-spark { position: absolute; right: 10px; bottom: 10px; opacity: .9; }
+
+.exp-grid { display: grid; gap: 14px; }
+.exp-card { background: #fff; border: 1px solid #e9ecf1; border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; box-shadow: 0 1px 2px rgba(15,23,41,.04); transition: box-shadow .16s, transform .16s; }
+.exp-card:hover { box-shadow: 0 6px 20px rgba(15,23,41,.08); transform: translateY(-1px); }
+.exp-card.exp-np { padding: 0; }
+.exp-ct { font-size: 15px; font-weight: 700; letter-spacing: -0.2px; line-height: 1.25; color: var(--text); }
+.exp-cs { font-size: 12px; color: var(--text-3); margin-top: 3px; line-height: 1.4; }
+.exp-chead { margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.exp-dots { color: #cbd5e1; font-size: 16px; letter-spacing: 1px; flex-shrink: 0; }
+
+.exp-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 11px; color: #475569; }
+.exp-legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; margin-right: 5px; }
+
+.exp-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.exp-tbl th { text-align: left; font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .6px; padding: 11px 16px; border-bottom: 1px solid var(--exp-line); }
+.exp-tbl td { padding: 12px 16px; border-bottom: 1px solid #f3f5f8; color: var(--text); }
+.exp-tbl tr:last-child td { border-bottom: 0; }
+.exp-tbl tbody tr { cursor: pointer; }
+.exp-tbl tbody tr:hover { background: #fafbfc; }
+
+.exp-chip { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+
+/* Responsive collapse for very narrow viewports */
+@media (max-width: 1100px) {
+  .exp-kpis { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 720px) {
+  .exp-kpis { grid-template-columns: repeat(2, 1fr); }
+}

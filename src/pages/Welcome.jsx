@@ -81,17 +81,6 @@ export default function Welcome({ onNavigate }) {
             Sign in
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0', color: '#94a3b8', fontSize: 11 }}>
-            <div style={{ flex: 1, height: 1, background: '#e4e7eb' }} />
-            <span>OR CONTINUE WITH</span>
-            <div style={{ flex: 1, height: 1, background: '#e4e7eb' }} />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <button className="btn">SAML SSO</button>
-            <button className="btn">Microsoft</button>
-          </div>
-
           <div style={{ marginTop: 28, padding: 14, background: '#f0f5fa', borderRadius: 8, fontSize: 12, color: '#334155' }}>
             <strong style={{ color: '#1e6091' }}>Demo mode</strong> — Click Sign in with the prefilled credentials to explore as Operations Director.
           </div>

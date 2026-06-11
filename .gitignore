@@ -2,3 +2,7 @@ node_modules/
 dist/
 healthforecast-ai.zip
 *.zip
+
+# local working artifacts
+.claude/
+_backup_before_reset/
