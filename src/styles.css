@@ -932,7 +932,12 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
     size: A4 landscape;
     margin: 12mm 10mm;
   }
+  /* Critical for multi-page printing: release the viewport fence (the app is
+     designed as a single-screen SPA with height: 100vh + overflow: hidden, so
+     by default print only captures what fits in one screen). */
   html, body {
+    height: auto !important;
+    overflow: visible !important;
     background: #ffffff !important;
     color: #0f172a !important;
     -webkit-print-color-adjust: exact;
@@ -943,8 +948,29 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
   .exp-no-print {
     display: none !important;
   }
-  .app, .main, .content {
+  .app {
     display: block !important;
+    grid-template-columns: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+  .main {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .content {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
@@ -953,6 +979,8 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
   }
   .exp-page {
     padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
   }
   .exp-bar {
     margin: 0 0 14px 0 !important;
@@ -976,7 +1004,7 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
   }
   .exp-kpi .exp-val { font-size: 22px !important; }
   .exp-grid {
-    page-break-inside: avoid;
+    /* let individual cards break, not whole rows */
     margin-top: 8px !important;
     gap: 8px !important;
   }
