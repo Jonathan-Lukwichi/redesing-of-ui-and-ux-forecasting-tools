@@ -47,6 +47,7 @@ class RunRequest(BaseModel):
 
 @router.post("/run")
 async def run_from_pipeline(req: RunRequest) -> Dict[str, Any]:
+    # Forecast pulls history from G1 in-memory; frontend only sends model + horizon.
     if req.horizon not in (7, 14, 30):
         raise HTTPException(400, "horizon must be 7, 14, or 30 days.")
 

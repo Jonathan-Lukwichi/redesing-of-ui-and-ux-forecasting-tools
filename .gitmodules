@@ -1,0 +1,4 @@
+[submodule "api/external/msc-modelling"]
+	path = api/external/msc-modelling
+	url = https://github.com/Jonathan-Lukwichi/msc-modelling.git
+	branch = claude/review-dissertation-repos-UQtqT
