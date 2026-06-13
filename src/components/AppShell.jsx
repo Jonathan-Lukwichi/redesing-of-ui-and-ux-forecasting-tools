@@ -9,23 +9,27 @@ const NAV_ITEMS = [
     { id: 'prepare', label: 'Prepare', icon: 'table' },
     { id: 'explore', label: 'Explore', icon: 'chart' },
   ]},
+  { section: 'Forecasting', items: [
+    { id: 'forecast-total',     label: 'Total ED',     icon: 'forecast' },
+    { id: 'forecast-specialty', label: 'By specialty', icon: 'chart' },
+  ]},
   { section: 'Operations', items: [
-    { id: 'forecast', label: 'Forecast', icon: 'forecast' },
-    { id: 'staff', label: 'Staffing', icon: 'users', badge: '3' },
-    { id: 'supply', label: 'Supply', icon: 'box' },
+    { id: 'staff',   label: 'Staffing',      icon: 'users', badge: '3' },
+    { id: 'supply',  label: 'Supply',        icon: 'box' },
     { id: 'actions', label: 'Action Center', icon: 'bolt', badge: '12' },
   ]},
 ];
 
 const CRUMB_MAP = {
-  dashboard: ['Operations', 'Dashboard'],
-  upload: ['Data', 'Data Hub'],
-  prepare: ['Data', 'Prepare Data'],
-  explore: ['Data', 'Explore Data'],
-  forecast: ['Operations', 'Forecast'],
-  staff: ['Planning', 'Staff Planner'],
-  supply: ['Planning', 'Supply Planner'],
-  actions: ['Operations', 'Action Center'],
+  dashboard: ['Overview', 'Dashboard'],
+  upload:    ['Data', 'Data Hub'],
+  prepare:   ['Data', 'Prepare Data'],
+  explore:   ['Data', 'Explore Data'],
+  'forecast-total':     ['Forecasting', 'Total ED Arrivals'],
+  'forecast-specialty': ['Forecasting', 'By Specialty'],
+  staff:     ['Operations', 'Staff Planner'],
+  supply:    ['Operations', 'Supply Planner'],
+  actions:   ['Operations', 'Action Center'],
 };
 
 function Sidebar({ active, onNavigate }) {

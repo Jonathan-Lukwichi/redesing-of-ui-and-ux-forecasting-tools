@@ -77,6 +77,30 @@ export const api = {
     clearAll: () => request('/api/prepare', { method: 'DELETE' }),
   },
 
+  task1: {
+    // GET /api/task1/models — sorted by val_RMSE asc, each item has badge + card.
+    models:   (signal) => request('/api/task1/models', { signal }),
+    // GET /api/task1/metrics — per-horizon errors for all 6 models.
+    metrics:  (signal) => request('/api/task1/metrics', { signal }),
+    // POST /api/task1/forecast — { alias, horizon, start_date }.
+    forecast: ({ alias, horizon, start_date }) =>
+      request('/api/task1/forecast', {
+        method: 'POST',
+        body: { alias, horizon, start_date },
+      }),
+  },
+
+  task2: {
+    // GET /api/task2/specialties — 7 specialties, each with its available_models[].
+    specialties: (signal) => request('/api/task2/specialties', { signal }),
+    metrics:     (signal) => request('/api/task2/metrics', { signal }),
+    forecast: ({ specialty, alias, horizon, start_date }) =>
+      request('/api/task2/forecast', {
+        method: 'POST',
+        body: { specialty, alias, horizon, start_date },
+      }),
+  },
+
   explore: {
     index:           (signal) => request('/api/explore/index', { signal }),
     findings:        (signal) => request('/api/explore/findings', { signal }),

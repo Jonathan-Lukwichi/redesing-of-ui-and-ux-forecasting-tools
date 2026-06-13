@@ -6,20 +6,22 @@ import Dashboard from './pages/Dashboard';
 import DataHub from './pages/DataHub';
 import PrepareData from './pages/PrepareData';
 import ExploreData from './pages/ExploreData';
-import Forecast from './pages/Forecast';
+import Task1Forecast from './pages/Task1Forecast';
+import Task2Forecast from './pages/Task2Forecast';
 import StaffPlanner from './pages/StaffPlanner';
 import SupplyPlanner from './pages/SupplyPlanner';
 import ActionCenter from './pages/ActionCenter';
 
 const PAGES = {
-  dashboard: Dashboard,
-  upload: DataHub,
-  prepare: PrepareData,
-  explore: ExploreData,
-  forecast: Forecast,
-  staff: StaffPlanner,
-  supply: SupplyPlanner,
-  actions: ActionCenter,
+  dashboard:            Dashboard,
+  upload:               DataHub,
+  prepare:              PrepareData,
+  explore:              ExploreData,
+  'forecast-total':     Task1Forecast,
+  'forecast-specialty': Task2Forecast,
+  staff:                StaffPlanner,
+  supply:               SupplyPlanner,
+  actions:              ActionCenter,
 };
 
 export default function App() {
