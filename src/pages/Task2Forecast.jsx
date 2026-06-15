@@ -37,8 +37,13 @@ const WEEKLY_HORIZONS = [
   { id: 'yearly', label: 'Yearly',        sub: '52-week outlook', count: 52 },
 ];
 
-const aliasToEngine = (alias) =>
-  (alias || '').toUpperCase().startsWith('ML') ? 'ml' : 'statistical';
+// The two engines that actually run. What you pick IS what runs.
+const ENGINES = [
+  { id: 'ml', name: 'Machine-learning forecast', tech: 'Gradient Boosting',
+    blurb: 'Learns patterns from the calendar, weather and recent arrivals. Usually the most accurate.' },
+  { id: 'statistical', name: 'Statistical forecast', tech: 'SARIMAX',
+    blurb: 'Classic time-series model that reads the trend, weekly rhythm and seasonality.' },
+];
 
 const horizonCount = (id) =>
   [...DAILY_HORIZONS, ...WEEKLY_HORIZONS].find((h) => h.id === id)?.count ?? 7;
@@ -89,7 +94,8 @@ export default function Task2Forecast({ onNavigate }) {
   const [catalogue, setCatalogue] = useState(null);
   const [error,     setError]     = useState(null);
   const [specialty, setSpecialty] = useState(null);
-  const [alias,     setAlias]     = useState(null);
+  const [engine,    setEngine]    = useState('ml');
+  const [engineInfo, setEngineInfo] = useState(null); // live accuracy per engine, for the current specialty
   const [horizon,   setHorizon]   = useState('7d');
   const [running,   setRunning]   = useState(false);
   const [result,    setResult]    = useState(null);
@@ -105,7 +111,6 @@ export default function Task2Forecast({ onNavigate }) {
         const items = res.items || [];
         setCatalogue(items);
         if (items.length && !specialty) {
-          // Default: Medicine (highest-quality models)
           const med = items.find((s) => s.specialty === 'Medicine') || items[0];
           setSpecialty(med.specialty);
         }
@@ -122,23 +127,25 @@ export default function Task2Forecast({ onNavigate }) {
   const isWeekly = selectedSpecialty?.resolution === 'weekly';
   const horizons = isWeekly ? WEEKLY_HORIZONS : DAILY_HORIZONS;
 
+  // Fetch live engine accuracy for the chosen specialty (so the picker matches the result).
+  useEffect(() => {
+    if (!specialty) return;
+    let alive = true;
+    setEngineInfo(null);
+    api.forecast.engines({ specialty })
+      .then((e) => { if (alive) setEngineInfo(e?.engines || null); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [specialty]);
+
   // Auto-correct horizon when switching to/from weekly specialties
   useEffect(() => {
     if (!selectedSpecialty) return;
     const valid = (isWeekly ? WEEKLY_HORIZONS : DAILY_HORIZONS).map((h) => h.id);
     if (!valid.includes(horizon)) setHorizon(valid[1] || valid[0]);
-  }, [isWeekly]);
+  }, [isWeekly]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-pick the first available model when specialty changes
-  useEffect(() => {
-    if (!selectedSpecialty) return;
-    const first = (selectedSpecialty.models || [])[0]?.alias;
-    if (first && !selectedSpecialty.models.find((m) => m.alias === alias)) {
-      setAlias(first);
-    }
-  }, [specialty]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const selectedModel = (selectedSpecialty?.models || []).find((m) => m.alias === alias) || null;
+  const engineMeta = ENGINES.find((e) => e.id === engine) || ENGINES[0];
 
   // Backtest window bounds (shared across specialties via G3 coverage).
   const futureStart = coverage ? addDays(coverage.max_date, 1) : '';
@@ -156,9 +163,9 @@ export default function Task2Forecast({ onNavigate }) {
     try {
       const res = await api.forecast.specialty({
         specialty,
-        model: aliasToEngine(alias),
+        model: engine,
         horizon: horizonCount(horizon),
-        alias,
+        alias: engineMeta.name,
         resolution: isWeekly ? 'weekly' : 'daily',
         start_date: effectiveStart,
       });
@@ -184,31 +191,30 @@ export default function Task2Forecast({ onNavigate }) {
           Per-Specialty Arrivals
         </h1>
         <div style={{ fontSize: 13.5, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
-          Specialty-level resource allocation, on-call rota, ward bed planning. 7 specialties · 13 trained models.
+          Specialty-level resource allocation, on-call rota, ward bed planning. 7 specialties · live forecast engines.
         </div>
       </div>
 
       {error && <Banner color="red" title="Couldn't load catalogue.">{error}</Banner>}
 
-      {/* Top action bar — primary "Start prediction" CTA */}
+      {/* Top action bar — the single "Start prediction" CTA */}
       <StartBar
-        ready={!!specialty && !!alias && !!horizon}
+        ready={!!specialty && !!engine && !!horizon}
         running={running}
         primaryLabel={result ? 'Re-run prediction' : 'Start prediction'}
         onRun={run}
-        summary={specialty && alias
-          ? `${specialty} · ${alias} · ${horizons.find((h) => h.id === horizon)?.label || horizon} · ${isBacktest ? `backtest from ${startDate}` : 'future'}`
-          : 'Pick a specialty + model below, then start the prediction.'}
+        summary={specialty
+          ? `${specialty} · ${engineMeta.name} · ${horizons.find((h) => h.id === horizon)?.label || horizon} · ${isBacktest ? `backtest from ${startDate}` : 'future'}`
+          : 'Pick a specialty + method below, then start the prediction.'}
       />
 
       {/* Step 1 — Specialty */}
-      <Section step="1" title="Pick a specialty" sub="Each specialty has its own trained models.">
+      <Section step="1" title="Pick a specialty" sub="Each specialty is forecast from its own real history.">
         {!catalogue && !error && <div style={{ color: C.muted, fontSize: 13 }}>Loading specialties…</div>}
         {catalogue && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
             {catalogue.map((s) => {
               const on = specialty === s.specialty;
-              const bestBadge = s.models?.[0]?.badge;
               return (
                 <button key={s.specialty} onClick={() => setSpecialty(s.specialty)} style={{
                   textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
@@ -219,9 +225,8 @@ export default function Task2Forecast({ onNavigate }) {
                 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{s.specialty}</div>
                   <div style={{ fontSize: 11.5, color: C.muted, marginTop: 4 }}>
-                    {s.resolution === 'weekly' ? 'Weekly · ' : ''}{s.models?.length || 0} model(s)
+                    {s.resolution === 'weekly' ? 'Weekly' : 'Daily'}
                   </div>
-                  {bestBadge && <div style={{ marginTop: 8 }}><Badge badge={bestBadge} /></div>}
                 </button>
               );
             })}
@@ -229,20 +234,21 @@ export default function Task2Forecast({ onNavigate }) {
         )}
       </Section>
 
-      {/* Step 2 — Model list (filtered to specialty) */}
+      {/* Step 2 — Forecast method (the 2 engines that actually run) */}
       {selectedSpecialty && (
-        <Section step="2" title="Pick a model" sub={`Available for ${selectedSpecialty.specialty} — most accurate first.`}>
-          {selectedSpecialty.models?.length === 0 ? (
-            <Banner color="amber" title="No models for this specialty.">
-              The handover catalogue doesn't ship trained models here.
-            </Banner>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {selectedSpecialty.models.map((m) => (
-                <ModelRow key={m.alias} m={m} selected={alias === m.alias} onSelect={() => setAlias(m.alias)} />
-              ))}
-            </div>
-          )}
+        <Section step="2" title="Choose your forecast method" sub={`For ${selectedSpecialty.specialty} — what you pick is what runs.`}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
+            {ENGINES.map((e) => (
+              <EngineCard
+                key={e.id} e={e}
+                acc={engineInfo?.[e.id]?.accuracy_pct}
+                mae={engineInfo?.[e.id]?.mae}
+                unit={isWeekly ? 'week' : 'day'}
+                selected={engine === e.id}
+                onSelect={() => setEngine(e.id)}
+              />
+            ))}
+          </div>
         </Section>
       )}
 
@@ -288,34 +294,14 @@ export default function Task2Forecast({ onNavigate }) {
         </Section>
       )}
 
-      {/* Bottom run button — second touchpoint after configuring */}
-      {selectedSpecialty && (
-        <div>
-          <button onClick={run} disabled={!alias || running}
-            style={{
-              cursor: running ? 'wait' : alias ? 'pointer' : 'not-allowed',
-              background: alias ? `linear-gradient(135deg, ${C.teal}, ${C.navy})` : '#cbd5e1',
-              color: '#fff', border: 0,
-              padding: '14px 28px', borderRadius: 10,
-              fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
-              boxShadow: alias ? '0 8px 22px rgba(13,148,136,0.35)' : 'none',
-              opacity: running ? 0.7 : 1,
-            }}>
-            {running ? 'Predicting…' : `▶ ${result ? 'Re-run' : 'Start'} prediction — ${specialty}, ${alias || '…'}`}
-          </button>
-          {selectedModel && (
-            <div style={{ marginTop: 8, fontSize: 12, color: C.muted }}>
-              <strong>{specialty}</strong> / <strong>{alias}</strong> via the live{' '}
-              <strong>{aliasToEngine(alias) === 'ml' ? 'Gradient Boosting' : 'SARIMAX'}</strong> engine
-              on the <strong>{horizons.find((h) => h.id === horizon)?.label || horizon}</strong> horizon.
-            </div>
-          )}
-        </div>
-      )}
-
       {result && (result.ok
-        ? <ForecastResult data={result.data} horizonId={result.horizonId} weekly={result.weekly} badge={selectedModel?.badge} />
+        ? <ForecastResult data={result.data} horizonId={result.horizonId} weekly={result.weekly} badge="operational" />
         : <ForecastError result={result} onTryAnother={() => setResult(null)} onNavigate={onNavigate} />)}
+
+      {/* Technical / thesis section — the per-specialty research models */}
+      {selectedSpecialty?.models?.length > 0 && (
+        <ResearchCatalogue specialty={selectedSpecialty.specialty} models={selectedSpecialty.models} />
+      )}
     </div>
   );
 }
@@ -469,6 +455,60 @@ function Section({ step, title, sub, children }) {
       </div>
       {children}
     </div>
+  );
+}
+
+function EngineCard({ e, acc, mae, unit, selected, onSelect }) {
+  return (
+    <button onClick={onSelect} style={{
+      textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', background: '#fff',
+      border: `2px solid ${selected ? C.teal : '#e9ecf1'}`,
+      borderRadius: 12, padding: '16px 18px',
+      boxShadow: selected ? '0 6px 18px rgba(13,148,136,.18)' : '0 1px 2px rgba(15,23,41,.03)',
+      display: 'flex', flexDirection: 'column', gap: 8, transition: 'all .12s',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{
+          width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+          border: `2px solid ${selected ? C.teal : '#cbd5e1'}`,
+          background: selected ? C.teal : 'transparent',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', fontSize: 11, fontWeight: 700,
+        }}>{selected ? '✓' : ''}</span>
+        <span style={{ fontSize: 16, fontWeight: 800, color: C.ink }}>{e.name}</span>
+      </div>
+      <div style={{ fontSize: 12.5, color: C.muted, lineHeight: 1.5 }}>{e.blurb}</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 2 }}>
+        <span style={{ fontSize: 20, fontWeight: 800, color: '#0f766e' }}>
+          {acc != null ? `≈${Math.round(acc)}% accurate` : 'measuring…'}
+        </span>
+        {mae != null && (
+          <span style={{ fontSize: 12, color: C.muted }}>± {Math.round(mae)} patients/{unit}</span>
+        )}
+      </div>
+      <div style={{ fontSize: 10.5, color: '#94a3b8', fontFamily: 'JetBrains Mono' }}>{e.tech}</div>
+    </button>
+  );
+}
+
+function ResearchCatalogue({ specialty, models }) {
+  return (
+    <details style={{
+      background: '#fafbfc', border: '1px solid #e9ecf1', borderRadius: 12, padding: '16px 20px',
+    }}>
+      <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, color: C.ink }}>
+        Research models for {specialty} (thesis / technical) ▾
+      </summary>
+      <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, margin: '10px 0 12px' }}>
+        The pre-trained models evaluated for {specialty} in the MSc study. In this app, forecasts run
+        through the two live engines above.
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {models.map((m) => (
+          <ModelRow key={m.alias} m={m} selected={false} onSelect={() => {}} />
+        ))}
+      </div>
+    </details>
   );
 }
 

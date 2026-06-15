@@ -32,12 +32,6 @@ const HORIZONS = [
   { id: 'yearly',  label: 'Yearly',       sub: '365-day outlook',   days: 365 },
 ];
 
-// The catalogue aliases (Stat 1, ML 2, Hybrid 1 …) map onto the two live
-// engines that can actually run in this venv: SARIMAX (statistical) and
-// Gradient Boosting (ml). "Hybrid" leans on the statistical core.
-const aliasToEngine = (alias) =>
-  (alias || '').toUpperCase().startsWith('ML') ? 'ml' : 'statistical';
-
 const horizonDays = (id) => HORIZONS.find((h) => h.id === id)?.days ?? 7;
 
 // Weather-style colour ramp by intensity label.
@@ -60,6 +54,22 @@ const addDays = (iso, n) => {
 };
 const clampDate = (iso, lo, hi) => (iso < lo ? lo : iso > hi ? hi : iso);
 
+// The two engines that actually run. What you pick IS what runs.
+const ENGINES = [
+  {
+    id: 'ml',
+    name: 'Machine-learning forecast',
+    tech: 'Gradient Boosting',
+    blurb: 'Learns patterns from the calendar, weather and recent arrivals. Usually the most accurate.',
+  },
+  {
+    id: 'statistical',
+    name: 'Statistical forecast',
+    tech: 'SARIMAX',
+    blurb: 'Classic time-series model that reads the trend, weekly rhythm and seasonality.',
+  },
+];
+
 function Badge({ badge, size = 'sm' }) {
   const b = BADGE[badge] || { color: '#64748b', soft: '#e2e8f0', emoji: '⚪', label: badge || '—' };
   const px = size === 'lg' ? '6px 12px' : '3px 9px';
@@ -77,9 +87,10 @@ function Badge({ badge, size = 'sm' }) {
 }
 
 export default function Task1Forecast({ onNavigate }) {
-  const [models, setModels]   = useState(null);
+  const [models, setModels]   = useState(null);   // 6 research models (technical section only)
   const [error,  setError]    = useState(null);
-  const [alias,  setAlias]    = useState(null);
+  const [engine, setEngine]   = useState('ml');    // the engine that actually runs
+  const [engineInfo, setEngineInfo] = useState(null); // live accuracy per engine
   const [horizon, setHorizon] = useState('7d');
   const [running, setRunning] = useState(false);
   const [result,  setResult]  = useState(null);
@@ -90,12 +101,14 @@ export default function Task1Forecast({ onNavigate }) {
     let alive = true;
     setError(null);
     api.task1.models()
-      .then((res) => { if (!alive) return; setModels(res.items || []);
-                       if ((res.items || []).length && !alias) setAlias(res.items[0].alias); })
+      .then((res) => { if (alive) setModels(res.items || []); })
       .catch((e) => { if (alive) setError(e.message); });
     api.forecast.coverage('g1')
       .then((c) => { if (alive && c?.merged) setCoverage(c); })
       .catch(() => { /* coverage is best-effort; picker still works unbounded */ });
+    api.forecast.engines({ group: 'g1' })
+      .then((e) => { if (alive) setEngineInfo(e?.engines || null); })
+      .catch(() => { /* accuracy badges are best-effort */ });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -112,15 +125,15 @@ export default function Task1Forecast({ onNavigate }) {
     setStartDate(clampDate(addDays(base, n), minStart, futureStart));
   };
 
-  const selected = models?.find((m) => m.alias === alias) || null;
+  const engineMeta = ENGINES.find((e) => e.id === engine) || ENGINES[0];
 
   const run = async () => {
     setRunning(true); setResult(null);
     try {
       const res = await api.forecast.run({
-        model: aliasToEngine(alias),
+        model: engine,
         horizon: horizonDays(horizon),
-        alias,
+        alias: engineMeta.name,
         start_date: effectiveStart,
       });
       setResult({ ok: true, data: res, horizonId: horizon });
@@ -149,7 +162,7 @@ export default function Task1Forecast({ onNavigate }) {
         </h1>
         <div style={{ fontSize: 13.5, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
           Hospital-wide capacity planning, nurse rostering by date, monthly budget allocation.
-          Six pre-trained models · Steve Biko Academic Hospital, Pretoria.
+          Live forecast engines · Steve Biko Academic Hospital, Pretoria.
         </div>
       </div>
 
@@ -163,27 +176,28 @@ export default function Task1Forecast({ onNavigate }) {
         </Banner>
       )}
 
-      {/* Top action bar — primary "Start prediction" CTA, always visible */}
+      {/* Top action bar — the single "Start prediction" CTA */}
       <StartBar
-        ready={!!alias && !!horizon}
+        ready={!!engine && !!horizon}
         running={running}
         primaryLabel={result ? 'Re-run prediction' : 'Start prediction'}
         onRun={run}
-        summary={alias
-          ? `${alias} · ${HORIZONS.find((h) => h.id === horizon)?.label || horizon} · ${isBacktest ? `backtest from ${startDate}` : 'future'}`
-          : 'Pick a model below, then start the prediction.'}
+        summary={`${engineMeta.name} · ${HORIZONS.find((h) => h.id === horizon)?.label || horizon} · ${isBacktest ? `backtest from ${startDate}` : 'future'}`}
       />
 
-      {/* Step 1 — Model picker */}
-      <Section step="1" title="Pick a model" sub="Most accurate first.">
-        {!models && !error && <div style={{ color: C.muted, fontSize: 13 }}>Loading models…</div>}
-        {models && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {models.map((m) => (
-              <ModelRow key={m.alias} m={m} selected={alias === m.alias} onSelect={() => setAlias(m.alias)} />
-            ))}
-          </div>
-        )}
+      {/* Step 1 — Forecast method (the 2 engines that actually run) */}
+      <Section step="1" title="Choose your forecast method" sub="What you pick is what runs.">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
+          {ENGINES.map((e) => (
+            <EngineCard
+              key={e.id} e={e}
+              acc={engineInfo?.[e.id]?.accuracy_pct}
+              mae={engineInfo?.[e.id]?.mae}
+              selected={engine === e.id}
+              onSelect={() => setEngine(e.id)}
+            />
+          ))}
+        </div>
       </Section>
 
       {/* Step 2 — Horizon */}
@@ -211,7 +225,7 @@ export default function Task1Forecast({ onNavigate }) {
             marginTop: 12, fontSize: 12, color: '#7f1d1d',
             background: '#fef3c7', border: '1px solid #fde68a', padding: '8px 12px', borderRadius: 8,
           }}>
-            Yearly forecasts are aggregates — the daily-accuracy badge above applies to the underlying predictions.
+            Yearly forecasts are aggregates — the accuracy shown applies to the underlying daily predictions.
           </div>
         )}
       </Section>
@@ -231,39 +245,13 @@ export default function Task1Forecast({ onNavigate }) {
         />
       </Section>
 
-      {/* Bottom run button — same action as top, second touchpoint after config */}
-      <div>
-        <button
-          onClick={run}
-          disabled={!alias || running}
-          style={{
-            cursor: running ? 'wait' : alias ? 'pointer' : 'not-allowed',
-            background: alias ? `linear-gradient(135deg, ${C.teal}, ${C.navy})` : '#cbd5e1',
-            color: '#fff', border: 0,
-            padding: '14px 28px', borderRadius: 10,
-            fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
-            boxShadow: alias ? '0 8px 22px rgba(13,148,136,0.35)' : 'none',
-            opacity: running ? 0.7 : 1,
-          }}
-        >
-          {running ? 'Predicting…' : `▶ ${result ? 'Re-run' : 'Start'} prediction${alias ? ` — ${alias}` : ''}`}
-        </button>
-        {selected && (
-          <div style={{ marginTop: 8, fontSize: 12, color: C.muted }}>
-            Will run <strong>{alias}</strong> via the live{' '}
-            <strong>{aliasToEngine(alias) === 'ml' ? 'Gradient Boosting' : 'SARIMAX'}</strong> engine
-            on the <strong>{HORIZONS.find((h) => h.id === horizon)?.label || horizon}</strong> horizon.
-          </div>
-        )}
-      </div>
-
       {/* Result panel */}
       {result && (result.ok
-        ? <ForecastResult data={result.data} horizonId={result.horizonId} badge={selected?.badge} />
+        ? <ForecastResult data={result.data} horizonId={result.horizonId} badge="operational" />
         : <ForecastError result={result} onTryAnother={() => setResult(null)} onNavigate={onNavigate} />)}
 
-      {/* About selected model */}
-      {selected && <AboutPanel m={selected} />}
+      {/* Technical / thesis section — the 6 research models, tucked away */}
+      {models && models.length > 0 && <ResearchCatalogue models={models} />}
     </div>
   );
 }
@@ -354,6 +342,65 @@ function Section({ step, title, sub, children }) {
       </div>
       {children}
     </div>
+  );
+}
+
+function EngineCard({ e, acc, mae, selected, onSelect }) {
+  return (
+    <button onClick={onSelect} style={{
+      textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', background: '#fff',
+      border: `2px solid ${selected ? C.teal : '#e9ecf1'}`,
+      borderRadius: 12, padding: '16px 18px',
+      boxShadow: selected ? '0 6px 18px rgba(13,148,136,.18)' : '0 1px 2px rgba(15,23,41,.03)',
+      display: 'flex', flexDirection: 'column', gap: 8, transition: 'all .12s',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{
+          width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+          border: `2px solid ${selected ? C.teal : '#cbd5e1'}`,
+          background: selected ? C.teal : 'transparent',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', fontSize: 11, fontWeight: 700,
+        }}>{selected ? '✓' : ''}</span>
+        <span style={{ fontSize: 16, fontWeight: 800, color: C.ink }}>{e.name}</span>
+      </div>
+      <div style={{ fontSize: 12.5, color: C.muted, lineHeight: 1.5 }}>{e.blurb}</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 2 }}>
+        <span style={{ fontSize: 20, fontWeight: 800, color: '#0f766e' }}>
+          {acc != null ? `≈${Math.round(acc)}% accurate` : 'measuring…'}
+        </span>
+        {mae != null && (
+          <span style={{ fontSize: 12, color: C.muted }}>± {Math.round(mae)} patients/day</span>
+        )}
+      </div>
+      <div style={{ fontSize: 10.5, color: '#94a3b8', fontFamily: 'JetBrains Mono' }}>{e.tech}</div>
+    </button>
+  );
+}
+
+function ResearchCatalogue({ models }) {
+  const [openAlias, setOpenAlias] = useState(null);
+  const open = models.find((m) => m.alias === openAlias) || null;
+  return (
+    <details style={{
+      background: '#fafbfc', border: '1px solid #e9ecf1', borderRadius: 12, padding: '16px 20px',
+    }}>
+      <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, color: C.ink }}>
+        The 6 research models behind this tool (thesis / technical) ▾
+      </summary>
+      <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, margin: '10px 0 12px' }}>
+        These are the six pre-trained models evaluated in the MSc study. Their validation scores are
+        nearly identical (all ≈88% accurate), and in this app they run through the two live engines above.
+        Click one for its full model card.
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {models.map((m) => (
+          <ModelRow key={m.alias} m={m} selected={openAlias === m.alias}
+            onSelect={() => setOpenAlias(openAlias === m.alias ? null : m.alias)} />
+        ))}
+      </div>
+      {open && <AboutPanel m={open} />}
+    </details>
   );
 }
 

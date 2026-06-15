@@ -317,6 +317,68 @@ async def run_specialty_forecast(req: SpecialtyForecastRequest) -> Dict[str, Any
     return result
 
 
+def _series_for(group: str, specialty: Optional[str]):
+    """Return (series, weekly, label, target_id) for a forecast target, or raise.
+    g1 = total daily arrivals; specialty = that specialty's column in G3."""
+    if specialty:
+        col = SPECIALTY_COLUMN.get(specialty)
+        if col is None:
+            raise HTTPException(400, f"Unknown specialty '{specialty}'.")
+        df = prepare_registry.get_df("g3")
+        if df is None:
+            raise HTTPException(409, {"error": "g3_not_merged",
+                                      "message": "G3 (Clinical daily) is not merged. Build it on the Prepare page first."})
+        target = col
+        weekly = specialty in ("Maternity", "Psychiatry")
+    else:
+        df = prepare_registry.get_df("g1")
+        if df is None:
+            raise HTTPException(409, {"error": "g1_not_merged",
+                                      "message": "G1 (Daily demand) is not merged. Build it on the Prepare page first."})
+        target = "total_daily_arrivals"
+        weekly = False
+    if target not in df.columns or "date" not in df.columns:
+        raise HTTPException(500, f"Required columns missing ('date' and '{target}').")
+    s = pd.Series(
+        pd.to_numeric(df[target], errors="coerce").to_numpy(),
+        index=pd.to_datetime(df["date"], errors="coerce"),
+    ).dropna().sort_index()
+    return s, weekly
+
+
+# Cache live-engine accuracy so the model picker can show numbers that match the
+# result without recomputing on every page load. Keyed by target + data shape.
+_ENGINE_CACHE: dict = {}
+
+
+@router.get("/engines")
+async def engine_accuracy(group: str = "g1", specialty: Optional[str] = None) -> Dict[str, Any]:
+    """Live accuracy of the two engines that actually run (SARIMAX + Gradient
+    Boosting) on this target, so the picker shows what the result will show."""
+    s, weekly = _series_for(group, specialty)
+    key = (specialty or group, int(s.size),
+           s.index[-1].strftime("%Y-%m-%d") if s.size else "-")
+    if key in _ENGINE_CACHE:
+        return _ENGINE_CACHE[key]
+
+    horizon = 4 if weekly else 7
+    out: Dict[str, Any] = {"target": specialty or group, "weekly": weekly, "engines": {}}
+    for model in ("statistical", "ml"):
+        try:
+            res = _forecast_from_series(s, model, horizon, weekly=weekly, start_date=None)
+            out["engines"][model] = {
+                "accuracy_pct": res.get("confidence_pct"),
+                "mae": res.get("mae"),
+                "low_volume": res.get("low_volume", False),
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            out["engines"][model] = {"accuracy_pct": None, "mae": None, "error": str(e)}
+    _ENGINE_CACHE[key] = out
+    return out
+
+
 @router.get("/coverage")
 async def coverage(group: str = "g1", specialty: Optional[str] = None) -> Dict[str, Any]:
     """Date span available for a forecast target, so the UI can bound its

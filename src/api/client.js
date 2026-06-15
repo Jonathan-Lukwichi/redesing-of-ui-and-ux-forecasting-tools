@@ -50,6 +50,8 @@ export const api = {
       }),
     coverage: (group = 'g1', signal) =>
       request(`/api/forecast/coverage?group=${group}`, { signal }),
+    engines: ({ group = 'g1', specialty = null } = {}, signal) =>
+      request(`/api/forecast/engines?group=${group}${specialty ? `&specialty=${encodeURIComponent(specialty)}` : ''}`, { signal }),
     demo: (signal) => request('/api/forecast/demo', { signal }),
   },
 
