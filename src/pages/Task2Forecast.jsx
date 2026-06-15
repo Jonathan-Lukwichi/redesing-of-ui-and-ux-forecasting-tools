@@ -566,7 +566,9 @@ function ForecastResult({ data, horizonId, weekly, badge }) {
               {data.confidence_pct != null && (
                 <div style={{ fontSize: 11, color: C.muted }}>
                   ~{Math.round(data.confidence_pct)}%{' '}
-                  {data.confidence_basis === 'interval' ? 'band tightness' : 'accuracy'}
+                  {data.confidence_basis === 'backtest' ? 'vs real data'
+                    : data.confidence_basis === 'interval' ? 'band tightness'
+                    : 'live-engine accuracy'}
                 </div>
               )}
             </div>
@@ -619,9 +621,12 @@ function ForecastResult({ data, horizonId, weekly, badge }) {
       </div>
 
       <div style={{ marginTop: 14, fontSize: 11.5, color: C.muted, lineHeight: 1.6 }}>
-        Forecast generated live from {data.history_window_days?.toLocaleString()} {unit}s of real {specialty} arrivals
-        (G3 · Clinical daily). Shaded range is the 95% confidence interval. The catalogue model{' '}
-        <strong>{alias}</strong> maps onto the live <strong>{engineLabel}</strong> engine.
+        Trained live on {data.history_window_days?.toLocaleString()} {unit}s of real {specialty} arrivals (G3 · Clinical daily).
+        Shaded range is the 95% confidence interval.{' '}
+        {data.is_backtest && data.backtest
+          ? <>Error on this backtest window: <strong>{data.backtest.mape}%</strong> per {unit} ({data.backtest.total_pct_error}% on the total). </>
+          : <>The live <strong>{engineLabel}</strong> engine's own holdout error (MAPE) is <strong>{data.mape}%</strong>. </>}
+        The picker's <strong>{alias}</strong> stat is the pre-trained research model's published score, not the live engine's.
       </div>
     </div>
   );

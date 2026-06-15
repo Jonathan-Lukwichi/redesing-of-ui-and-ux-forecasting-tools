@@ -460,9 +460,11 @@ function ForecastResult({ data, horizonId, badge }) {
                 ~{Math.round(confidence)}%
               </div>
               <div style={{ fontSize: 10.5, color: C.muted }}>
-                {data.confidence_basis === 'interval'
-                  ? 'based on interval width'
-                  : `validation accuracy · MAPE ${data.mape}%`}
+                {data.confidence_basis === 'backtest'
+                  ? `measured vs real data · ${data.backtest?.mape}% off/day`
+                  : data.confidence_basis === 'interval'
+                    ? 'based on interval width'
+                    : `live-engine validation · MAPE ${data.mape}%`}
               </div>
             </div>
           )}
@@ -507,10 +509,13 @@ function ForecastResult({ data, horizonId, badge }) {
       </div>
 
       <div style={{ marginTop: 14, fontSize: 11.5, color: C.muted, lineHeight: 1.6 }}>
-        Forecast generated live from {data.history_window_days?.toLocaleString()} days of real Steve Biko arrivals.
-        Shaded range is the 95% confidence interval (±). Validation error (MAPE) {data.mape}% ·
-        the catalogue model <strong>{alias}</strong> maps onto the live <strong>{engineLabel}</strong> engine
-        until the pre-trained research bundles are wired in.
+        Trained live on {data.history_window_days?.toLocaleString()} days of real Steve Biko arrivals.
+        Shaded range is the 95% confidence interval (±).{' '}
+        {data.is_backtest && data.backtest
+          ? <>Error on this backtest window: <strong>{data.backtest.mape}%</strong> per day ({data.backtest.total_pct_error}% on the total). </>
+          : <>The live <strong>{engineLabel}</strong> engine's own holdout error (MAPE) is <strong>{data.mape}%</strong>. </>}
+        The picker's <strong>{alias}</strong> stat (val MAPE) is the pre-trained research model's published score; the number that
+        actually runs here is the live engine above, so the two differ.
       </div>
     </div>
   );
