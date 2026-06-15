@@ -14,6 +14,7 @@ The token never leaves the FastAPI process; the browser only sees the parsed
 DataFrame metadata.
 """
 from __future__ import annotations
+import asyncio
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -83,9 +84,64 @@ class FetchError(RuntimeError):
         self.http_status = http_status
 
 
+# Network hiccups that are worth retrying (mid-stream drops, read timeouts).
+_TRANSIENT_ERRORS = (
+    httpx.RemoteProtocolError,
+    httpx.ReadError,
+    httpx.ReadTimeout,
+    httpx.ConnectError,
+    httpx.ConnectTimeout,
+)
+_MAX_ATTEMPTS = 4
+
+
+def _raise_for_status(status: int, path: str, repo: str, branch: str, body: str = "") -> None:
+    if status == 404:
+        raise FetchError(
+            f"File '{path}' not found on branch '{branch}' of {repo}. "
+            f"Check the filename and DATA_REPO_SUBPATH.",
+            http_status=404,
+        )
+    if status == 401:
+        raise FetchError(
+            "GitHub rejected the token (401). Generate a new fine-grained token "
+            "with read-only Contents access to the data repo.",
+            http_status=401,
+        )
+    if status == 403:
+        raise FetchError(
+            "GitHub forbids access (403). The token may not have access to this "
+            "repo, or you may be rate-limited.",
+            http_status=403,
+        )
+    raise FetchError(f"GitHub returned {status}: {body[:200]}", http_status=status)
+
+
+async def _download_streaming(url: str, headers: dict, params: dict | None,
+                              path: str, cfg: "DataSourceConfig") -> bytes:
+    """Stream a GET into a buffer. Streaming (vs .content) copes far better with
+    large files: we read in chunks instead of waiting on one giant body."""
+    buf = bytearray()
+    async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=30.0),
+                                 verify=_SSL_CONTEXT, follow_redirects=True) as client:
+        async with client.stream("GET", url, headers=headers, params=params) as resp:
+            if resp.status_code != 200:
+                body = (await resp.aread()).decode("utf-8", "replace")
+                _raise_for_status(resp.status_code, path, cfg.repo, cfg.branch, body)
+            async for chunk in resp.aiter_bytes(chunk_size=65536):
+                buf.extend(chunk)
+    return bytes(buf)
+
+
 async def fetch_raw(filename: str) -> bytes:
-    """Fetch one file from the configured repo. Filename is treated as relative
-    to DATA_REPO_SUBPATH (if any). Returns the raw bytes."""
+    """Fetch one file from the configured repo. Filename is relative to
+    DATA_REPO_SUBPATH (if any). Returns the raw bytes.
+
+    Primary path is the raw CDN (raw.githubusercontent.com) — it is built for
+    serving file content and handles multi-MB files far more reliably than the
+    Contents API, which drops the stream on large files (e.g. the ~11 MB hourly
+    clinical CSV). We stream the body and retry transient mid-stream drops, then
+    fall back to the Contents API as a last resort."""
     cfg = get_config()
     if not cfg.configured:
         raise FetchError(
@@ -94,39 +150,47 @@ async def fetch_raw(filename: str) -> bytes:
         )
 
     path = f"{cfg.subpath}{filename}"
-    url  = f"https://api.github.com/repos/{cfg.repo}/contents/{path}"
-    headers = {
+    raw_url = f"https://raw.githubusercontent.com/{cfg.repo}/{cfg.branch}/{path}"
+    raw_headers = {
+        "Authorization": f"Bearer {cfg.token}",
+        "User-Agent":    "healthforecast-ai",
+    }
+    api_url = f"https://api.github.com/repos/{cfg.repo}/contents/{path}"
+    api_headers = {
         "Authorization": f"Bearer {cfg.token}",
         "Accept":        "application/vnd.github.raw",
         "User-Agent":    "healthforecast-ai",
         "X-GitHub-Api-Version": "2022-11-28",
     }
-    params = {"ref": cfg.branch}
 
-    async with httpx.AsyncClient(timeout=60.0, verify=_SSL_CONTEXT) as client:
-        resp = await client.get(url, headers=headers, params=params)
+    last_exc: Exception | None = None
+    # Try the raw CDN first (fast + reliable), then the Contents API as fallback.
+    targets = [
+        (raw_url, raw_headers, None),
+        (api_url, api_headers, {"ref": cfg.branch}),
+    ]
+    for url, headers, params in targets:
+        for attempt in range(1, _MAX_ATTEMPTS + 1):
+            try:
+                return await _download_streaming(url, headers, params, path, cfg)
+            except FetchError as e:
+                # 404 means wrong path on this endpoint — fall through to the next
+                # target; any other HTTP error is terminal.
+                if e.http_status == 404:
+                    last_exc = e
+                    break
+                raise
+            except _TRANSIENT_ERRORS as e:
+                last_exc = e
+                # brief backoff before retrying the same endpoint
+                if attempt < _MAX_ATTEMPTS:
+                    await asyncio.sleep(0.6 * attempt)
+                continue
 
-    if resp.status_code == 200:
-        return resp.content
-    if resp.status_code == 404:
-        raise FetchError(
-            f"File '{path}' not found on branch '{cfg.branch}' of {cfg.repo}. "
-            f"Check the filename and DATA_REPO_SUBPATH.",
-            http_status=404,
-        )
-    if resp.status_code == 401:
-        raise FetchError(
-            "GitHub rejected the token (401). Generate a new fine-grained token "
-            "with read-only Contents access to the data repo.",
-            http_status=401,
-        )
-    if resp.status_code == 403:
-        raise FetchError(
-            "GitHub forbids access (403). The token may not have access to this "
-            "repo, or you may be rate-limited.",
-            http_status=403,
-        )
+    if isinstance(last_exc, FetchError):
+        raise last_exc
     raise FetchError(
-        f"GitHub returned {resp.status_code}: {resp.text[:200]}",
-        http_status=resp.status_code,
+        f"Could not download '{path}' after retries on both the raw CDN and the "
+        f"Contents API. Last error: {type(last_exc).__name__}: {last_exc}",
+        http_status=504,
     )
