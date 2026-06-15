@@ -364,8 +364,13 @@ function ForecastResult({ data, horizonId, badge }) {
           {confidence != null && (
             <div style={{ marginTop: 8 }}>
               <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Model confidence</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: confidence >= 80 ? '#15803d' : confidence >= 65 ? '#a16207' : '#b91c1c' }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: confidence >= 75 ? '#15803d' : confidence >= 55 ? '#a16207' : '#b91c1c' }}>
                 ~{Math.round(confidence)}%
+              </div>
+              <div style={{ fontSize: 10.5, color: C.muted }}>
+                {data.confidence_basis === 'interval'
+                  ? 'based on interval width'
+                  : `validation accuracy · MAPE ${data.mape}%`}
               </div>
             </div>
           )}

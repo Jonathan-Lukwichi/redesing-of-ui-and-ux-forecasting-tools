@@ -85,16 +85,32 @@ def _confidence_tier(pct: Optional[float]) -> Optional[str]:
 
 
 def _attach_confidence(result: dict, hist_mean: float) -> None:
-    """Attach confidence_pct, a qualitative tier, and a low_volume flag.
+    """Attach confidence_pct, a qualitative tier, a low_volume flag, and the
+    basis used.
 
-    For very low-volume series (a handful of cases per period) a daily point
-    forecast is inherently imprecise — we flag it so the UI can tell planners
-    to use the range rather than the single number, instead of pretending to
-    a precision the data can't support."""
-    pct = _confidence_from_intervals(result.get("forecast"))
+    Headline confidence = the model's validation ACCURACY (100 − MAPE). This is
+    the standard, intuitive measure and matches the MAPE we already report. The
+    95% interval (shown as the range) carries the separate day-to-day spread, so
+    we don't double-count interval width into the headline number.
+
+    For very low-volume series (a handful of cases per period) MAPE is unstable
+    (tiny denominators blow it up), so we fall back to interval tightness and
+    flag low_volume — telling planners to use the range, not the point number,
+    rather than pretending to a precision the data can't support."""
+    low_volume = bool(hist_mean < 5.0)
+    mape = result.get("mape")
+
+    if not low_volume and isinstance(mape, (int, float)):
+        pct = round(max(0.0, min(100.0, 100.0 - mape)), 1)
+        basis = "accuracy"           # 100 − validation MAPE
+    else:
+        pct = _confidence_from_intervals(result.get("forecast"))
+        basis = "interval"           # band tightness (MAPE unreliable here)
+
     result["confidence_pct"] = pct
     result["confidence_tier"] = _confidence_tier(pct)
-    result["low_volume"] = bool(hist_mean < 5.0)
+    result["confidence_basis"] = basis
+    result["low_volume"] = low_volume
     result["avg_actual"] = round(float(hist_mean), 1)
 
 

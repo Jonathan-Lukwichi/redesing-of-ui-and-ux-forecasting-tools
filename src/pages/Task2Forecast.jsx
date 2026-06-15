@@ -449,7 +449,10 @@ function ForecastResult({ data, horizonId, weekly, badge }) {
               <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Confidence</div>
               <div style={{ fontSize: 20, fontWeight: 800, color: tierColor }}>{tier}</div>
               {data.confidence_pct != null && (
-                <div style={{ fontSize: 11, color: C.muted }}>~{Math.round(data.confidence_pct)}% band tightness</div>
+                <div style={{ fontSize: 11, color: C.muted }}>
+                  ~{Math.round(data.confidence_pct)}%{' '}
+                  {data.confidence_basis === 'interval' ? 'band tightness' : 'accuracy'}
+                </div>
               )}
             </div>
           )}
