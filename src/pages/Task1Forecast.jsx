@@ -54,6 +54,11 @@ const fmtDay = (iso) => {
   const d = new Date(iso + 'T00:00:00');
   return { wd: WEEKDAY[d.getDay()], dom: d.getDate(), mon: MONTH3[d.getMonth()] };
 };
+const addDays = (iso, n) => {
+  const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+const clampDate = (iso, lo, hi) => (iso < lo ? lo : iso > hi ? hi : iso);
 
 function Badge({ badge, size = 'sm' }) {
   const b = BADGE[badge] || { color: '#64748b', soft: '#e2e8f0', emoji: '⚪', label: badge || '—' };
@@ -78,6 +83,8 @@ export default function Task1Forecast({ onNavigate }) {
   const [horizon, setHorizon] = useState('7d');
   const [running, setRunning] = useState(false);
   const [result,  setResult]  = useState(null);
+  const [coverage, setCoverage] = useState(null); // { min_date, max_date }
+  const [startDate, setStartDate] = useState(''); // '' = forecast the open future
 
   useEffect(() => {
     let alive = true;
@@ -86,9 +93,24 @@ export default function Task1Forecast({ onNavigate }) {
       .then((res) => { if (!alive) return; setModels(res.items || []);
                        if ((res.items || []).length && !alias) setAlias(res.items[0].alias); })
       .catch((e) => { if (alive) setError(e.message); });
+    api.forecast.coverage('g1')
+      .then((c) => { if (alive && c?.merged) setCoverage(c); })
+      .catch(() => { /* coverage is best-effort; picker still works unbounded */ });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Forecast window bounds: earliest start needs ~35 days of prior history;
+  // latest start is the day after the last actual (= pure future).
+  const futureStart = coverage ? addDays(coverage.max_date, 1) : '';
+  const minStart    = coverage ? addDays(coverage.min_date, 40) : '';
+  const isBacktest  = !!startDate && !!futureStart && startDate < futureStart;
+  const effectiveStart = isBacktest ? startDate : null; // null => open future
+  const stepStart = (n) => {
+    const base = startDate || futureStart;
+    if (!base) return;
+    setStartDate(clampDate(addDays(base, n), minStart, futureStart));
+  };
 
   const selected = models?.find((m) => m.alias === alias) || null;
 
@@ -99,6 +121,7 @@ export default function Task1Forecast({ onNavigate }) {
         model: aliasToEngine(alias),
         horizon: horizonDays(horizon),
         alias,
+        start_date: effectiveStart,
       });
       setResult({ ok: true, data: res, horizonId: horizon });
     } catch (e) {
@@ -147,7 +170,7 @@ export default function Task1Forecast({ onNavigate }) {
         primaryLabel={result ? 'Re-run prediction' : 'Start prediction'}
         onRun={run}
         summary={alias
-          ? `${alias} · ${HORIZONS.find((h) => h.id === horizon)?.label || horizon}`
+          ? `${alias} · ${HORIZONS.find((h) => h.id === horizon)?.label || horizon} · ${isBacktest ? `backtest from ${startDate}` : 'future'}`
           : 'Pick a model below, then start the prediction.'}
       />
 
@@ -193,20 +216,19 @@ export default function Task1Forecast({ onNavigate }) {
         )}
       </Section>
 
-      {/* Step 3 — Forecast window (derived, weather-app style) */}
-      <Section step="3" title="Forecast window" sub="Like a weather forecast — it begins right after your latest data.">
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 10,
-          background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10,
-          padding: '10px 14px', fontSize: 13, color: '#0369a1',
-        }}>
-          <span style={{ fontSize: 16 }}>📅</span>
-          <span>
-            The forecast starts the day after the most recent day in your data and runs{' '}
-            <strong>{horizonDays(horizon)} day{horizonDays(horizon) > 1 ? 's' : ''} forward</strong>.
-            Pick any day card in the results to see its detail.
-          </span>
-        </div>
+      {/* Step 3 — Start date (future or backtest) */}
+      <Section step="3" title="Start date" sub="Predict the future, or pick a past date to backtest against real numbers.">
+        <StartDatePicker
+          coverage={coverage}
+          startDate={startDate}
+          futureStart={futureStart}
+          minStart={minStart}
+          isBacktest={isBacktest}
+          horizonDays={horizonDays(horizon)}
+          onSetDate={(v) => setStartDate(v)}
+          onStep={stepStart}
+          onFuture={() => setStartDate('')}
+        />
       </Section>
 
       {/* Bottom run button — same action as top, second touchpoint after config */}
@@ -249,6 +271,76 @@ export default function Task1Forecast({ onNavigate }) {
 // ----------------------------------------------------------------------------
 // Sub-components
 // ----------------------------------------------------------------------------
+function StartDatePicker({ coverage, startDate, futureStart, minStart, isBacktest, horizonDays, onSetDate, onStep, onFuture }) {
+  const jump = (n, label) => (
+    <button onClick={() => onStep(n)} style={{
+      border: '1px solid #cbd5e1', background: '#fff', borderRadius: 7,
+      padding: '7px 11px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+      fontFamily: 'inherit', color: C.ink, whiteSpace: 'nowrap',
+    }}>{label}</button>
+  );
+  const endDate = (isBacktest ? startDate : futureStart) && horizonDays
+    ? addDays((isBacktest ? startDate : futureStart), horizonDays - 1) : null;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Mode toggle */}
+      <div style={{ display: 'inline-flex', gap: 4, background: '#f1f4f7', borderRadius: 10, padding: 4, alignSelf: 'flex-start' }}>
+        <button onClick={onFuture} style={{
+          border: 0, cursor: 'pointer', fontFamily: 'inherit', padding: '8px 16px', borderRadius: 7,
+          background: !isBacktest ? C.teal : 'transparent', color: !isBacktest ? '#fff' : C.muted,
+          fontSize: 13, fontWeight: 700,
+        }}>🔮 Predict future</button>
+        <button onClick={() => onSetDate(addDays(futureStart || '2026-01-01', -371))} style={{
+          border: 0, cursor: 'pointer', fontFamily: 'inherit', padding: '8px 16px', borderRadius: 7,
+          background: isBacktest ? C.navy : 'transparent', color: isBacktest ? '#fff' : C.muted,
+          fontSize: 13, fontWeight: 700,
+        }}>🎯 Backtest a past date</button>
+      </div>
+
+      {isBacktest ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {jump(-365, '◀ Year')}
+          {jump(-7, '◀ Week')}
+          <input
+            type="date" value={startDate}
+            min={minStart || undefined} max={futureStart || undefined}
+            onChange={(e) => onSetDate(clampDate(e.target.value, minStart || e.target.value, futureStart || e.target.value))}
+            style={{
+              fontFamily: 'inherit', fontSize: 14, padding: '9px 12px',
+              border: '1px solid #cbd5e1', borderRadius: 8, color: C.ink, minWidth: 160,
+            }}
+          />
+          {jump(7, 'Week ▶')}
+          {jump(365, 'Year ▶')}
+        </div>
+      ) : (
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 10, alignSelf: 'flex-start',
+          background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10,
+          padding: '10px 14px', fontSize: 13, color: '#0369a1',
+        }}>
+          <span style={{ fontSize: 16 }}>📅</span>
+          <span>Forecasting <strong>{horizonDays} day{horizonDays > 1 ? 's' : ''}</strong> into the open future, from{' '}
+            <strong>{futureStart || 'the day after your latest data'}</strong>.</span>
+        </div>
+      )}
+
+      {/* Window summary */}
+      <div style={{ fontSize: 12, color: C.muted }}>
+        {isBacktest
+          ? <>Trains on data <strong>before {startDate}</strong>, predicts <strong>{startDate} → {endDate}</strong>, then compares to the real numbers.</>
+          : null}
+        {coverage && (
+          <span style={{ marginLeft: isBacktest ? 8 : 0 }}>
+            Data available {coverage.min_date} → {coverage.max_date}.
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Section({ step, title, sub, children }) {
   return (
     <div>
@@ -377,6 +469,9 @@ function ForecastResult({ data, horizonId, badge }) {
         </div>
       </div>
 
+      {/* Backtest accuracy banner — shown when predictions are compared to reality */}
+      {data.is_backtest && data.backtest && <BacktestBanner bt={data.backtest} />}
+
       {/* Hero — the selected / first day, big like a weather "today" tile */}
       <HeroDay day={sel} />
 
@@ -421,9 +516,44 @@ function ForecastResult({ data, horizonId, badge }) {
   );
 }
 
+function BacktestBanner({ bt }) {
+  const acc = bt.accuracy_pct;
+  const good = acc >= 80, ok = acc >= 65;
+  const fg = good ? '#15803d' : ok ? '#a16207' : '#b91c1c';
+  const bg = good ? '#ecfdf5' : ok ? '#fffbeb' : '#fef2f2';
+  const bd = good ? '#a7f3d0' : ok ? '#fde68a' : '#fecaca';
+  return (
+    <div style={{
+      marginTop: 16, background: bg, border: `1px solid ${bd}`, borderRadius: 12,
+      padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap',
+    }}>
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: fg, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+          🎯 Backtest vs real numbers
+        </div>
+        <div style={{ fontSize: 13, color: '#334155', marginTop: 3 }}>
+          Compared <strong>{bt.n_compared}</strong> day(s) the model had never seen against what actually happened.
+        </div>
+      </div>
+      <div style={{ flex: 1 }} />
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 28, fontWeight: 800, color: fg, lineHeight: 1 }}>{Math.round(acc)}%</div>
+        <div style={{ fontSize: 10.5, color: C.muted }}>day-level accuracy</div>
+      </div>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>
+          {Math.round(bt.total_predicted)} <span style={{ color: C.muted, fontWeight: 400 }}>vs</span> {Math.round(bt.total_actual)}
+        </div>
+        <div style={{ fontSize: 10.5, color: C.muted }}>predicted vs actual total · {bt.total_pct_error}% off</div>
+      </div>
+    </div>
+  );
+}
+
 function HeroDay({ day }) {
   const s = LABEL_STYLE[day.label] || LABEL_STYLE.med;
   const f = fmtDay(day.date);
+  const hasActual = day.actual != null;
   return (
     <div style={{
       marginTop: 18, borderRadius: 14, padding: '20px 22px',
@@ -442,17 +572,25 @@ function HeroDay({ day }) {
         <div style={{ fontSize: 52, fontWeight: 800, color: C.ink, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
           {Math.round(day.predicted)}
         </div>
-        <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>expected patients</div>
+        <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>predicted patients</div>
       </div>
-      <div style={{ textAlign: 'right' }}>
-        <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Confidence range</div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: '#334155', marginTop: 4 }}>
-          {Math.round(day.lower)} – {Math.round(day.upper)}
+      {hasActual ? (
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Actual (real)</div>
+          <div style={{ fontSize: 30, fontWeight: 800, color: '#0f766e', marginTop: 2, lineHeight: 1 }}>{Math.round(day.actual)}</div>
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+            off by {Math.abs(Math.round(day.predicted - day.actual))} · range {Math.round(day.lower)}–{Math.round(day.upper)}
+          </div>
         </div>
-        <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
-          ± {Math.round((day.upper - day.lower) / 2)} patients
+      ) : (
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Confidence range</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: '#334155', marginTop: 4 }}>
+            {Math.round(day.lower)} – {Math.round(day.upper)}
+          </div>
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>± {Math.round((day.upper - day.lower) / 2)} patients</div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -460,6 +598,7 @@ function HeroDay({ day }) {
 function DayCard({ day, active, onClick }) {
   const s = LABEL_STYLE[day.label] || LABEL_STYLE.med;
   const f = fmtDay(day.date);
+  const hasActual = day.actual != null;
   return (
     <button onClick={onClick} style={{
       cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center',
@@ -475,7 +614,11 @@ function DayCard({ day, active, onClick }) {
       <div style={{ fontSize: 21, fontWeight: 800, color: C.ink, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
         {Math.round(day.predicted)}
       </div>
-      <div style={{ fontSize: 10, color: C.muted }}>{Math.round(day.lower)}–{Math.round(day.upper)}</div>
+      {hasActual ? (
+        <div style={{ fontSize: 10, fontWeight: 700, color: '#0f766e' }}>act {Math.round(day.actual)}</div>
+      ) : (
+        <div style={{ fontSize: 10, color: C.muted }}>{Math.round(day.lower)}–{Math.round(day.upper)}</div>
+      )}
     </button>
   );
 }

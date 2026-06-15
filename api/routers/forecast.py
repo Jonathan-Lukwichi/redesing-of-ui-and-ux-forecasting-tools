@@ -49,6 +49,9 @@ class RunRequest(BaseModel):
     model: Literal["statistical", "ml"] = "statistical"
     horizon: int = 7
     alias: Optional[str] = None
+    # Optional backtest: forecast FROM this date using only data before it, then
+    # compare to the actuals we already have. None = forecast the open future.
+    start_date: Optional[str] = None
 
 
 # Horizons the weather-style UI offers. Daily: 1, 7, 30, 365. Weekly specialties
@@ -114,6 +117,107 @@ def _attach_confidence(result: dict, hist_mean: float) -> None:
     result["avg_actual"] = round(float(hist_mean), 1)
 
 
+def _forecast_from_series(
+    s: "pd.Series",
+    model: str,
+    horizon: int,
+    weekly: bool = False,
+    start_date: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Core forecast routine shared by Task 1 (total) and Task 2 (specialty).
+
+    `s` is the full daily, date-indexed, cleaned series. When `start_date` is
+    given we train ONLY on data strictly before it and forecast forward from it
+    — then attach the real actuals for any forecast period we already have, so
+    the UI can show predicted-vs-actual (a backtest). With no start_date we
+    forecast the open future from the last known day."""
+    data_min, data_max = s.index.min(), s.index.max()
+    grain = s.resample("W").sum() if weekly else s
+    unit = "weeks" if weekly else "days"
+
+    cutoff = pd.to_datetime(start_date) if start_date else None
+    train = grain[grain.index < cutoff] if cutoff is not None else grain
+
+    if train.size < 30:
+        raise HTTPException(
+            422,
+            f"Only {int(train.size)} {unit} of history before the chosen start "
+            f"— need at least 30. Pick a later start date.",
+        )
+    if not weekly and train.size > 730:
+        train = train.iloc[-730:]
+
+    history = train.to_numpy().round(2).tolist()
+    dates   = [d.strftime("%Y-%m-%d") for d in train.index]
+
+    try:
+        if model == "statistical":
+            result = run_arima_forecast(history, dates, horizon)
+        else:
+            result = run_ml_forecast(history, dates, horizon)
+    except Exception as e:
+        raise HTTPException(500, f"Forecast failed: {e}")
+
+    # Engine emits consecutive daily dates; rewrite to weekly steps if needed.
+    if weekly and result.get("forecast"):
+        last = pd.to_datetime(dates[-1])
+        for i, day in enumerate(result["forecast"]):
+            day["date"] = (last + pd.Timedelta(days=7 * (i + 1))).strftime("%Y-%m-%d")
+
+    # Attach real actuals where we have them → backtest comparison.
+    actual_lookup = {d.strftime("%Y-%m-%d"): float(v) for d, v in grain.items()}
+    n_comp = 0
+    ae_sum = 0.0
+    ape_sum = 0.0
+    tot_pred = 0.0
+    tot_act = 0.0
+    for day in result.get("forecast", []):
+        a = actual_lookup.get(day["date"])
+        if a is not None:
+            day["actual"] = round(a, 1)
+            n_comp += 1
+            ae_sum += abs(day["predicted"] - a)
+            ape_sum += abs(day["predicted"] - a) / (abs(a) + 1e-6)
+            tot_pred += day["predicted"]
+            tot_act += a
+        else:
+            day["actual"] = None
+
+    backtest = None
+    if n_comp > 0:
+        bt_mape = round(ape_sum / n_comp * 100, 2)
+        # Window-total error (the aggregated number cancels daily noise — the
+        # honest metric when planning at the window level, not per-day).
+        total_pct_err = round(abs(tot_pred - tot_act) / (abs(tot_act) + 1e-6) * 100, 2)
+        backtest = {
+            "n_compared":      n_comp,
+            "mae":             round(ae_sum / n_comp, 2),
+            "mape":            bt_mape,
+            "accuracy_pct":    round(max(0.0, min(100.0, 100.0 - bt_mape)), 1),
+            "total_predicted": round(tot_pred, 1),
+            "total_actual":    round(tot_act, 1),
+            "total_pct_error": total_pct_err,
+        }
+
+    result["forecast_start"]      = result["forecast"][0]["date"] if result.get("forecast") else None
+    result["last_actual_date"]    = dates[-1] if dates else None
+    result["history_window_days"] = int(train.size)
+    result["data_min_date"]       = data_min.strftime("%Y-%m-%d")
+    result["data_max_date"]       = data_max.strftime("%Y-%m-%d")
+    result["is_backtest"]         = backtest is not None
+    result["backtest"]            = backtest
+
+    _attach_confidence(result, float(train.mean()))
+
+    # When we can compare to reality, confidence = how it ACTUALLY did on the
+    # chosen window (the most honest measure available).
+    if backtest is not None and not result.get("low_volume"):
+        result["confidence_pct"]   = backtest["accuracy_pct"]
+        result["confidence_tier"]  = _confidence_tier(backtest["accuracy_pct"])
+        result["confidence_basis"] = "backtest"
+    return result
+
+
 @router.post("/run")
 async def run_from_pipeline(req: RunRequest) -> Dict[str, Any]:
     # Forecast pulls history from G1 in-memory; frontend only sends model + horizon.
@@ -141,37 +245,12 @@ async def run_from_pipeline(req: RunRequest) -> Dict[str, Any]:
         index=pd.to_datetime(df["date"], errors="coerce"),
     ).dropna().sort_index()
 
-    if s.size < 30:
-        raise HTTPException(
-            422,
-            f"Only {int(s.size)} valid days in G1 — need at least 30 to forecast.",
-        )
-
-    # The ARIMA path can be slow on multi-year histories; cap to the most
-    # recent 730 days (~2 years) for the forecast input — still plenty of
-    # signal, ~5× faster fit.
-    if s.size > 730:
-        s = s.iloc[-730:]
-
-    history = s.to_numpy().round(2).tolist()
-    dates   = [d.strftime("%Y-%m-%d") for d in s.index]
-
-    try:
-        if req.model == "statistical":
-            result = run_arima_forecast(history, dates, req.horizon)
-        else:  # ml
-            result = run_ml_forecast(history, dates, req.horizon)
-    except Exception as e:
-        raise HTTPException(500, f"Forecast failed: {e}")
-
-    # Annotate with what the manager asked for, in their language.
-    result["requested_model"] = req.model
-    result["requested_alias"] = req.alias
+    result = _forecast_from_series(
+        s, req.model, req.horizon, weekly=False, start_date=req.start_date,
+    )
+    result["requested_model"]   = req.model
+    result["requested_alias"]   = req.alias
     result["requested_horizon"] = req.horizon
-    result["history_window_days"] = int(s.size)
-    result["forecast_start"] = result["forecast"][0]["date"] if result.get("forecast") else None
-    result["last_actual_date"] = dates[-1] if dates else None
-    _attach_confidence(result, float(s.mean()))
     return result
 
 
@@ -198,6 +277,8 @@ class SpecialtyForecastRequest(BaseModel):
     alias: Optional[str] = None
     # "weekly" specialties (Maternity / Psychiatry) are resampled to weekly sums.
     resolution: Literal["daily", "weekly"] = "daily"
+    # Optional backtest start (see RunRequest.start_date).
+    start_date: Optional[str] = None
 
 
 @router.post("/specialty")
@@ -223,49 +304,37 @@ async def run_specialty_forecast(req: SpecialtyForecastRequest) -> Dict[str, Any
         index=pd.to_datetime(df["date"], errors="coerce"),
     ).dropna().sort_index()
 
-    weekly = req.resolution == "weekly"
-    step_days = 7 if weekly else 1
-    if weekly:
-        # Sum daily specialty counts into ISO weeks; index = week-end dates.
-        s = s.resample("W").sum()
-
-    if s.size < 30:
-        raise HTTPException(
-            422,
-            f"Only {int(s.size)} valid {'weeks' if weekly else 'days'} for {req.specialty} — need at least 30.",
-        )
-    # Cap daily histories to ~2 years for a fast fit; weekly stays whole.
-    if not weekly and s.size > 730:
-        s = s.iloc[-730:]
-
-    history = s.to_numpy().round(2).tolist()
-    dates   = [d.strftime("%Y-%m-%d") for d in s.index]
-
-    try:
-        if req.model == "statistical":
-            result = run_arima_forecast(history, dates, req.horizon)
-        else:
-            result = run_ml_forecast(history, dates, req.horizon)
-    except Exception as e:
-        raise HTTPException(500, f"Forecast failed: {e}")
-
-    # The engine emits consecutive *daily* dates. For weekly resolution, rewrite
-    # the forecast dates to 7-day steps from the last actual week.
-    if weekly and result.get("forecast"):
-        last = pd.to_datetime(dates[-1])
-        for i, day in enumerate(result["forecast"]):
-            day["date"] = (last + pd.Timedelta(days=step_days * (i + 1))).strftime("%Y-%m-%d")
-
-    result["requested_model"]    = req.model
-    result["requested_alias"]    = req.alias
-    result["requested_horizon"]  = req.horizon
+    result = _forecast_from_series(
+        s, req.model, req.horizon,
+        weekly=(req.resolution == "weekly"),
+        start_date=req.start_date,
+    )
+    result["requested_model"]     = req.model
+    result["requested_alias"]     = req.alias
+    result["requested_horizon"]   = req.horizon
     result["requested_specialty"] = req.specialty
-    result["resolution"]         = req.resolution
-    result["history_window_days"] = int(s.size)
-    result["forecast_start"]     = result["forecast"][0]["date"] if result.get("forecast") else None
-    result["last_actual_date"]   = dates[-1] if dates else None
-    _attach_confidence(result, float(s.mean()))
+    result["resolution"]          = req.resolution
     return result
+
+
+@router.get("/coverage")
+async def coverage(group: str = "g1", specialty: Optional[str] = None) -> Dict[str, Any]:
+    """Date span available for a forecast target, so the UI can bound its
+    start-date picker. group=g1 (total) or g3 (specialty). Returns nulls when
+    the group isn't merged yet."""
+    gid = "g3" if (group == "g3" or specialty) else "g1"
+    df = prepare_registry.get_df(gid)
+    if df is None or "date" not in getattr(df, "columns", []):
+        return {"group": gid, "merged": False, "min_date": None, "max_date": None}
+    dates = pd.to_datetime(df["date"], errors="coerce").dropna().sort_values()
+    if dates.empty:
+        return {"group": gid, "merged": True, "min_date": None, "max_date": None}
+    return {
+        "group": gid,
+        "merged": True,
+        "min_date": dates.iloc[0].strftime("%Y-%m-%d"),
+        "max_date": dates.iloc[-1].strftime("%Y-%m-%d"),
+    }
 
 
 @router.get("/demo")

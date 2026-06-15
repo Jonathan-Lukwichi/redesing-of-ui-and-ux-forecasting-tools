@@ -38,16 +38,18 @@ export const api = {
   forecastDemo: (signal) => request('/api/forecast/demo', { signal }),
 
   forecast: {
-    run: ({ model = 'statistical', horizon = 7, alias = null } = {}) =>
+    run: ({ model = 'statistical', horizon = 7, alias = null, start_date = null } = {}) =>
       request('/api/forecast/run', {
         method: 'POST',
-        body: { model, horizon, alias },
+        body: { model, horizon, alias, start_date },
       }),
-    specialty: ({ specialty, model = 'statistical', horizon = 7, alias = null, resolution = 'daily' } = {}) =>
+    specialty: ({ specialty, model = 'statistical', horizon = 7, alias = null, resolution = 'daily', start_date = null } = {}) =>
       request('/api/forecast/specialty', {
         method: 'POST',
-        body: { specialty, model, horizon, alias, resolution },
+        body: { specialty, model, horizon, alias, resolution, start_date },
       }),
+    coverage: (group = 'g1', signal) =>
+      request(`/api/forecast/coverage?group=${group}`, { signal }),
     demo: (signal) => request('/api/forecast/demo', { signal }),
   },
 
