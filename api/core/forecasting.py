@@ -151,6 +151,7 @@ def run_arima_forecast(
         "horizon":    horizon,
         "forecast":   forecast_days,
         "history":    hist_out,
+        "interval_method": "model_pi",  # the model's own 95% prediction interval
         "message":    f"Trained on {len(series)} days of data",
     }
 
@@ -212,8 +213,19 @@ def run_ml_forecast(
         forecasted.append(pred)
         all_hist.append(pred)
 
-    # Simple prediction interval using residual std
-    residual_std = mae * 1.5
+    # Data-driven 95% interval: use the middle 95% of the model's OWN past
+    # errors (validation residuals = actual - predicted) instead of assuming a
+    # normal curve. We also widen gently with the horizon, because an iterative
+    # multi-step forecast (it feeds its own predictions back in) accumulates
+    # uncertainty the further ahead it goes.
+    if len(val_df) > 0:
+        residuals = val_df["arrivals"].values - preds_val  # actual - predicted
+        q_lo = float(np.quantile(residuals, 0.025))
+        q_hi = float(np.quantile(residuals, 0.975))
+    else:
+        # Fallback when there's no validation split: normal approx from MAE.
+        q_lo, q_hi = -1.96 * mae * 1.25, 1.96 * mae * 1.25
+
     all_vals = forecasted
     fc_dates = [
         (last_date + timedelta(days=i+1)).strftime("%Y-%m-%d")
@@ -221,12 +233,14 @@ def run_ml_forecast(
     ]
     forecast_days = []
     for i in range(horizon):
+        # Gentle horizon widening: +6% per step ahead (1-step band at i=0).
+        widen = 1.0 + 0.06 * i
         cats = {k: round(forecasted[i] * w, 1) for k, w in CATEGORY_WEIGHTS.items()}
         forecast_days.append({
             "date":       fc_dates[i],
             "predicted":  round(forecasted[i], 1),
-            "lower":      round(max(0, forecasted[i] - 1.96 * residual_std), 1),
-            "upper":      round(forecasted[i] + 1.96 * residual_std, 1),
+            "lower":      round(max(0, forecasted[i] + q_lo * widen), 1),
+            "upper":      round(forecasted[i] + q_hi * widen, 1),
             "label":      _label(forecasted[i], all_vals),
             "categories": cats,
         })
@@ -244,6 +258,7 @@ def run_ml_forecast(
         "horizon":    horizon,
         "forecast":   forecast_days,
         "history":    hist_out,
+        "interval_method": "empirical",  # middle 95% of the model's own past errors
         "message":    f"Trained on {len(df)} feature-engineered samples",
     }
 

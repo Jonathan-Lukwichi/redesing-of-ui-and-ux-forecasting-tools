@@ -556,7 +556,12 @@ function ForecastResult({ data, horizonId, badge }) {
 
       <div style={{ marginTop: 14, fontSize: 11.5, color: C.muted, lineHeight: 1.6 }}>
         Trained live on {data.history_window_days?.toLocaleString()} days of real Steve Biko arrivals.
-        The shaded low–high range is how much a day can realistically vary.{' '}
+        The low–high band is the <strong>95% confidence range</strong> — the real number should land inside it
+        about 19 times out of 20.{' '}
+        {data.interval_method === 'empirical'
+          ? 'We estimate it from the middle 95% of the model’s own past errors, widening it a little for each day further ahead.'
+          : 'It is the statistical model’s own 95% forecast interval, which naturally widens further into the future.'}
+        {' '}
         {data.is_backtest
           ? 'Accuracy above is measured against what actually happened.'
           : 'Accuracy above is what the model achieved on data it was tested on.'}

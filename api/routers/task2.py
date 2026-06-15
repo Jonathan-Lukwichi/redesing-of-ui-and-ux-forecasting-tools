@@ -22,9 +22,22 @@ router = APIRouter(prefix="/api/task2", tags=["task2"])
 
 # --- GET /api/task2/specialties ---------------------------------------------
 
+# Specialties whose forecasts are actually usable. Steve Biko sees only a
+# handful of patients a day in most specialties (Surgery ~1.9/day, Paediatrics
+# ~2.3, Gynaecology ~1.7, Maternity ~0.3, Psychiatry ~0.1, Orthopaedics ~10 but
+# very noisy), so a per-specialty daily/weekly forecast there carries no real
+# signal. Only Medicine (~49/day, ~84% accurate) clears the bar. The rest are
+# hidden from the forecasting picker (still reachable with usable_only=false for
+# the technical/thesis view). Audit: 2026-06.
+USABLE_SPECIALTIES = {"Medicine"}
+
+
 @router.get("/specialties")
-async def list_specialties() -> dict[str, Any]:
-    """All 7 specialties with their available model aliases + resolution.
+async def list_specialties(usable_only: bool = True) -> dict[str, Any]:
+    """Specialties with their available model aliases + resolution.
+
+    By default only the specialties with enough volume to forecast usefully are
+    returned (see USABLE_SPECIALTIES). Pass usable_only=false for the full set.
 
     Maternity and Psychiatry are weekly-resolution only — the UI uses this
     field to swap horizon options (1d/7d/monthly/yearly  vs  1week/4weeks/yearly)."""
@@ -32,6 +45,9 @@ async def list_specialties() -> dict[str, Any]:
         cat = handover.task2_catalogue()
     except handover.HandoverMissing as e:
         raise HTTPException(503, str(e))
+
+    if usable_only:
+        cat = [s for s in cat if s["specialty"] in USABLE_SPECIALTIES]
 
     # Decorate every (specialty, alias) pair with its badge from headline_all
     headline = {(r["specialty"], r["alias"]): r for r in handover.task2_headline_all()}

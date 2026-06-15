@@ -191,7 +191,8 @@ export default function Task2Forecast({ onNavigate }) {
           Per-Specialty Arrivals
         </h1>
         <div style={{ fontSize: 13.5, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
-          Specialty-level resource allocation, on-call rota, ward bed planning. 7 specialties · live forecast engines.
+          Specialty-level resource allocation, on-call rota, ward bed planning. Only specialties with
+          enough daily volume for a reliable forecast are shown.
         </div>
       </div>
 
@@ -211,6 +212,13 @@ export default function Task2Forecast({ onNavigate }) {
       {/* Step 1 — Specialty */}
       <Section step="1" title="Pick a specialty" sub="Each specialty is forecast from its own real history.">
         {!catalogue && !error && <div style={{ color: C.muted, fontSize: 13 }}>Loading specialties…</div>}
+        <div style={{
+          fontSize: 12, color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd',
+          borderRadius: 8, padding: '8px 12px', marginBottom: 10, lineHeight: 1.5,
+        }}>
+          ℹ️ Other specialties (Surgery, Paediatrics, Maternity, Psychiatry, Gynaecology, Orthopaedics) see only a
+          few patients a day at Steve Biko — too little signal for a reliable daily forecast — so they're not shown here.
+        </div>
         {catalogue && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
             {catalogue.map((s) => {
@@ -665,7 +673,11 @@ function ForecastResult({ data, horizonId, weekly, badge }) {
 
       <div style={{ marginTop: 14, fontSize: 11.5, color: C.muted, lineHeight: 1.6 }}>
         Trained live on {data.history_window_days?.toLocaleString()} {unit}s of real {specialty} arrivals (G3 · Clinical daily).
-        The shaded low–high range is how much a {unit} can realistically vary.{' '}
+        The low–high band is the <strong>95% confidence range</strong> — the real number should land inside it about 19 times out of 20.{' '}
+        {data.interval_method === 'empirical'
+          ? 'We estimate it from the middle 95% of the model’s own past errors.'
+          : 'It is the statistical model’s own 95% forecast interval.'}
+        {' '}
         {data.is_backtest
           ? 'Accuracy above is measured against what actually happened.'
           : 'Accuracy above is what the model achieved on data it was tested on.'}
