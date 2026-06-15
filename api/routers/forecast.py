@@ -40,16 +40,27 @@ async def run_forecast(req: ForecastRequest) -> Dict[str, Any]:
 class RunRequest(BaseModel):
     """Frontend-facing forecast request. Server pulls history from G1 itself
     so the browser never has to ship a 1500-day array. Manager picks a model
-    family and a horizon — that's it."""
+    family and a horizon — that's it.
+
+    `alias` is an optional display label (e.g. "Hybrid 1") so the weather-style
+    result can echo back the catalogue model the manager clicked, even though
+    the live engine that actually runs is SARIMAX (statistical) or Gradient
+    Boosting (ml)."""
     model: Literal["statistical", "ml"] = "statistical"
     horizon: int = 7
+    alias: Optional[str] = None
+
+
+# Horizons the weather-style UI offers: 1 day, 7 days, 30-day month, 365-day year.
+_ALLOWED_HORIZONS = (1, 7, 14, 30, 365)
 
 
 @router.post("/run")
 async def run_from_pipeline(req: RunRequest) -> Dict[str, Any]:
     # Forecast pulls history from G1 in-memory; frontend only sends model + horizon.
-    if req.horizon not in (7, 14, 30):
-        raise HTTPException(400, "horizon must be 7, 14, or 30 days.")
+    if req.horizon not in _ALLOWED_HORIZONS:
+        raise HTTPException(
+            400, f"horizon must be one of {_ALLOWED_HORIZONS} days.")
 
     df = prepare_registry.get_df("g1")
     if df is None:
@@ -96,8 +107,15 @@ async def run_from_pipeline(req: RunRequest) -> Dict[str, Any]:
 
     # Annotate with what the manager asked for, in their language.
     result["requested_model"] = req.model
+    result["requested_alias"] = req.alias
     result["requested_horizon"] = req.horizon
     result["history_window_days"] = int(s.size)
+    result["forecast_start"] = result["forecast"][0]["date"] if result.get("forecast") else None
+    result["last_actual_date"] = dates[-1] if dates else None
+    # A plain-language confidence: lower MAPE -> higher confidence.
+    mape = result.get("mape")
+    if isinstance(mape, (int, float)):
+        result["confidence_pct"] = round(max(0.0, min(100.0, 100.0 - mape)), 1)
     return result
 
 

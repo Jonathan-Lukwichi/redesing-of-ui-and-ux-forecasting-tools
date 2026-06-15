@@ -40,6 +40,19 @@ def _build_features(df: pd.DataFrame) -> pd.DataFrame:
     return df.dropna()
 
 
+def _as_1d(x) -> np.ndarray:
+    """Coerce a statsmodels result (Series or ndarray) to a 1-D float array.
+    Newer statsmodels returns plain ndarrays (no .values); older returns
+    pandas objects. This works for both."""
+    return np.asarray(getattr(x, "values", x), dtype=float).ravel()
+
+
+def _conf_bounds(ci) -> Tuple[np.ndarray, np.ndarray]:
+    """Split a conf_int result (DataFrame or 2-col ndarray) into lower/upper."""
+    arr = np.asarray(getattr(ci, "values", ci), dtype=float)
+    return arr[:, 0], arr[:, 1]
+
+
 def run_arima_forecast(
     history: List[float],
     dates: List[str],
@@ -74,21 +87,17 @@ def run_arima_forecast(
             enforce_invertibility=False,
         ).fit(disp=False)
         fc = sarima.get_forecast(steps=horizon)
-        mean_fc = fc.predicted_mean
-        ci = fc.conf_int(alpha=0.05)
-        lower = ci.iloc[:, 0].values
-        upper = ci.iloc[:, 1].values
+        mean_fc = _as_1d(fc.predicted_mean)
+        lower, upper = _conf_bounds(fc.conf_int(alpha=0.05))
         model_name = "SARIMAX(weekly)"
-        resid = sarima.resid
+        resid = _as_1d(sarima.resid)
     except Exception:
         model = ARIMA(series, order=best_order).fit()
         fc = model.get_forecast(steps=horizon)
-        mean_fc = fc.predicted_mean.values
-        ci = fc.conf_int(alpha=0.05)
-        lower = ci.iloc[:, 0].values
-        upper = ci.iloc[:, 1].values
+        mean_fc = _as_1d(fc.predicted_mean)
+        lower, upper = _conf_bounds(fc.conf_int(alpha=0.05))
         model_name = f"ARIMA{best_order}"
-        resid = model.resid
+        resid = _as_1d(model.resid)
 
     # Clip negatives
     mean_fc = np.clip(mean_fc, 0, None)

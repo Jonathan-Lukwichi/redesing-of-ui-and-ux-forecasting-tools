@@ -38,10 +38,10 @@ export const api = {
   forecastDemo: (signal) => request('/api/forecast/demo', { signal }),
 
   forecast: {
-    run: ({ model = 'statistical', horizon = 7 } = {}) =>
+    run: ({ model = 'statistical', horizon = 7, alias = null } = {}) =>
       request('/api/forecast/run', {
         method: 'POST',
-        body: { model, horizon },
+        body: { model, horizon, alias },
       }),
     demo: (signal) => request('/api/forecast/demo', { signal }),
   },

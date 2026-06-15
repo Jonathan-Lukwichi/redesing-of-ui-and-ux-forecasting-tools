@@ -26,15 +26,33 @@ const BADGE = {
 };
 
 const HORIZONS = [
-  { id: '1d',      label: '1 day ahead',  sub: 'tomorrow only' },
-  { id: '7d',      label: '7 days ahead', sub: 'day-by-day' },
-  { id: 'monthly', label: 'Monthly',      sub: '30-day aggregate' },
-  { id: 'yearly',  label: 'Yearly',       sub: '365-day aggregate' },
+  { id: '1d',      label: '1 day ahead',  sub: 'tomorrow only',     days: 1 },
+  { id: '7d',      label: '7 days ahead', sub: 'day-by-day',        days: 7 },
+  { id: 'monthly', label: 'Monthly',      sub: '30-day day-by-day', days: 30 },
+  { id: 'yearly',  label: 'Yearly',       sub: '365-day outlook',   days: 365 },
 ];
 
-const isoTomorrow = () => {
-  const d = new Date(); d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+// The catalogue aliases (Stat 1, ML 2, Hybrid 1 …) map onto the two live
+// engines that can actually run in this venv: SARIMAX (statistical) and
+// Gradient Boosting (ml). "Hybrid" leans on the statistical core.
+const aliasToEngine = (alias) =>
+  (alias || '').toUpperCase().startsWith('ML') ? 'ml' : 'statistical';
+
+const horizonDays = (id) => HORIZONS.find((h) => h.id === id)?.days ?? 7;
+
+// Weather-style colour ramp by intensity label.
+const LABEL_STYLE = {
+  peak: { bg: '#fee2e2', fg: '#b91c1c', dot: '#ef4444', word: 'Peak' },
+  high: { bg: '#ffedd5', fg: '#c2410c', dot: '#f97316', word: 'High' },
+  med:  { bg: '#fef9c3', fg: '#a16207', dot: '#eab308', word: 'Moderate' },
+  low:  { bg: '#dcfce7', fg: '#15803d', dot: '#22c55e', word: 'Low' },
+};
+
+const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTH3  = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const fmtDay = (iso) => {
+  const d = new Date(iso + 'T00:00:00');
+  return { wd: WEEKDAY[d.getDay()], dom: d.getDate(), mon: MONTH3[d.getMonth()] };
 };
 
 function Badge({ badge, size = 'sm' }) {
@@ -58,7 +76,6 @@ export default function Task1Forecast({ onNavigate }) {
   const [error,  setError]    = useState(null);
   const [alias,  setAlias]    = useState(null);
   const [horizon, setHorizon] = useState('7d');
-  const [startDate, setStartDate] = useState(isoTomorrow());
   const [running, setRunning] = useState(false);
   const [result,  setResult]  = useState(null);
 
@@ -78,8 +95,12 @@ export default function Task1Forecast({ onNavigate }) {
   const run = async () => {
     setRunning(true); setResult(null);
     try {
-      const res = await api.task1.forecast({ alias, horizon, start_date: startDate });
-      setResult({ ok: true, data: res });
+      const res = await api.forecast.run({
+        model: aliasToEngine(alias),
+        horizon: horizonDays(horizon),
+        alias,
+      });
+      setResult({ ok: true, data: res, horizonId: horizon });
     } catch (e) {
       setResult({
         ok: false,
@@ -121,12 +142,12 @@ export default function Task1Forecast({ onNavigate }) {
 
       {/* Top action bar — primary "Start prediction" CTA, always visible */}
       <StartBar
-        ready={!!alias && !!horizon && !!startDate}
+        ready={!!alias && !!horizon}
         running={running}
         primaryLabel={result ? 'Re-run prediction' : 'Start prediction'}
         onRun={run}
         summary={alias
-          ? `${alias} · ${horizon} · starting ${startDate}`
+          ? `${alias} · ${HORIZONS.find((h) => h.id === horizon)?.label || horizon}`
           : 'Pick a model below, then start the prediction.'}
       />
 
@@ -172,17 +193,20 @@ export default function Task1Forecast({ onNavigate }) {
         )}
       </Section>
 
-      {/* Step 3 — Start date */}
-      <Section step="3" title="Start date" sub="First date of the forecast window.">
-        <input
-          type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          style={{
-            fontFamily: 'inherit', fontSize: 14, padding: '10px 12px',
-            border: '1px solid #cbd5e1', borderRadius: 8, color: C.ink, minWidth: 180,
-          }}
-        />
+      {/* Step 3 — Forecast window (derived, weather-app style) */}
+      <Section step="3" title="Forecast window" sub="Like a weather forecast — it begins right after your latest data.">
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 10,
+          background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10,
+          padding: '10px 14px', fontSize: 13, color: '#0369a1',
+        }}>
+          <span style={{ fontSize: 16 }}>📅</span>
+          <span>
+            The forecast starts the day after the most recent day in your data and runs{' '}
+            <strong>{horizonDays(horizon)} day{horizonDays(horizon) > 1 ? 's' : ''} forward</strong>.
+            Pick any day card in the results to see its detail.
+          </span>
+        </div>
       </Section>
 
       {/* Bottom run button — same action as top, second touchpoint after config */}
@@ -204,15 +228,17 @@ export default function Task1Forecast({ onNavigate }) {
         </button>
         {selected && (
           <div style={{ marginTop: 8, fontSize: 12, color: C.muted }}>
-            Will run <strong>{alias}</strong> ({selected.card?.family || '—'}) on the <strong>{horizon}</strong> horizon, starting <strong>{startDate}</strong>.
+            Will run <strong>{alias}</strong> via the live{' '}
+            <strong>{aliasToEngine(alias) === 'ml' ? 'Gradient Boosting' : 'SARIMAX'}</strong> engine
+            on the <strong>{HORIZONS.find((h) => h.id === horizon)?.label || horizon}</strong> horizon.
           </div>
         )}
       </div>
 
       {/* Result panel */}
       {result && (result.ok
-        ? <ForecastResult data={result.data} />
-        : <ForecastError result={result} onTryAnother={() => setResult(null)} />)}
+        ? <ForecastResult data={result.data} horizonId={result.horizonId} badge={selected?.badge} />
+        : <ForecastError result={result} onTryAnother={() => setResult(null)} onNavigate={onNavigate} />)}
 
       {/* About selected model */}
       {selected && <AboutPanel m={selected} />}
@@ -295,56 +321,233 @@ function Banner({ color = 'amber', title, children }) {
   );
 }
 
-function ForecastResult({ data }) {
+function ForecastResult({ data, horizonId, badge }) {
+  const days = data.forecast || [];
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  if (!days.length) {
+    return <Banner color="amber" title="No forecast returned.">The engine ran but produced no days.</Banner>;
+  }
+
+  const engineLabel = data.requested_model === 'ml' ? 'Gradient Boosting (live)' : 'SARIMAX (live)';
+  const alias = data.requested_alias || data.model_used;
+  const confidence = data.confidence_pct;
+  const total = days.reduce((s, d) => s + d.predicted, 0);
+  const avg = total / days.length;
+  const busiest = days.reduce((a, b) => (b.predicted > a.predicted ? b : a), days[0]);
+  const quietest = days.reduce((a, b) => (b.predicted < a.predicted ? b : a), days[0]);
+  const isYearly = horizonId === 'yearly' || days.length > 31;
+  const sel = days[Math.min(selectedIdx, days.length - 1)];
+
   return (
     <div style={{
-      background: '#fff', border: `2px solid ${C.teal}`, borderRadius: 12, padding: '20px 22px',
+      background: 'linear-gradient(180deg,#f8fbff 0%,#ffffff 60%)',
+      border: `2px solid ${C.teal}`, borderRadius: 16, padding: '22px 24px',
+      boxShadow: '0 10px 30px rgba(13,148,136,0.10)',
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>
-            Forecast — {data.alias}, {data.horizon}
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.teal, textTransform: 'uppercase', letterSpacing: 1.2 }}>
+            Patient arrivals forecast
           </div>
-          <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>
-            {data.forecast_dates?.length} day(s) starting {data.forecast_dates?.[0]}
+          <div style={{ fontSize: 20, fontWeight: 800, color: C.ink, marginTop: 4, letterSpacing: '-0.4px' }}>
+            {alias} · {HORIZONS.find((h) => h.id === horizonId)?.label || `${days.length} days`}
+          </div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>
+            {days.length} day{days.length > 1 ? 's' : ''} from {fmtDay(days[0].date).mon} {fmtDay(days[0].date).dom}
+            {' · '}engine: <strong style={{ color: '#334155' }}>{engineLabel}</strong>
+            {data.last_actual_date && <> · latest data {data.last_actual_date}</>}
           </div>
         </div>
-        <Badge badge={data.badge} size="lg" />
+        <div style={{ textAlign: 'right' }}>
+          {badge && <Badge badge={badge} size="lg" />}
+          {confidence != null && (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Model confidence</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: confidence >= 80 ? '#15803d' : confidence >= 65 ? '#a16207' : '#b91c1c' }}>
+                ~{Math.round(confidence)}%
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-      {data.warning && <Banner color="amber" title="Note:">{data.warning}</Banner>}
-      <div style={{ marginTop: 12 }}>
-        <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '1px solid #e9ecf1' }}>
-              <th style={{ padding: '8px 10px', fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Date</th>
-              <th style={{ padding: '8px 10px', fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Predicted</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(data.forecast_dates || []).map((d, i) => (
-              <tr key={d} style={{ borderBottom: '1px solid #f3f5f8' }}>
-                <td style={{ padding: '8px 10px' }}>{d}</td>
-                <td style={{ padding: '8px 10px', fontWeight: 700, color: C.ink }}>
-                  {(data.point_forecasts || [])[i]?.toFixed(0)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {data.aggregated_horizon_total != null && (
-          <div style={{ marginTop: 10, fontSize: 14, fontWeight: 700, color: C.navy }}>
-            Total over horizon: {Math.round(data.aggregated_horizon_total).toLocaleString()}
+
+      {/* Hero — the selected / first day, big like a weather "today" tile */}
+      <HeroDay day={sel} />
+
+      {/* Day strip (weather-style cards) or yearly summary */}
+      {isYearly ? (
+        <YearlySummary days={days} total={total} avg={avg} busiest={busiest} quietest={quietest} />
+      ) : (
+        <>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.8, margin: '18px 0 8px' }}>
+            Tap a day for detail
           </div>
-        )}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(auto-fill, minmax(96px, 1fr))`,
+            gap: 8,
+          }}>
+            {days.map((d, i) => (
+              <DayCard key={d.date} day={d} active={i === selectedIdx} onClick={() => setSelectedIdx(i)} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Footer summary stats */}
+      <div style={{
+        marginTop: 18, paddingTop: 16, borderTop: '1px solid #e9ecf1',
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px,1fr))', gap: 10,
+      }}>
+        <Stat label="Total over window" val={Math.round(total).toLocaleString()} />
+        <Stat label="Average / day"     val={Math.round(avg).toLocaleString()} />
+        <Stat label="Busiest day"       val={`${Math.round(busiest.predicted)} · ${fmtDay(busiest.date).mon} ${fmtDay(busiest.date).dom}`} />
+        <Stat label="Quietest day"      val={`${Math.round(quietest.predicted)} · ${fmtDay(quietest.date).mon} ${fmtDay(quietest.date).dom}`} />
+      </div>
+
+      <div style={{ marginTop: 14, fontSize: 11.5, color: C.muted, lineHeight: 1.6 }}>
+        Forecast generated live from {data.history_window_days?.toLocaleString()} days of real Steve Biko arrivals.
+        Shaded range is the 95% confidence interval (±). Validation error (MAPE) {data.mape}% ·
+        the catalogue model <strong>{alias}</strong> maps onto the live <strong>{engineLabel}</strong> engine
+        until the pre-trained research bundles are wired in.
       </div>
     </div>
   );
 }
 
-function ForecastError({ result, onTryAnother }) {
-  const isPending = result?.detail?.error === 'feature_pipeline_pending'
+function HeroDay({ day }) {
+  const s = LABEL_STYLE[day.label] || LABEL_STYLE.med;
+  const f = fmtDay(day.date);
+  return (
+    <div style={{
+      marginTop: 18, borderRadius: 14, padding: '20px 22px',
+      background: `linear-gradient(120deg, ${s.bg} 0%, #ffffff 130%)`,
+      border: `1px solid ${s.dot}33`,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
+    }}>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: s.fg }}>{f.wd}, {f.mon} {f.dom}</div>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 6,
+          background: '#fff', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, color: s.fg }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.dot }} /> {s.word} demand
+        </div>
+      </div>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 52, fontWeight: 800, color: C.ink, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+          {Math.round(day.predicted)}
+        </div>
+        <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>expected patients</div>
+      </div>
+      <div style={{ textAlign: 'right' }}>
+        <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Confidence range</div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: '#334155', marginTop: 4 }}>
+          {Math.round(day.lower)} – {Math.round(day.upper)}
+        </div>
+        <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+          ± {Math.round((day.upper - day.lower) / 2)} patients
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DayCard({ day, active, onClick }) {
+  const s = LABEL_STYLE[day.label] || LABEL_STYLE.med;
+  const f = fmtDay(day.date);
+  return (
+    <button onClick={onClick} style={{
+      cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center',
+      background: active ? s.bg : '#fff',
+      border: `2px solid ${active ? s.dot : '#e9ecf1'}`,
+      borderRadius: 12, padding: '10px 6px 9px',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+      transition: 'all .12s',
+    }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: s.fg }}>{f.wd}</div>
+      <div style={{ fontSize: 10.5, color: C.muted }}>{f.mon} {f.dom}</div>
+      <span style={{ width: 9, height: 9, borderRadius: '50%', background: s.dot, margin: '2px 0' }} />
+      <div style={{ fontSize: 21, fontWeight: 800, color: C.ink, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+        {Math.round(day.predicted)}
+      </div>
+      <div style={{ fontSize: 10, color: C.muted }}>{Math.round(day.lower)}–{Math.round(day.upper)}</div>
+    </button>
+  );
+}
+
+function YearlySummary({ days, total, avg, busiest, quietest }) {
+  // Roll the 365 daily predictions up into calendar-month subtotals.
+  const months = {};
+  for (const d of days) {
+    const f = fmtDay(d.date);
+    const key = `${f.mon}`;
+    months[key] = months[key] || { mon: f.mon, sum: 0, n: 0 };
+    months[key].sum += d.predicted;
+    months[key].n += 1;
+  }
+  const rows = Object.values(months);
+  const maxSum = Math.max(...rows.map((r) => r.sum), 1);
+  return (
+    <div style={{ marginTop: 18 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>
+        Monthly outlook (predicted patient-days)
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {rows.map((r) => (
+          <div key={r.mon} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 34, fontSize: 12, fontWeight: 700, color: C.ink }}>{r.mon}</div>
+            <div style={{ flex: 1, background: '#eef2f7', borderRadius: 6, height: 22, position: 'relative', overflow: 'hidden' }}>
+              <div style={{
+                width: `${(r.sum / maxSum) * 100}%`, height: '100%',
+                background: `linear-gradient(90deg, ${C.teal}, ${C.navy})`, borderRadius: 6,
+              }} />
+            </div>
+            <div style={{ width: 70, textAlign: 'right', fontSize: 12, fontWeight: 700, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>
+              {Math.round(r.sum).toLocaleString()}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ForecastError({ result, onTryAnother, onNavigate }) {
+  const errCode = result?.detail?.error;
+  const needsData = errCode === 'g1_not_merged' || result?.status === 409;
+  const isPending = errCode === 'feature_pipeline_pending'
                  || (result?.message || '').includes('feature_pipeline_pending')
                  || result?.status === 501;
+
+  if (needsData) {
+    return (
+      <div style={{
+        background: '#fff', border: '1px solid #bae6fd', borderLeft: `4px solid ${C.navy}`,
+        borderRadius: 10, padding: '18px 20px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+          <span style={{ fontSize: 20 }}>🧱</span>
+          <strong style={{ fontSize: 15, color: C.ink }}>One quick step first — build your dataset</strong>
+        </div>
+        <div style={{ fontSize: 13.5, color: '#475569', lineHeight: 1.6 }}>
+          The forecast reads from <strong>G1 · Daily demand</strong> (your arrivals + calendar + weather, merged).
+          It isn't built yet in this session. Open <strong>Prepare</strong>, build the <strong>G1</strong> group,
+          then come back and press Start prediction.
+        </div>
+        <div style={{ marginTop: 14, display: 'flex', gap: 10 }}>
+          <button onClick={() => onNavigate?.('prepare')} style={{
+            background: `linear-gradient(135deg, ${C.teal}, ${C.navy})`, color: '#fff', border: 0,
+            borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+          }}>Go to Prepare →</button>
+          <button onClick={onTryAnother} style={{
+            background: '#fff', border: '1px solid #cbd5e1', borderRadius: 8,
+            padding: '9px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
+          }}>Dismiss</button>
+        </div>
+      </div>
+    );
+  }
+
   const title = isPending
     ? 'Feature pipeline integration pending'
     : 'Forecast temporarily unavailable';
