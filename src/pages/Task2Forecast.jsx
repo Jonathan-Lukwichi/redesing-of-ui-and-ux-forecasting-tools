@@ -231,7 +231,7 @@ export default function Task2Forecast({ onNavigate }) {
 
       {/* Step 2 — Model list (filtered to specialty) */}
       {selectedSpecialty && (
-        <Section step="2" title="Pick a model" sub={`Available for ${selectedSpecialty.specialty}, sorted by badge then by MAPE.`}>
+        <Section step="2" title="Pick a model" sub={`Available for ${selectedSpecialty.specialty} — most accurate first.`}>
           {selectedSpecialty.models?.length === 0 ? (
             <Banner color="amber" title="No models for this specialty.">
               The handover catalogue doesn't ship trained models here.
@@ -473,7 +473,7 @@ function Section({ step, title, sub, children }) {
 }
 
 function ModelRow({ m, selected, onSelect }) {
-  const mape = m.val_MAPE != null ? `${m.val_MAPE.toFixed(2)}%` : '—';
+  const acc = m.val_MAPE != null ? `≈${Math.round(100 - m.val_MAPE)}% accurate` : '—';
   return (
     <button onClick={onSelect}
       style={{
@@ -491,8 +491,8 @@ function ModelRow({ m, selected, onSelect }) {
         color: '#fff', fontSize: 11, fontWeight: 700, flexShrink: 0,
       }}>{selected ? '✓' : ''}</span>
       <div style={{ minWidth: 100, fontSize: 15, fontWeight: 700, color: C.ink }}>{m.alias}</div>
-      <div style={{ minWidth: 130, fontSize: 12.5, color: C.muted, fontFamily: 'JetBrains Mono' }}>
-        val MAPE <strong style={{ color: C.ink }}>{mape}</strong>
+      <div style={{ minWidth: 140, fontSize: 13, fontWeight: 700, color: '#0f766e' }}>
+        {acc}
       </div>
       <div style={{ flex: 1 }} />
       <Badge badge={m.badge} />
@@ -536,6 +536,7 @@ function ForecastResult({ data, horizonId, weekly, badge }) {
   const allHorizons = [...DAILY_HORIZONS, ...WEEKLY_HORIZONS];
   const isLong = days.length > 31;
   const sel = days[Math.min(selectedIdx, days.length - 1)];
+  const typicalMiss = data.is_backtest && data.backtest ? data.backtest.mae : data.mae;
 
   return (
     <div style={{
@@ -559,18 +560,20 @@ function ForecastResult({ data, horizonId, weekly, badge }) {
         </div>
         <div style={{ textAlign: 'right' }}>
           {badge && <Badge badge={badge} size="lg" />}
-          {tier && (
+          {data.confidence_pct != null && (
             <div style={{ marginTop: 8 }}>
-              <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Confidence</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: tierColor }}>{tier}</div>
-              {data.confidence_pct != null && (
-                <div style={{ fontSize: 11, color: C.muted }}>
-                  ~{Math.round(data.confidence_pct)}%{' '}
-                  {data.confidence_basis === 'backtest' ? 'vs real data'
-                    : data.confidence_basis === 'interval' ? 'band tightness'
-                    : 'live-engine accuracy'}
+              <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Forecast reliability</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: tierColor }}>
+                ~{Math.round(data.confidence_pct)}% accurate
+              </div>
+              {typicalMiss != null && (
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>
+                  ± {Math.round(typicalMiss)} patients/{unit} typical miss
                 </div>
               )}
+              <div style={{ fontSize: 10.5, color: C.muted, marginTop: 1 }}>
+                {data.is_backtest ? 'checked against real numbers' : 'expected accuracy'}
+              </div>
             </div>
           )}
         </div>
@@ -622,11 +625,10 @@ function ForecastResult({ data, horizonId, weekly, badge }) {
 
       <div style={{ marginTop: 14, fontSize: 11.5, color: C.muted, lineHeight: 1.6 }}>
         Trained live on {data.history_window_days?.toLocaleString()} {unit}s of real {specialty} arrivals (G3 · Clinical daily).
-        Shaded range is the 95% confidence interval.{' '}
-        {data.is_backtest && data.backtest
-          ? <>Error on this backtest window: <strong>{data.backtest.mape}%</strong> per {unit} ({data.backtest.total_pct_error}% on the total). </>
-          : <>The live <strong>{engineLabel}</strong> engine's own holdout error (MAPE) is <strong>{data.mape}%</strong>. </>}
-        The picker's <strong>{alias}</strong> stat is the pre-trained research model's published score, not the live engine's.
+        The shaded low–high range is how much a {unit} can realistically vary.{' '}
+        {data.is_backtest
+          ? 'Accuracy above is measured against what actually happened.'
+          : 'Accuracy above is what the model achieved on data it was tested on.'}
       </div>
     </div>
   );

@@ -175,7 +175,7 @@ export default function Task1Forecast({ onNavigate }) {
       />
 
       {/* Step 1 — Model picker */}
-      <Section step="1" title="Pick a model" sub="Sorted by validation RMSE — lowest error first.">
+      <Section step="1" title="Pick a model" sub="Most accurate first.">
         {!models && !error && <div style={{ color: C.muted, fontSize: 13 }}>Loading models…</div>}
         {models && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -358,8 +358,7 @@ function Section({ step, title, sub, children }) {
 }
 
 function ModelRow({ m, selected, onSelect }) {
-  const mape = m.val_MAPE != null ? `${m.val_MAPE.toFixed(2)}%` : '—';
-  const rmse = m.val_RMSE != null ? m.val_RMSE.toFixed(2) : '—';
+  const acc = m.val_MAPE != null ? `≈${Math.round(100 - m.val_MAPE)}% accurate` : '—';
   const family = m.card?.family || '—';
   return (
     <button
@@ -384,11 +383,8 @@ function ModelRow({ m, selected, onSelect }) {
 
       <div style={{ minWidth: 100, fontSize: 15, fontWeight: 700, color: C.ink }}>{m.alias}</div>
       <div style={{ minWidth: 80, fontSize: 12, color: C.muted, fontFamily: 'JetBrains Mono' }}>{family}</div>
-      <div style={{ minWidth: 110, fontSize: 12.5, color: C.muted, fontFamily: 'JetBrains Mono' }}>
-        val MAPE <strong style={{ color: C.ink }}>{mape}</strong>
-      </div>
-      <div style={{ minWidth: 100, fontSize: 12.5, color: C.muted, fontFamily: 'JetBrains Mono' }}>
-        RMSE <strong style={{ color: C.ink }}>{rmse}</strong>
+      <div style={{ minWidth: 140, fontSize: 13, fontWeight: 700, color: '#0f766e' }}>
+        {acc}
       </div>
       <div style={{ flex: 1 }} />
       <Badge badge={m.badge} />
@@ -429,6 +425,8 @@ function ForecastResult({ data, horizonId, badge }) {
   const quietest = days.reduce((a, b) => (b.predicted < a.predicted ? b : a), days[0]);
   const isYearly = horizonId === 'yearly' || days.length > 31;
   const sel = days[Math.min(selectedIdx, days.length - 1)];
+  // Single manager-facing metric: accuracy % + typical miss in patients.
+  const typicalMiss = data.is_backtest && data.backtest ? data.backtest.mae : data.mae;
 
   return (
     <div style={{
@@ -455,16 +453,17 @@ function ForecastResult({ data, horizonId, badge }) {
           {badge && <Badge badge={badge} size="lg" />}
           {confidence != null && (
             <div style={{ marginTop: 8 }}>
-              <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Model confidence</div>
+              <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Forecast reliability</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: confidence >= 75 ? '#15803d' : confidence >= 55 ? '#a16207' : '#b91c1c' }}>
-                ~{Math.round(confidence)}%
+                ~{Math.round(confidence)}% accurate
               </div>
-              <div style={{ fontSize: 10.5, color: C.muted }}>
-                {data.confidence_basis === 'backtest'
-                  ? `measured vs real data · ${data.backtest?.mape}% off/day`
-                  : data.confidence_basis === 'interval'
-                    ? 'based on interval width'
-                    : `live-engine validation · MAPE ${data.mape}%`}
+              {typicalMiss != null && (
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>
+                  ± {Math.round(typicalMiss)} patients/day typical miss
+                </div>
+              )}
+              <div style={{ fontSize: 10.5, color: C.muted, marginTop: 1 }}>
+                {data.is_backtest ? 'checked against real numbers' : 'expected accuracy'}
               </div>
             </div>
           )}
@@ -510,12 +509,10 @@ function ForecastResult({ data, horizonId, badge }) {
 
       <div style={{ marginTop: 14, fontSize: 11.5, color: C.muted, lineHeight: 1.6 }}>
         Trained live on {data.history_window_days?.toLocaleString()} days of real Steve Biko arrivals.
-        Shaded range is the 95% confidence interval (±).{' '}
-        {data.is_backtest && data.backtest
-          ? <>Error on this backtest window: <strong>{data.backtest.mape}%</strong> per day ({data.backtest.total_pct_error}% on the total). </>
-          : <>The live <strong>{engineLabel}</strong> engine's own holdout error (MAPE) is <strong>{data.mape}%</strong>. </>}
-        The picker's <strong>{alias}</strong> stat (val MAPE) is the pre-trained research model's published score; the number that
-        actually runs here is the live engine above, so the two differ.
+        The shaded low–high range is how much a day can realistically vary.{' '}
+        {data.is_backtest
+          ? 'Accuracy above is measured against what actually happened.'
+          : 'Accuracy above is what the model achieved on data it was tested on.'}
       </div>
     </div>
   );
@@ -757,16 +754,39 @@ function AboutPanel({ m }) {
         {card.description}
       </div>
 
-      <div style={{
-        marginTop: 14, display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10,
-      }}>
-        <Stat label="Validation MAPE"      val={card.performance?.val_MAPE != null ? `${card.performance.val_MAPE.toFixed(2)}%` : '—'} />
-        <Stat label="Validation RMSE"      val={card.performance?.val_RMSE != null ? card.performance.val_RMSE.toFixed(2)         : '—'} />
-        <Stat label="Weekly avg % error"   val={card.performance?.weekly_avg_pct_error  != null ? card.performance.weekly_avg_pct_error.toFixed(2)  + '%' : '—'} />
-        <Stat label="Monthly avg % error"  val={card.performance?.monthly_avg_pct_error != null ? card.performance.monthly_avg_pct_error.toFixed(2) + '%' : '—'} />
-        <Stat label="Yearly avg % error"   val={card.performance?.yearly_avg_pct_error  != null ? card.performance.yearly_avg_pct_error.toFixed(2)  + '%' : '—'} />
-      </div>
+      {/* The one manager metric */}
+      {card.performance?.val_MAPE != null && (
+        <div style={{
+          marginTop: 14, display: 'inline-flex', alignItems: 'baseline', gap: 8,
+          background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 10, padding: '10px 16px',
+        }}>
+          <span style={{ fontSize: 22, fontWeight: 800, color: '#0f766e' }}>
+            ≈{Math.round(100 - card.performance.val_MAPE)}% accurate
+          </span>
+          <span style={{ fontSize: 12, color: '#047857' }}>on past data</span>
+        </div>
+      )}
+
+      {/* Technical metrics tucked away for the thesis / literature */}
+      <details style={{ marginTop: 14 }}>
+        <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 700, color: C.muted }}>
+          Technical metrics (for the literature) ▾
+        </summary>
+        <div style={{
+          marginTop: 12, display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10,
+        }}>
+          <Stat label="Validation MAPE"      val={card.performance?.val_MAPE != null ? `${card.performance.val_MAPE.toFixed(2)}%` : '—'} />
+          <Stat label="Validation RMSE"      val={card.performance?.val_RMSE != null ? card.performance.val_RMSE.toFixed(2)         : '—'} />
+          <Stat label="Weekly avg % error"   val={card.performance?.weekly_avg_pct_error  != null ? card.performance.weekly_avg_pct_error.toFixed(2)  + '%' : '—'} />
+          <Stat label="Monthly avg % error"  val={card.performance?.monthly_avg_pct_error != null ? card.performance.monthly_avg_pct_error.toFixed(2) + '%' : '—'} />
+          <Stat label="Yearly avg % error"   val={card.performance?.yearly_avg_pct_error  != null ? card.performance.yearly_avg_pct_error.toFixed(2)  + '%' : '—'} />
+        </div>
+        <div style={{ marginTop: 10, fontSize: 11.5, color: C.muted, lineHeight: 1.6 }}>
+          MAPE = mean absolute % error (daily). RMSE = root-mean-square error. Weekly/monthly/yearly
+          are the errors once predictions are summed to that period (smaller, because daily noise cancels out).
+        </div>
+      </details>
 
       <div style={{ marginTop: 12, fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
         Training window: {card.training_window || '—'} ·
