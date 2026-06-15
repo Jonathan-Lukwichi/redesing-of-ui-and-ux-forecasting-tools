@@ -43,6 +43,11 @@ export const api = {
         method: 'POST',
         body: { model, horizon, alias },
       }),
+    specialty: ({ specialty, model = 'statistical', horizon = 7, alias = null, resolution = 'daily' } = {}) =>
+      request('/api/forecast/specialty', {
+        method: 'POST',
+        body: { specialty, model, horizon, alias, resolution },
+      }),
     demo: (signal) => request('/api/forecast/demo', { signal }),
   },
 
