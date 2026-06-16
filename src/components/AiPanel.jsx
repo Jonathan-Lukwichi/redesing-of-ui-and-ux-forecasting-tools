@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { aiApi } from '../api/aiClient';
 
-// "Read this for me" — a small streaming card. Pass the forecast result as
-// `context`; it streams a plain-English explanation grounded in those numbers.
-export default function AiPanel({ context, label = 'Read this for me' }) {
+// "Read this for me" — a small streaming card. Pass the page's data as
+// `context` and the `surface` (forecast/staff/supply/explore); it streams a
+// plain-English explanation grounded in those numbers.
+export default function AiPanel({ surface = 'forecast', context, fetchContext, label = 'Read this for me' }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -12,7 +13,12 @@ export default function AiPanel({ context, label = 'Read this for me' }) {
   const run = async () => {
     setBusy(true); setError(null); setText(''); setDone(false);
     try {
-      await aiApi.explainForecast(context, (chunk) => setText((t) => t + chunk));
+      const ctx = fetchContext ? await fetchContext() : context;
+      if (surface === 'briefing') {
+        await aiApi.briefing(ctx, (chunk) => setText((t) => t + chunk));
+      } else {
+        await aiApi.explain(surface, ctx, (chunk) => setText((t) => t + chunk));
+      }
       setDone(true);
     } catch (e) {
       setError(e.message || 'The assistant is temporarily unavailable.');

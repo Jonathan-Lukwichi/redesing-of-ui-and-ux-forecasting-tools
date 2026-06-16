@@ -9,6 +9,7 @@
 // =============================================================================
 import { useEffect, useId, useRef, useState } from 'react';
 import { api } from '../api/client';
+import AiPanel from '../components/AiPanel';
 
 // -- Design tokens (mirror the reference's :root vars) -----------------------
 const C = {
@@ -1443,7 +1444,11 @@ export default function ExploreData({ onNavigate }) {
   return (
     <div className="content">
       {ready
-        ? <Dashboard onRerun={() => setReady(false)} />
+        ? <>
+            <AiPanel surface="explore" label="Brief me on the findings"
+              fetchContext={() => api.explore.findings()} />
+            <Dashboard onRerun={() => setReady(false)} />
+          </>
         : <PipelineGate onDone={() => setReady(true)} onNavigate={onNavigate} />}
     </div>
   );

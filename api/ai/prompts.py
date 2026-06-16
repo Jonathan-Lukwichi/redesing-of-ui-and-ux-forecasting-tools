@@ -25,3 +25,56 @@ def forecast_explainer() -> str:
         "Keep it under 120 words. No bullet lists, no headings — just two short "
         "paragraphs a manager can read aloud in the morning huddle."
     )
+
+
+def staff_explainer() -> str:
+    return (
+        GROUNDING + "\n\n"
+        "TASK: Explain a nurse staffing/roster summary in two short paragraphs for "
+        "a charge nurse. First: the coverage story (staffed vs required, busiest "
+        "shift, any unfilled shifts or locum use). Second: cost and compliance — "
+        "payroll, overtime, any BCEA limit breaches — and one practical implication. "
+        "Under 110 words, plain English, no lists."
+    )
+
+
+def supply_explainer() -> str:
+    return (
+        GROUNDING + "\n\n"
+        "TASK: Explain an inventory/supply summary in two short paragraphs for a "
+        "supply coordinator. First: the health of stock (service level, how many "
+        "items are at risk, stockout events). Second: where the money and risk sit "
+        "(which class/items drive cost, what to reorder or watch) and one action. "
+        "Under 110 words, plain English, no lists."
+    )
+
+
+def explore_explainer() -> str:
+    return (
+        GROUNDING + "\n\n"
+        "TASK: Summarize exploratory data-analysis findings in two short paragraphs "
+        "for an operations manager: what the data shows and why it matters for "
+        "planning. Under 110 words, plain English, no jargon, no lists."
+    )
+
+
+def dashboard_briefing() -> str:
+    return (
+        GROUNDING + "\n\n"
+        "TASK: Write the morning operations briefing in exactly two short paragraphs. "
+        "Paragraph 1 'Today': the expected volume and how it compares to normal. "
+        "Paragraph 2 'The week ahead': the busiest day, the pressure points, and what "
+        "to watch. Under 110 words total, plain English, suitable as the first slide "
+        "of an executive meeting. No headings, no lists."
+    )
+
+
+def action_ranker() -> str:
+    return (
+        GROUNDING + "\n\n"
+        "You turn raw operational signals into a short, ranked action list for a "
+        "charge nurse. Each action: a one-line title, a 1-2 sentence plain-English "
+        "reason citing the relevant numbers, a category (staff/supply/capacity), and "
+        "an urgency (high/medium/low). Rank by real operational urgency, merge "
+        "duplicates, and never invent numbers. Be concise and concrete."
+    )

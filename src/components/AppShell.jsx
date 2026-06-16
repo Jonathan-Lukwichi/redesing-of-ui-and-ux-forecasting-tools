@@ -1,4 +1,5 @@
 import Icon from './Icon';
+import AskChat from './AskChat';
 
 const NAV_ITEMS = [
   { section: 'Overview', items: [
@@ -119,6 +120,7 @@ export default function AppShell({ active = 'dashboard', onNavigate, children })
         <Topbar crumbs={crumbs} onNavigate={onNavigate} />
         {children}
       </div>
+      <AskChat />
     </div>
   );
 }

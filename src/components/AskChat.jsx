@@ -1,0 +1,116 @@
+import { useEffect, useRef, useState } from 'react';
+import { aiApi } from '../api/aiClient';
+
+// Global "Ask" assistant — a floating button + chat panel, on every page.
+// Read-only: it can look up forecasts/supply/staffing, never change anything.
+export default function AskChat() {
+  const [open, setOpen] = useState(false);
+  const [msgs, setMsgs] = useState([]);   // {role:'user'|'assistant', content}
+  const [input, setInput] = useState('');
+  const [busy, setBusy] = useState(false);
+  const scrollRef = useRef(null);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [msgs, open]);
+
+  const send = async () => {
+    const q = input.trim();
+    if (!q || busy) return;
+    const history = [...msgs, { role: 'user', content: q }];
+    setMsgs([...history, { role: 'assistant', content: '' }]);
+    setInput(''); setBusy(true);
+    try {
+      await aiApi.chat(history, (chunk) => {
+        setMsgs((m) => {
+          const next = [...m];
+          next[next.length - 1] = { role: 'assistant', content: next[next.length - 1].content + chunk };
+          return next;
+        });
+      });
+    } catch (e) {
+      setMsgs((m) => {
+        const next = [...m];
+        next[next.length - 1] = { role: 'assistant', content: `[unavailable: ${e.message || 'error'}]` };
+        return next;
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const SUGGEST = ['Will Thursday be busy?', 'Which supplies are at risk?', 'How is staffing coverage?'];
+
+  return (
+    <>
+      {/* Floating button */}
+      <button onClick={() => setOpen((o) => !o)} title="Ask the assistant" style={{
+        position: 'fixed', right: 22, bottom: 22, zIndex: 1000,
+        width: 56, height: 56, borderRadius: '50%', border: 0, cursor: 'pointer',
+        background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', color: '#fff',
+        boxShadow: '0 8px 24px rgba(109,40,217,0.45)', fontSize: 22, fontWeight: 700,
+      }}>{open ? '×' : '✦'}</button>
+
+      {open && (
+        <div style={{
+          position: 'fixed', right: 22, bottom: 88, zIndex: 1000,
+          width: 380, maxWidth: 'calc(100vw - 44px)', height: 520, maxHeight: 'calc(100vh - 130px)',
+          background: '#fff', border: '1px solid #ddd6fe', borderRadius: 16,
+          boxShadow: '0 20px 50px rgba(15,23,41,0.25)', display: 'flex', flexDirection: 'column',
+          overflow: 'hidden',
+        }}>
+          <div style={{ padding: '12px 16px', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: '#fff' }}>
+            <div style={{ fontWeight: 800, fontSize: 14 }}>✦ Ask the assistant</div>
+            <div style={{ fontSize: 11, opacity: 0.9 }}>Reads your live data · can't change anything</div>
+          </div>
+
+          <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {msgs.length === 0 && (
+              <div style={{ color: '#64748b', fontSize: 13, lineHeight: 1.6 }}>
+                Ask about forecasts, staffing, or supplies in plain English.
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
+                  {SUGGEST.map((s) => (
+                    <button key={s} onClick={() => setInput(s)} style={{
+                      textAlign: 'left', border: '1px solid #ddd6fe', background: '#f5f3ff',
+                      borderRadius: 8, padding: '8px 10px', cursor: 'pointer', fontSize: 12.5, color: '#5b21b6', fontFamily: 'inherit',
+                    }}>{s}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {msgs.map((m, i) => (
+              <div key={i} style={{
+                alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+                maxWidth: '88%',
+                background: m.role === 'user' ? '#6d28d9' : '#f1f5f9',
+                color: m.role === 'user' ? '#fff' : '#1e293b',
+                borderRadius: 12, padding: '9px 12px', fontSize: 13, lineHeight: 1.55, whiteSpace: 'pre-wrap',
+              }}>
+                {m.content || (busy && i === msgs.length - 1 ? '…' : '')}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ borderTop: '1px solid #eef0f3', padding: 10, display: 'flex', gap: 8 }}>
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && send()}
+              placeholder="Ask a question…"
+              disabled={busy}
+              style={{
+                flex: 1, border: '1px solid #cbd5e1', borderRadius: 8, padding: '9px 11px',
+                fontSize: 13, fontFamily: 'inherit', outline: 'none',
+              }}
+            />
+            <button onClick={send} disabled={busy || !input.trim()} style={{
+              border: 0, cursor: busy ? 'wait' : 'pointer', fontFamily: 'inherit',
+              background: '#6d28d9', color: '#fff', borderRadius: 8, padding: '0 14px', fontWeight: 700, fontSize: 13,
+              opacity: busy || !input.trim() ? 0.5 : 1,
+            }}>{busy ? '…' : 'Send'}</button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

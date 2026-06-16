@@ -1,131 +1,123 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import PageHero from '../components/PageHero';
-import KPI from '../components/KPI';
 import Icon from '../components/Icon';
+import { aiApi } from '../api/aiClient';
 
-const ACTIONS = [
-  {
-    p: 'danger', t: 'Critical', tab: 'Staff',
-    title: 'Add 2 RNs to Thursday May 7 PM shift',
-    desc: 'Forecast shows +18% peak (232 patients). Current schedule has 28 RNs; optimal is 32. Estimated wait time impact if unstaffed: +47 min.',
-    tags: ['Staff', 'Thu May 7', 'PM shift'],
-    impact: '$8.4k',
-    why: 'ED arrival forecast is 232 (95% PI: 204-260). DOW pattern + heatwave forecast for Thu both push demand.',
-  },
-  {
-    p: 'danger', t: 'Critical', tab: 'Supply',
-    title: 'Reorder N95 respirators (3M 1860)',
-    desc: 'Stock at 78 units, ROP is 120. At forecast burn rate of 24/day, projected stockout in 3.2 days. Lead time is 5 days.',
-    tags: ['Supply', 'PPE', '5d lead'],
-    impact: 'Prevent stockout',
-    why: 'Respiratory case forecast is 396 over next 7 days (+12% vs. baseline).',
-  },
-  {
-    p: 'warning', t: 'High', tab: 'Capacity',
-    title: 'Open cardiac overflow capacity',
-    desc: 'Cardiac admissions forecast at 309 (vs. 285 capacity). Activate 6-bed overflow on telemetry floor 3.',
-    tags: ['Capacity', 'Cardiac'],
-    impact: '$12.0k',
-    why: 'Cardiac forecast +8.4% vs. trailing 4-week average.',
-  },
-  {
-    p: 'warning', t: 'High', tab: 'Supply',
-    title: 'Reorder IV Saline 1L (200 units)',
-    desc: 'Days cover at 2.8 days. Suggested order: 400 units to reach 7-day buffer.',
-    tags: ['Supply', 'Fluids'],
-    impact: 'Prevent stockout',
-    why: 'Higher-than-usual saline burn rate over past 14 days.',
-  },
-  {
-    p: 'info', t: 'Medium', tab: 'Staff',
-    title: 'Approve shift swap: Dr. Chen Wed AM ↔ Fri PM',
-    desc: 'Coverage maintained on both days. No overtime impact.',
-    tags: ['Staff', 'Approval'],
-    impact: '—',
-  },
-  {
-    p: 'warning', t: 'High', tab: 'Capacity',
-    title: 'Pre-position trauma bay 4 for weekend surge',
-    desc: 'Historical pattern shows +14% trauma on Sat/Sun following events. City marathon scheduled Saturday.',
-    tags: ['Capacity', 'Trauma', 'Sat May 9'],
-    impact: '$6.2k',
-    why: 'City marathon event detected in calendar data; past 3 marathon weekends averaged 198 trauma arrivals.',
-  },
-  {
-    p: 'info', t: 'Medium', tab: 'Supply',
-    title: 'Review excess elastic bandage inventory',
-    desc: '412 units on hand vs. 200 ROP (28 days cover). Consider returning or redistributing excess stock.',
-    tags: ['Supply', 'Wound', 'Excess'],
-    impact: '—',
-  },
-];
-
-const TABS = ['All', 'Staff', 'Supply', 'Capacity'];
+const URGENCY = {
+  high:   { tag: 'tag-danger',  label: 'High',   dot: '#dc2626' },
+  medium: { tag: 'tag-warning', label: 'Medium', dot: '#d97706' },
+  low:    { tag: 'tag-info',    label: 'Low',    dot: '#1e6091' },
+};
+const CAT = { staff: 'Staff', supply: 'Supply', capacity: 'Capacity' };
+const TABS = ['All', 'staff', 'supply', 'capacity'];
 
 export default function ActionCenter() {
+  const [actions, setActions] = useState(null);
+  const [error, setError] = useState(null);
   const [tab, setTab] = useState('All');
-  const [dismissed, setDismissed] = useState(new Set());
+  const [state, setState] = useState({}); // id -> 'approved'|'snoozed'|'dismissed'
 
-  const visible = ACTIONS.filter((a) => !dismissed.has(a.title) && (tab === 'All' || a.tab === tab));
-  const counts = Object.fromEntries(TABS.map((t) => [t, t === 'All' ? ACTIONS.length : ACTIONS.filter((a) => a.tab === t).length]));
+  const load = () => {
+    setActions(null); setError(null);
+    aiApi.actions()
+      .then((d) => {
+        if (d.error) { setError(d.message || 'Could not generate actions.'); setActions([]); }
+        else setActions(d.actions || []);
+      })
+      .catch((e) => { setError(e.message || 'error'); setActions([]); });
+  };
+  useEffect(load, []);
+
+  const visible = (actions || []).filter((a) =>
+    (tab === 'All' || a.category === tab) && state[a.id] !== 'dismissed');
+  const pending = (actions || []).filter((a) => !state[a.id]).length;
+  const set = (id, v) => setState((s) => ({ ...s, [id]: v }));
 
   return (
     <div className="content">
       <PageHero
         kicker="Operations · Action Center"
-        title="Action Center"
-        sub="Prioritized recommendations from the forecasting engine · staff, supply, and capacity moves with quantified impact"
+        title="Recommended Actions"
+        sub="The assistant turns your live forecast, staffing, and supply numbers into a ranked to-do list. Nothing happens until you approve."
         image="/images/actions-bg.jpg"
-        actions={<button className="btn"><Icon name="download" size={14} />Export</button>}
+        actions={<>
+          <button className="btn" onClick={load}><Icon name="refresh" size={14} />Re-generate</button>
+        </>}
       />
 
-      <div className="grid-kpi">
-        <KPI label="Critical" value="2" foot="resolve today" />
-        <KPI label="High priority" value="4" foot="this week" />
-        <KPI label="Estimated savings" value="$48k" trend="this week" trendDir="up" />
-        <KPI label="Resolution rate" value="91" unit="%" trend="+4%" trendDir="up" foot="last 30 days" />
-      </div>
-
-      <div className="tabs">
-        {TABS.map((t) => (
-          <div key={t} className={'tab' + (tab === t ? ' active' : '')} onClick={() => setTab(t)}>
-            {t} <span className="tag" style={{ marginLeft: 6 }}>{counts[t]}</span>
+      <div className="card">
+        <div className="card-header">
+          <div className="card-title">
+            {actions == null ? 'Generating actions…' : `${pending} pending`}
           </div>
-        ))}
-      </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {TABS.map((t) => (
+              <button key={t} className="btn btn-sm" onClick={() => setTab(t)}
+                style={tab === t ? { background: '#e8f1f8', color: '#1e6091', borderColor: '#1e6091' } : {}}>
+                {t === 'All' ? 'All' : CAT[t]}
+              </button>
+            ))}
+          </div>
+        </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {visible.map((a) => (
-          <div key={a.title} className="card" style={{ padding: 16 }}>
-            <div style={{ display: 'flex', gap: 16 }}>
-              <div style={{ width: 4, alignSelf: 'stretch', background: a.p === 'danger' ? '#dc2626' : a.p === 'warning' ? '#d97706' : '#2563eb', borderRadius: 2 }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span className={'tag tag-' + a.p}>{a.t}</span>
-                  {a.tags.map((t) => <span key={t} className="tag">{t}</span>)}
-                  {a.impact !== '—' && <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600, marginLeft: 'auto' }}>Impact: {a.impact}</span>}
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', marginBottom: 4 }}>{a.title}</div>
-                <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.5 }}>{a.desc}</div>
-                {a.why && (
-                  <div style={{ marginTop: 10, padding: '8px 10px', background: '#fafbfc', borderRadius: 6, fontSize: 12, color: '#64748b' }}>
-                    <strong style={{ color: '#1e6091' }}>Why:</strong> {a.why}
-                  </div>
-                )}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 110 }}>
-                <button className="btn btn-primary btn-sm">Approve</button>
-                <button className="btn btn-sm">Snooze</button>
-                <button className="btn btn-sm" onClick={() => setDismissed((prev) => new Set([...prev, a.title]))}>Dismiss</button>
+        <div style={{ padding: '4px 16px 16px' }}>
+          {actions == null && (
+            <div style={{ color: '#64748b', padding: 20 }}>
+              Reading the live forecast, staffing, and supply signals…
+            </div>
+          )}
+          {error && (
+            <div style={{ color: '#7f1d1d', padding: 16 }}>
+              {error}
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>
+                Make sure the data is built (G1 / G3 on Prepare) and the assistant key is set.
               </div>
             </div>
-          </div>
-        ))}
-        {visible.length === 0 && (
-          <div className="card" style={{ padding: 32, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
-            No actions in this category.
-          </div>
-        )}
+          )}
+          {actions != null && !error && visible.length === 0 && (
+            <div style={{ color: '#15803d', padding: 16 }}>✓ Nothing needs attention right now.</div>
+          )}
+
+          {visible.map((a) => {
+            const u = URGENCY[a.urgency] || URGENCY.low;
+            const st = state[a.id];
+            return (
+              <div key={a.id} style={{
+                display: 'flex', gap: 14, padding: '14px 0', borderBottom: '1px solid #eef0f3',
+                opacity: st === 'snoozed' ? 0.55 : 1,
+              }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: u.dot, marginTop: 6, flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span className={`tag ${u.tag}`} style={{ fontSize: 10 }}>{u.label}</span>
+                    <span className="tag" style={{ fontSize: 10 }}>{CAT[a.category] || a.category}</span>
+                    <strong style={{ fontSize: 14, color: '#0f172a' }}>{a.title}</strong>
+                  </div>
+                  <div style={{ fontSize: 13, color: '#475569', marginTop: 4, lineHeight: 1.55 }}>{a.reason}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                  {st === 'approved' ? (
+                    <span className="tag tag-success" style={{ alignSelf: 'center' }}>✓ Approved</span>
+                  ) : (
+                    <>
+                      <button className="btn btn-sm btn-primary" onClick={() => set(a.id, 'approved')}>Approve</button>
+                      <button className="btn btn-sm" onClick={() => set(a.id, st === 'snoozed' ? undefined : 'snoozed')}>
+                        {st === 'snoozed' ? 'Unsnooze' : 'Snooze'}
+                      </button>
+                      <button className="btn btn-sm" style={{ color: '#b91c1c' }} onClick={() => set(a.id, 'dismissed')}>Dismiss</button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {actions != null && visible.length > 0 && (
+            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 12, lineHeight: 1.5 }}>
+              AI-ranked from your live numbers. Suggestions only — nothing is changed until you approve. No patient data is used.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

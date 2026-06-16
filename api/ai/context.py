@@ -58,3 +58,43 @@ def build_forecast_context(data: dict[str, Any]) -> str:
         lines.append(f"  ... and {len(days) - 31} more {unit}s")
     lines.append("</context>")
     return "\n".join(lines)
+
+
+def build_staff_context(d: dict[str, Any]) -> str:
+    k = d.get("kpis", {}) or {}
+    lines = ["<context>", "Nurse staffing summary (13-month simulation, seed 42):",
+             f"Coverage: {k.get('coverage_pct')}% (staffed vs required)",
+             f"Total payroll: R{round(k.get('total_payroll_zar') or 0):,}",
+             f"Overtime hours: {k.get('overtime_hours')}",
+             f"Unfilled shifts: {k.get('unfilled_shifts')} over {k.get('days_simulated')} days",
+             f"BCEA 45h/week violations: {k.get('bcea_violations')}",
+             f"Nurses: {k.get('n_staff')}"]
+    for s in (d.get("shifts") or []):
+        lines.append(f"Shift {s['shift']}: avg {s['avg_staffed']}/{s['avg_required']} nurses, "
+                     f"{s['unfilled']} unfilled, {s['locum_hours']} locum hrs, cost R{round(s['cost_zar']):,}")
+    lines.append("</context>")
+    return "\n".join(lines)
+
+
+def build_supply_context(d: dict[str, Any]) -> str:
+    k = d.get("kpis", {}) or {}
+    lines = ["<context>", "Inventory summary (13-month simulation, seed 42):",
+             f"Service level: {k.get('service_level_pct')}%",
+             f"Items at risk: {k.get('items_at_risk')} of {k.get('n_items')}",
+             f"Stockout-days: {k.get('stockout_events')}",
+             f"Total cost: R{round(k.get('total_cost_zar') or 0):,}",
+             f"Inventory value: R{round(k.get('inventory_value_zar') or 0):,}"]
+    for a in (d.get("by_abc") or []):
+        lines.append(f"Class {a['abc_class']}: {a['items']} items, cost R{round(a['cost_zar']):,}")
+    risky = [i for i in (d.get("items") or []) if i.get("status") == "stockout"][:6]
+    for i in risky:
+        lines.append(f"At risk: {i['item_name']} (class {i['abc_class']}), service {i['service_level']}%, {i['stockout_days']} stockout-days")
+    lines.append("</context>")
+    return "\n".join(lines)
+
+
+def build_explore_context(d: dict[str, Any]) -> str:
+    # The Explore page passes a list/dict of findings; summarise generically.
+    import json
+    blob = json.dumps(d, default=str)[:3000]
+    return f"<context>\nExploratory findings (JSON, numbers are authoritative):\n{blob}\n</context>"

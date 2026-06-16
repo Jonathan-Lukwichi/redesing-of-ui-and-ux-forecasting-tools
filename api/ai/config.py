@@ -29,7 +29,7 @@ def model_fast() -> str:
 
 
 # Which surfaces need real reasoning / tool use vs. cheap paraphrase.
-_REASONING_SURFACES = {"chat", "copilot", "actions"}
+_REASONING_SURFACES = {"chat", "copilot"}
 
 
 def pick_model(surface: str) -> str:

@@ -4,6 +4,7 @@ import KPI from '../components/KPI';
 import Icon from '../components/Icon';
 import { LineChart } from '../components/Charts';
 import { api } from '../api/client';
+import AiPanel from '../components/AiPanel';
 
 const C = { ink: '#0f172a', muted: '#64748b', teal: '#0d9488', navy: '#1e6091', red: '#dc2626', amber: '#d97706' };
 
@@ -78,6 +79,8 @@ export default function SupplyPlanner() {
         <KPI label="Stockout-days" value={k ? k.stockout_events : '—'} foot="over 396 days" />
         <KPI label="Inventory value" value={k ? zarShort(k.inventory_value_zar) : '—'} foot={`across ${k?.n_items ?? 0} items`} />
       </div>
+
+      {data && <AiPanel surface="supply" context={data} label="Explain the inventory" />}
 
       {/* ABC value/cost split */}
       {data?.by_abc && (

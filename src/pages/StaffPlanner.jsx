@@ -4,6 +4,7 @@ import KPI from '../components/KPI';
 import Icon from '../components/Icon';
 import { LineChart } from '../components/Charts';
 import { api } from '../api/client';
+import AiPanel from '../components/AiPanel';
 
 const C = { ink: '#0f172a', muted: '#64748b', teal: '#0d9488', navy: '#1e6091', red: '#dc2626', amber: '#d97706' };
 const zar = (n) => (n == null ? '—' : 'R ' + Math.round(n).toLocaleString('en-ZA'));
@@ -66,6 +67,8 @@ export default function StaffPlanner() {
         <KPI label="Unfilled shifts" value={k ? k.unfilled_shifts : '—'} foot={`over ${k?.days_simulated ?? 0} days`} />
         <KPI label="BCEA violations" value={k ? k.bcea_violations : '—'} foot="45h/week breaches" />
       </div>
+
+      {data && <AiPanel surface="staff" context={data} label="Explain the roster" />}
 
       {/* Coverage chart */}
       <div className="card" style={{ marginBottom: 16 }}>
