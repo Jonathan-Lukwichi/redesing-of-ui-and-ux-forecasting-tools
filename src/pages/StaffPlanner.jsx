@@ -54,7 +54,7 @@ export default function StaffPlanner() {
       <PageHero
         kicker="Operations · Staff"
         title="Staff Planner"
-        sub="Nurse rostering, coverage and payroll from a 13-month scheduling simulation driven by real ED arrivals · 30 nurses · BCEA-compliant · seed 42"
+        sub="Nurse rostering, coverage and payroll from a 13-month scheduling simulation driven by real ED arrivals · 23 active nurses (of 30 posts) · BCEA logged, not enforced · representative run (seed 10059)"
         image="/images/staff-bg.jpg"
         actions={<>
           <button className="btn"><Icon name="refresh" size={14} />Re-optimize</button>
