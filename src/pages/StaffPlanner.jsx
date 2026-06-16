@@ -63,23 +63,24 @@ export default function StaffPlanner() {
       />
 
       <div className="grid-kpi">
-        <KPI label="Coverage" value={k ? k.coverage_pct : '—'} unit="%" foot="staffed vs required" />
-        <KPI label="Annual payroll" value={k ? zarShort(k.annual_payroll_zar) : '—'}
-          foot={`${k?.n_active_staff ?? 0} active nurses`} />
-        <KPI label="Mean weekly hours" value={k ? k.mean_weekly_hours : '—'} unit="h"
-          foot="12-hour shifts · SA norm" />
+        <KPI label="Coverage (lawful hours)" value={k ? Math.round(k.lawful_coverage_pct) : '—'} unit="%"
+          foot="if nurses worked the legal 45h/week" />
+        <KPI label="Staffing shortfall" value={k ? k.staffing_shortfall : '—'} unit="nurses"
+          foot={k ? `need ~${k.nurses_needed_legal}, have ${k.n_active_staff}` : ''} />
+        <KPI label="Overwork" value={k ? k.mean_weekly_hours : '—'} unit="h/wk"
+          foot={k ? `${k.overwork_pct}% of the legal 45h max` : ''} />
         <KPI label="BCEA breaches / nurse" value={k ? k.bcea_per_nurse : '—'}
           foot="45h/week · logged, not enforced" />
       </div>
 
-      {ci && (
+      {k && (
         <div style={{ fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
-          Figures are from one representative run ({k?.n_active_staff} of 30 posts filled, rest vacant). BCEA limits are
-          <strong> logged, not enforced</strong> — 12-hour shifts and ~58h weeks are the documented SA public-hospital norm,
-          so the high breach counts are realistic, not a bug. Across 30 runs (95% CI):
-          coverage {ci.coverage_pct.mean}% [{ci.coverage_pct.lo}–{ci.coverage_pct.hi}] ·
-          payroll {zarShort(ci.annual_payroll_zar.mean)} ·
-          BCEA {Math.round(ci.bcea_violations_per_staff.mean)}/nurse · locum share {ci.locum_share_pct.mean}%.
+          Today's roster reaches <strong>{k.coverage_pct}% coverage</strong> only by working
+          <strong> {k.mean_weekly_hours}h weeks</strong> ({k.overwork_pct}% of the legal 45h limit) — unsustainable.
+          {' '}{k.n_active_staff} of {k.n_posts} nursing posts filled, rest vacant.
+          {ci && <> Across 30 runs (95% CI): coverage {ci.coverage_pct.mean}% [{ci.coverage_pct.lo}–{ci.coverage_pct.hi}] ·
+            payroll {zarShort(ci.annual_payroll_zar.mean)} · BCEA {Math.round(ci.bcea_violations_per_staff.mean)}/nurse.</>}
+          {' '}Ask the assistant to explain what this gap means.
         </div>
       )}
 

@@ -32,11 +32,19 @@ def forecast_explainer() -> str:
 def staff_explainer() -> str:
     return (
         GROUNDING + "\n\n"
-        "TASK: Explain a nurse staffing/roster summary in two short paragraphs for "
-        "a charge nurse. First: the coverage story (staffed vs required, busiest "
-        "shift, any unfilled shifts or locum use). Second: cost and compliance — "
-        "payroll, overtime, any BCEA limit breaches — and one practical implication. "
-        "Under 110 words, plain English, no lists."
+        "TASK: Explain the nurse staffing picture in two short paragraphs for a "
+        "hospital manager, and make the demand-supply mismatch impossible to miss.\n"
+        "Paragraph 1 — the real gap: lead with the LAWFUL-hours coverage (what the "
+        "available nurses could deliver at the legal 45h/week). Explain that the "
+        "higher 'actual' coverage figure is reached ONLY by working ~58h weeks "
+        "(well over the legal limit), and that lawful staffing leaves a shortfall "
+        "of several nurses.\n"
+        "Paragraph 2 — why it matters: explain in plain terms that this unmet "
+        "nursing capacity is what forces patients to queue and wait for care (frame "
+        "this as the real-world consequence of the shortfall, not a number from the "
+        "data), and note this is the documented South African public-hospital "
+        "reality. This dataset covers NURSES only — do not mention doctor numbers.\n"
+        "Under 120 words, plain prose."
     )
 
 

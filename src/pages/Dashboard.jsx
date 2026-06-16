@@ -139,8 +139,8 @@ export default function Dashboard({ onNavigate }) {
           <div className="card-header"><div className="card-title">Staffing</div>
             <a style={{ fontSize: 12, color: '#1e6091', cursor: 'pointer' }} onClick={() => onNavigate('staff')}>Open →</a></div>
           <div className="card-body">
-            <SnapRow label="Coverage" value={tk ? tk.coverage_pct + '%' : '—'} />
-            <SnapRow label="Annual payroll" value={tk ? zarShort(tk.annual_payroll_zar) : '—'} />
+            <SnapRow label="Coverage (lawful hrs)" value={tk ? Math.round(tk.lawful_coverage_pct) + '%' : '—'} danger={tk?.lawful_coverage_pct < 90} />
+            <SnapRow label="Staffing shortfall" value={tk ? tk.staffing_shortfall + ' nurses' : '—'} danger={tk?.staffing_shortfall > 0} />
             <SnapRow label="BCEA breaches/nurse" value={tk ? tk.bcea_per_nurse : '—'} danger={tk?.bcea_per_nurse > 0} />
           </div>
         </div>

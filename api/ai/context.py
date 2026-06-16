@@ -71,14 +71,13 @@ def build_staff_context(d: dict[str, Any]) -> str:
     k = d.get("kpis", {}) or {}
     ci = d.get("ci", {}) or {}
     lines = ["<context>",
-             "Nurse staffing — one representative simulation run (numbers below), with 30-seed means as context.",
-             "NOTE: BCEA limits are LOGGED not enforced (12-hour shifts are the SA public-hospital norm), so high violation counts and ~58h weeks are expected/realistic.",
-             f"Coverage: {k.get('coverage_pct')}%",
+             "Nurse staffing (Casualty unit; NURSES ONLY — no doctors in this dataset). One representative simulation run.",
+             f"Lawful-hours coverage: {k.get('lawful_coverage_pct')}%  (coverage the {k.get('n_active_staff')} nurses could deliver working only the legal 45h/week)",
+             f"Actual coverage today: {k.get('coverage_pct')}%  — but ONLY reached by working {k.get('mean_weekly_hours')}h/week ({k.get('overwork_pct')}% of the legal 45h limit)",
+             f"Staffing shortfall: {k.get('staffing_shortfall')} nurses (demand needs ~{k.get('nurses_needed_legal')} at lawful hours; only {k.get('n_active_staff')} of {k.get('n_posts')} posts filled)",
+             f"BCEA 45h breaches per nurse/year: {k.get('bcea_per_nurse')} (logged, not enforced — the SA norm)",
              f"Annual payroll: R{round(k.get('annual_payroll_zar') or 0):,}",
-             f"Mean weekly hours: {k.get('mean_weekly_hours')}",
-             f"BCEA 45h breaches per nurse: {k.get('bcea_per_nurse')}",
-             f"Active nurses: {k.get('n_active_staff')} (of 30 posts; rest vacant)",
-             "Across 30 runs (95% CI): " + _kpi(ci, "coverage_pct", "%") + "; " + _kpi(ci, "annual_payroll_zar") + "; " + _kpi(ci, "bcea_violations_per_staff")]
+             "Across 30 runs (95% CI): " + _kpi(ci, "coverage_pct", "%") + "; " + _kpi(ci, "bcea_violations_per_staff")]
     for s in (d.get("shifts") or []):
         lines.append(f"Shift {s['shift']}: avg {s['avg_filled']}/{s['avg_required']} nurses, "
                      f"{s['unfilled']} unfilled, {s['locum_hours']} locum hrs")

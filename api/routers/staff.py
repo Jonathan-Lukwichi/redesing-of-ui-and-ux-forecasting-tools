@@ -102,13 +102,31 @@ async def overview() -> dict[str, Any]:
     # Headline KPIs from THIS representative run, consistent with the roster table.
     req = float(daily["total_required_nurses"].sum())
     staffed = float(daily["total_staffed_nurses"].sum())
+    n_active = int(len(members))
+    mean_wk = float(members["average_weekly_hours"].mean())
+
+    # Lawful-staffing scenario: what coverage the available nurses could deliver
+    # if each worked only the legal 45h/week (no overwork). The gap between this
+    # and the actual (overwork-propped) coverage is the true demand-supply mismatch.
+    SHIFT_H = 12.0          # 12-hour shifts (SA norm); each required slot = one shift
+    LEGAL_WEEKLY = 45.0     # BCEA s9 weekly maximum
+    weeks = daily["date"].nunique() / 7.0
+    req_hours = req * SHIFT_H
+    legal_capacity_h = n_active * LEGAL_WEEKLY * weeks
+    nurses_needed_legal = (req_hours / (LEGAL_WEEKLY * weeks)) if weeks else n_active
+
     headline = {
-        "coverage_pct":       round((staffed / req * 100) if req else 100.0, 1),
-        "annual_payroll_zar": round(float(members["total_payroll_cost_zar"].sum()), 0),
-        "mean_weekly_hours":  round(float(members["average_weekly_hours"].mean()), 1),
-        "bcea_per_nurse":     int(round(float(members["bcea_45hour_violations_count"].mean()))),
-        "locum_hours":        round(float(daily["total_locum_hours"].sum()), 0),
-        "n_active_staff":     int(len(members)),
+        "coverage_pct":          round((staffed / req * 100) if req else 100.0, 1),   # actual (overwork-propped)
+        "lawful_coverage_pct":   round((legal_capacity_h / req_hours * 100) if req_hours else 100.0, 1),
+        "nurses_needed_legal":   round(nurses_needed_legal, 1),
+        "staffing_shortfall":    max(0, int(round(nurses_needed_legal - n_active))),
+        "overwork_pct":          int(round(mean_wk / LEGAL_WEEKLY * 100)),
+        "annual_payroll_zar":    round(float(members["total_payroll_cost_zar"].sum()), 0),
+        "mean_weekly_hours":     round(mean_wk, 1),
+        "bcea_per_nurse":        int(round(float(members["bcea_45hour_violations_count"].mean()))),
+        "locum_hours":           round(float(daily["total_locum_hours"].sum()), 0),
+        "n_active_staff":        n_active,
+        "n_posts":               30,
     }
     return {
         "kpis": headline,        # this run (consistent with the roster table)
