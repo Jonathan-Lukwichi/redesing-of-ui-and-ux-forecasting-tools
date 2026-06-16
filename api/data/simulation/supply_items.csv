@@ -1,0 +1,31 @@
+item_id,item_name,category,abc_class,used_by_specialty,unit,unit_price_zar,lead_time_mean_days,initial_stock_units,shelf_life_months,supplier_tender_cycle,total_consumption_units,mean_daily_consumption,sd_daily_consumption,orders_placed,units_ordered,total_holding_cost_zar,total_ordering_cost_zar,total_stockout_cost_zar,stockout_units,stockout_days,days,avg_stock_on_hand,service_level,cv,total_cost_zar,inventory_value_zar
+A01,paracetamol IV 1g infusion,medicine,A,all,vial,38.0,10,1200,24,annual,12124.0,30.616,27.852,11,12548.0,7294.478,4950.0,0.0,0.0,0,396,804.24,1.0,0.91,12244.478,30561.116
+A02,sodium chloride 0.9 percent 1L,medicine,A,all,bag,18.5,7,2400,36,annual,28862.0,72.884,70.885,11,27481.0,7301.223,4950.0,22800.0,114.0,7,396,1653.48,0.996,0.973,35051.223,30589.376
+A03,ceftriaxone 1g vial,medicine,A,medicine,vial,22.0,10,320,24,annual,3650.0,9.217,8.366,5,3955.0,2417.215,2250.0,0.0,0.0,0,396,460.328,1.0,0.908,4667.215,10127.222
+A04,adrenaline 1mg ampoule,medicine,A,all,ampoule,8.5,14,100,24,annual,731.0,1.846,1.995,2,1108.0,620.2,900.0,0.0,0.0,0,396,305.694,1.0,1.081,1520.2,2598.403
+A05,IV cannula 18G,consumable,A,all,each,12.0,21,2400,36,annual,28847.0,72.846,73.338,8,28859.0,5989.415,5200.0,114720.0,956.0,17,396,2091.116,0.967,1.007,125909.415,25093.394
+A06,surgical gloves sterile pair,PPE,A,all,pair,9.5,14,5200,60,quarterly,64126.0,161.934,132.541,11,67951.0,10032.189,7150.0,0.0,0.0,0,396,4424.326,1.0,0.818,17182.189,42031.095
+A07,oxygen mask non-rebreather adult,consumable,A,all,each,55.0,21,450,48,annual,5480.0,13.838,12.512,8,6072.0,6701.875,5200.0,0.0,0.0,0,396,510.515,1.0,0.904,11901.875,28078.333
+A08,blood culture bottle pair aerobic anaerobic,consumable,A,medicine,pair,95.0,14,200,18,annual,2143.0,5.412,5.476,6,2081.0,4999.051,3900.0,0.0,0.0,0,396,220.465,1.0,1.012,8899.051,20944.141
+A09,morphine 10mg ampoule,medicine,A,all,ampoule,18.0,28,200,36,annual,2284.0,5.768,6.546,4,2765.0,1852.336,1800.0,0.0,0.0,0,396,431.144,1.0,1.135,3652.336,7760.591
+A10,syringe 10mL with needle,consumable,A,all,each,4.2,14,4000,60,quarterly,50300.0,127.02,116.097,7,56506.0,4361.85,4550.0,28350.0,675.0,5,396,4351.073,0.987,0.914,37261.85,18274.508
+B01,paracetamol paediatric suspension 120mg per 5mL 100mL,medicine,B,lowvol,bottle,28.0,14,80,18,annual,1057.0,2.669,2.814,3,1086.0,1308.688,1350.0,0.0,0.0,0,396,195.818,1.0,1.054,2658.688,5482.909
+B02,salbutamol nebule 5mg per 2.5mL,medicine,B,medicine,nebule,6.5,14,250,24,annual,4902.0,12.379,11.57,3,5070.0,1524.729,1350.0,0.0,0.0,0,396,982.775,1.0,0.935,2874.729,6388.039
+B03,hydrocortisone 100mg vial,medicine,B,all,vial,14.0,14,120,24,annual,2195.0,5.543,5.036,3,2313.0,1553.788,1350.0,0.0,0.0,0,396,464.985,1.0,0.909,2903.788,6509.788
+B04,promethazine 25mg ampoule,medicine,B,all,ampoule,9.0,14,90,24,annual,1656.0,4.182,4.151,2,1670.0,1026.031,900.0,0.0,0.0,0,396,477.631,1.0,0.993,1926.031,4298.682
+B05,atropine 1mg ampoule,medicine,B,all,ampoule,7.5,14,40,36,annual,406.0,1.025,1.385,1,456.0,468.039,450.0,0.0,0.0,0,396,261.455,1.0,1.351,918.039,1960.909
+B06,plaster of Paris 15cm bandage,consumable,B,ortho,roll,18.0,21,260,60,annual,4890.0,12.348,11.659,5,6080.0,3321.941,3250.0,0.0,0.0,0,396,773.205,1.0,0.944,6571.941,13917.682
+B07,sterile gauze pack 10x10 cm pack of 5,consumable,B,all,pack,7.0,14,1500,60,quarterly,31988.0,80.778,75.531,7,36227.0,5168.236,4550.0,700.0,20.0,1,396,3093.28,0.999,0.935,10418.236,21652.962
+B08,three way stopcock,consumable,B,all,each,11.5,21,500,60,annual,8421.0,21.265,19.661,5,10128.0,3308.803,3250.0,0.0,0.0,0,396,1205.447,1.0,0.925,6558.803,13862.64
+B09,urinary catheter Foley 16Fr,consumable,B,all,each,32.0,21,140,60,annual,2650.0,6.692,6.321,4,2827.0,3132.299,2600.0,0.0,0.0,0,396,410.098,1.0,0.945,5732.299,13123.152
+B10,ECG electrodes pack of 50,consumable,B,medicine,pack,85.0,28,60,24,annual,785.0,1.982,2.174,4,941.0,2535.464,2600.0,0.0,0.0,0,396,124.972,1.0,1.097,5135.464,10622.639
+B11,suture nylon 3-0 with needle,consumable,B,all,each,24.0,21,180,48,annual,4285.0,10.821,10.177,5,5009.0,3610.797,3250.0,3600.0,15.0,1,396,630.328,0.996,0.941,10460.797,15127.879
+B12,Hartmanns solution 1L,medicine,B,all,bag,22.0,7,300,36,annual,6896.0,17.414,16.305,7,7666.0,3520.205,3150.0,0.0,0.0,0,396,670.379,1.0,0.936,6670.205,14748.333
+C01,snake antivenom polyvalent vial,medicine,C,all,vial,1850.0,30,12,24,annual,244.0,0.616,1.026,10,268.0,10239.674,4500.0,518000.0,28.0,18,396,23.189,0.885,1.665,532739.674,42900.379
+C02,ipratropium nebule 250mcg per mL 2mL,medicine,C,medicine,nebule,8.5,14,100,24,annual,1994.0,5.035,5.346,3,2854.0,989.619,1350.0,0.0,0.0,0,396,487.78,1.0,1.062,2339.619,4146.133
+C03,naloxone 0.4mg ampoule,medicine,C,all,ampoule,32.0,21,18,24,annual,158.0,0.399,0.775,2,256.0,537.702,900.0,0.0,0.0,0,396,70.399,1.0,1.941,1437.702,2252.768
+C04,flucloxacillin 500mg vial,medicine,C,all,vial,18.0,14,80,24,annual,1164.0,2.939,3.04,3,1441.0,1249.396,1350.0,0.0,0.0,0,396,290.806,1.0,1.034,2599.396,5234.5
+C05,vitamin K phytomenadione 10mg ampoule,medicine,C,all,ampoule,12.0,21,40,24,annual,575.0,1.452,1.78,2,838.0,692.837,900.0,0.0,0.0,0,396,241.894,1.0,1.226,1592.837,2902.727
+C06,magnesium sulfate 2g in 10mL ampoule,medicine,C,all,ampoule,11.0,14,60,24,annual,825.0,2.083,2.169,2,1066.0,795.258,900.0,1815.0,11.0,4,396,302.894,0.987,1.041,3510.258,3331.833
+C07,dextrose 50 percent 50mL ampoule,medicine,C,all,ampoule,9.5,14,80,24,annual,1075.0,2.715,2.941,2,1323.0,904.002,900.0,0.0,0.0,0,396,398.677,1.0,1.083,1804.002,3787.429
+C08,charcoal activated 50g bottle,medicine,C,all,bottle,75.0,30,15,36,annual,216.0,0.545,0.92,3,331.0,1210.196,1350.0,750.0,2.0,2,396,67.604,0.991,1.686,3310.196,5070.265

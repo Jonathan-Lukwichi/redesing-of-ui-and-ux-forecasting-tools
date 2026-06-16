@@ -86,6 +86,15 @@ export const api = {
     clearAll: () => request('/api/prepare', { method: 'DELETE' }),
   },
 
+  supply: {
+    overview: (signal) => request('/api/supply/overview', { signal }),
+    item: (id, signal) => request(`/api/supply/item/${id}`, { signal }),
+  },
+
+  staff: {
+    overview: (signal) => request('/api/staff/overview', { signal }),
+  },
+
   task1: {
     // GET /api/task1/models — sorted by val_RMSE asc, each item has badge + card.
     models:   (signal) => request('/api/task1/models', { signal }),

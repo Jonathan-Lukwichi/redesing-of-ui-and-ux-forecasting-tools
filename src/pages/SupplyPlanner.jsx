@@ -1,86 +1,174 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import PageHero from '../components/PageHero';
 import KPI from '../components/KPI';
 import Icon from '../components/Icon';
-import { Sparkline } from '../components/Charts';
+import { LineChart } from '../components/Charts';
+import { api } from '../api/client';
 
-const ITEMS = [
-  { sku: 'N95-3M-1860', n: 'N95 Respirator (3M 1860)', c: 'PPE', h: 78, r: 120, d: 3.2, s: 'low', spark: [200, 180, 160, 140, 120, 100, 78] },
-  { sku: 'GLOVE-NIT-M', n: 'Nitrile gloves (M)', c: 'PPE', h: 4200, r: 3000, d: 14.0, s: 'ok', spark: [4400, 4350, 4300, 4280, 4250, 4220, 4200] },
-  { sku: 'IV-SAL-1L', n: 'IV Saline 1L', c: 'Fluids', h: 142, r: 200, d: 2.8, s: 'low', spark: [320, 280, 240, 200, 180, 160, 142] },
-  { sku: 'SYRG-10ML', n: 'Syringe 10mL', c: 'Disposable', h: 1840, r: 800, d: 22.0, s: 'ok', spark: [1900, 1880, 1870, 1860, 1850, 1845, 1840] },
-  { sku: 'OXY-MASK-A', n: 'Oxygen mask (adult)', c: 'Resp', h: 64, r: 80, d: 4.1, s: 'low', spark: [160, 140, 120, 100, 90, 75, 64] },
-  { sku: 'EPI-1MG', n: 'Epinephrine 1mg', c: 'Pharm', h: 218, r: 150, d: 18.5, s: 'ok', spark: [240, 235, 230, 225, 222, 220, 218] },
-  { sku: 'BAND-EL-4', n: 'Elastic bandage 4"', c: 'Wound', h: 412, r: 200, d: 28.0, s: 'excess', spark: [380, 390, 395, 400, 405, 410, 412] },
-];
+const C = { ink: '#0f172a', muted: '#64748b', teal: '#0d9488', navy: '#1e6091', red: '#dc2626', amber: '#d97706' };
+
+const zar = (n) => (n == null ? '—' : 'R ' + Math.round(n).toLocaleString('en-ZA'));
+const zarShort = (n) => {
+  if (n == null) return '—';
+  if (n >= 1e6) return 'R ' + (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return 'R ' + (n / 1e3).toFixed(0) + 'k';
+  return 'R ' + Math.round(n);
+};
+const STATUS = {
+  stockout: { tag: 'tag-danger', label: 'At risk' },
+  excess:   { tag: 'tag-warning', label: 'Excess' },
+  ok:       { tag: 'tag-success', label: 'OK' },
+};
+const ABC = { A: '#dc2626', B: '#d97706', C: '#0d9488' };
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export default function SupplyPlanner() {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
   const [filter, setFilter] = useState('All');
+  const [selected, setSelected] = useState(null);
+  const [detail, setDetail] = useState(null);
 
-  const filtered = filter === 'All' ? ITEMS :
-    filter === 'At ROP' ? ITEMS.filter((it) => it.h < it.r) :
-    filter === 'Low stock' ? ITEMS.filter((it) => it.s === 'low') :
-    ITEMS.filter((it) => it.s === 'excess');
+  useEffect(() => {
+    let alive = true;
+    api.supply.overview()
+      .then((d) => { if (alive) setData(d); })
+      .catch((e) => { if (alive) setError(e.message); });
+    return () => { alive = false; };
+  }, []);
 
+  const openItem = async (id) => {
+    setSelected(id); setDetail(null);
+    try { setDetail(await api.supply.item(id)); } catch { /* ignore */ }
+  };
+
+  const items = data?.items || [];
+  const cats = [...new Set(items.map((i) => i.category))];
+  const filtered = items.filter((it) =>
+    filter === 'All' ? true :
+    filter === 'At risk' ? it.status === 'stockout' :
+    filter === 'A' || filter === 'B' || filter === 'C' ? it.abc_class === filter :
+    it.category === filter);
+
+  if (error) return (
+    <div className="content"><PageHero kicker="Operations · Supply" title="Supply Planner" sub="Inventory simulation" />
+      <div className="card"><div className="card-body" style={{ color: C.red }}>
+        Couldn't load supply data: {error}. Make sure the backend is running on port 8000.
+      </div></div>
+    </div>
+  );
+
+  const k = data?.kpis;
   return (
     <div className="content">
       <PageHero
-        kicker="Planning · Supply"
+        kicker="Operations · Supply"
         title="Supply Planner"
-        sub="Inventory levels, reorder points, and projected stockouts driven by the demand forecast · 247 SKUs across PPE, fluids, pharm, disposables"
+        sub="Inventory levels, reorder behaviour and stockouts from a 13-month consumption simulation · 30 items across medicines, consumables & PPE · seed 42"
         image="/images/supply-bg.jpg"
         actions={<>
           <button className="btn"><Icon name="filter" size={14} />Filter</button>
-          <button className="btn btn-primary"><Icon name="bell" size={14} />Send orders (3)</button>
+          <button className="btn btn-primary"><Icon name="bell" size={14} />Review {k?.items_at_risk ?? 0} at-risk</button>
         </>}
       />
 
       <div className="grid-kpi">
-        <KPI label="Service level" value="98.2" unit="%" trend="+0.4%" trendDir="up" foot="last 30 days" />
-        <KPI label="Items at ROP" value="3" trend="+1" trendDir="down" foot="reorder needed" />
-        <KPI label="Stockouts (forecast)" value="0" foot="next 7 days" />
-        <KPI label="Inventory value" value="$1.42M" foot="across 247 SKUs" />
+        <KPI label="Service level" value={k ? k.service_level_pct : '—'} unit="%" foot="units served on demand" />
+        <KPI label="Items at risk" value={k ? k.items_at_risk : '—'} foot="below 98% service" />
+        <KPI label="Stockout-days" value={k ? k.stockout_events : '—'} foot="over 396 days" />
+        <KPI label="Inventory value" value={k ? zarShort(k.inventory_value_zar) : '—'} foot={`across ${k?.n_items ?? 0} items`} />
       </div>
+
+      {/* ABC value/cost split */}
+      {data?.by_abc && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-header"><div className="card-title">ABC analysis · cost & stock value by class</div></div>
+          <div className="card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 14 }}>
+            {data.by_abc.map((a) => (
+              <div key={a.abc_class} style={{ border: '1px solid #eef0f3', borderRadius: 10, padding: '12px 14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 12, height: 12, borderRadius: 3, background: ABC[a.abc_class] }} />
+                  <strong style={{ color: C.ink }}>Class {a.abc_class}</strong>
+                  <span style={{ color: C.muted, fontSize: 12 }}>· {a.items} items</span>
+                </div>
+                <div style={{ marginTop: 8, fontSize: 12, color: C.muted }}>Total cost</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: C.ink }}>{zar(a.cost_zar)}</div>
+                <div style={{ marginTop: 4, fontSize: 12, color: C.muted }}>Avg stock value {zar(a.inventory_value_zar)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <div className="card-header">
-          <div className="card-title">Inventory · 247 SKUs</div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {['All', 'At ROP', 'Low stock', 'Excess'].map((f) => (
-              <button
-                key={f}
-                className="btn btn-sm"
-                onClick={() => setFilter(f)}
-                style={filter === f ? { background: '#e8f1f8', color: '#1e6091', borderColor: '#1e6091' } : {}}
-              >{f}</button>
+          <div className="card-title">Inventory · {items.length} items</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {['All', 'At risk', 'A', 'B', 'C', ...cats].map((f) => (
+              <button key={f} className="btn btn-sm" onClick={() => setFilter(f)}
+                style={filter === f ? { background: '#e8f1f8', color: C.navy, borderColor: C.navy } : {}}>
+                {f === 'A' || f === 'B' || f === 'C' ? `Class ${f}` : f}
+              </button>
             ))}
           </div>
         </div>
         <table className="tbl">
           <thead>
-            <tr><th>SKU</th><th>Item</th><th>Category</th><th className="num">On hand</th><th className="num">ROP</th><th className="num">Days cover</th><th>Trend</th><th>Status</th><th></th></tr>
+            <tr><th>Item</th><th>Category</th><th>ABC</th><th className="num">Use/day</th><th className="num">Days cover</th><th className="num">Service</th><th className="num">Stockout-days</th><th className="num">Cost</th><th>Status</th></tr>
           </thead>
           <tbody>
+            {!data && <tr><td colSpan={9} style={{ color: C.muted, padding: 20 }}>Loading inventory…</td></tr>}
             {filtered.map((it) => (
-              <tr key={it.sku}>
-                <td className="mono" style={{ color: '#1e6091' }}>{it.sku}</td>
-                <td style={{ fontWeight: 500, color: '#0f172a' }}>{it.n}</td>
-                <td><span className="tag">{it.c}</span></td>
-                <td className="num">{it.h}</td>
-                <td className="num" style={{ color: '#64748b' }}>{it.r}</td>
-                <td className="num">{it.d}d</td>
-                <td><Sparkline data={it.spark} color={it.s === 'low' ? '#dc2626' : it.s === 'excess' ? '#d97706' : '#0d9488'} width={80} height={22} /></td>
-                <td>
-                  {it.s === 'low' ? <span className="tag tag-danger">Below ROP</span> :
-                   it.s === 'excess' ? <span className="tag tag-warning">Excess</span> :
-                   <span className="tag tag-success">OK</span>}
-                </td>
-                <td><button className="btn btn-sm">Order</button></td>
+              <tr key={it.item_id} onClick={() => openItem(it.item_id)} style={{ cursor: 'pointer', background: selected === it.item_id ? '#f0f9ff' : undefined }}>
+                <td style={{ fontWeight: 500, color: C.ink }}>{it.item_name}</td>
+                <td><span className="tag">{it.category}</span></td>
+                <td><span style={{ fontWeight: 700, color: ABC[it.abc_class] }}>{it.abc_class}</span></td>
+                <td className="num">{it.mean_daily_consumption}</td>
+                <td className="num">{it.days_cover ?? '—'}{it.days_cover != null ? 'd' : ''}</td>
+                <td className="num">{it.service_level}%</td>
+                <td className="num" style={{ color: it.stockout_days > 0 ? C.red : C.muted }}>{it.stockout_days}</td>
+                <td className="num">{zarShort(it.total_cost_zar)}</td>
+                <td><span className={`tag ${STATUS[it.status].tag}`}>{STATUS[it.status].label}</span></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {/* Item detail */}
+      {selected && (
+        <div className="card" style={{ marginTop: 16 }}>
+          {!detail && <div className="card-body" style={{ color: C.muted }}>Loading item history…</div>}
+          {detail && <ItemDetail detail={detail} onClose={() => { setSelected(null); setDetail(null); }} />}
+        </div>
+      )}
     </div>
+  );
+}
+
+function ItemDetail({ detail, onClose }) {
+  const it = detail.item;
+  const series = detail.series || [];
+  const stock = series.map((s) => s.stock);
+  const consumption = series.map((s) => s.consumption);
+  const xLabels = series.filter((_, i) => i % Math.floor(series.length / 6) === 0).map((s) => {
+    const d = new Date(s.date + 'T00:00:00'); return MONTHS[d.getMonth()];
+  });
+  return (
+    <>
+      <div className="card-header">
+        <div>
+          <div className="card-title">{it.item_name} <span style={{ color: ABC[it.abc_class], fontWeight: 700 }}>· {it.abc_class}</span></div>
+          <div className="card-sub">{it.category} · {it.unit} · {zar(it.unit_price_zar)}/unit · lead time {it.lead_time_days} days · {it.service_level}% service</div>
+        </div>
+        <button className="btn btn-sm" onClick={onClose}><Icon name="logout" size={12} /> Close</button>
+      </div>
+      <div className="card-body">
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Stock on hand (units)</div>
+        <LineChart series={[{ data: stock, color: C.navy }]} height={180} xLabels={xLabels} />
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, margin: '14px 0 6px' }}>Daily consumption (units)</div>
+        <LineChart series={[{ data: consumption, color: C.teal }]} height={140} xLabels={xLabels} />
+      </div>
+    </>
   );
 }

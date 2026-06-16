@@ -1,121 +1,153 @@
+import { useEffect, useState } from 'react';
 import PageHero from '../components/PageHero';
 import KPI from '../components/KPI';
 import Icon from '../components/Icon';
+import { LineChart } from '../components/Charts';
+import { api } from '../api/client';
+
+const C = { ink: '#0f172a', muted: '#64748b', teal: '#0d9488', navy: '#1e6091', red: '#dc2626', amber: '#d97706' };
+const zar = (n) => (n == null ? '—' : 'R ' + Math.round(n).toLocaleString('en-ZA'));
+const zarShort = (n) => {
+  if (n == null) return '—';
+  if (n >= 1e6) return 'R ' + (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return 'R ' + (n / 1e3).toFixed(0) + 'k';
+  return 'R ' + Math.round(n);
+};
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const SHIFT = { Day: '#f59e0b', Evening: '#1e6091', Night: '#6366f1' };
+const CAT_SHORT = { 'Professional Nurse': 'PN', 'Enrolled Nurse': 'EN', 'Enrolled Nursing Auxiliary': 'ENA' };
 
 export default function StaffPlanner() {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+  const [catFilter, setCatFilter] = useState('All');
+
+  useEffect(() => {
+    let alive = true;
+    api.staff.overview()
+      .then((d) => { if (alive) setData(d); })
+      .catch((e) => { if (alive) setError(e.message); });
+    return () => { alive = false; };
+  }, []);
+
+  if (error) return (
+    <div className="content"><PageHero kicker="Operations · Staff" title="Staff Planner" sub="Scheduling simulation" />
+      <div className="card"><div className="card-body" style={{ color: C.red }}>
+        Couldn't load staffing data: {error}. Make sure the backend is running on port 8000.
+      </div></div>
+    </div>
+  );
+
+  const k = data?.kpis;
+  const daily = data?.daily || [];
+  const required = daily.map((d) => d.required);
+  const staffed = daily.map((d) => d.staffed);
+  const xLabels = daily.filter((_, i) => i % Math.floor((daily.length || 6) / 6) === 0)
+    .map((d) => MONTHS[new Date(d.date + 'T00:00:00').getMonth()]);
+  const cats = [...new Set((data?.staff || []).map((s) => s.category))];
+  const staffRows = (data?.staff || []).filter((s) => catFilter === 'All' || s.category === catFilter);
+
   return (
     <div className="content">
       <PageHero
-        kicker="Planning · Staff"
+        kicker="Operations · Staff"
         title="Staff Planner"
-        sub="Optimal RN, MD, and tech schedules for the 7-day forecast · coverage, overtime, and weekly cost"
+        sub="Nurse rostering, coverage and payroll from a 13-month scheduling simulation driven by real ED arrivals · 30 nurses · BCEA-compliant · seed 42"
         image="/images/staff-bg.jpg"
         actions={<>
           <button className="btn"><Icon name="refresh" size={14} />Re-optimize</button>
-          <button className="btn btn-primary"><Icon name="check" size={14} />Approve</button>
+          <button className="btn btn-primary"><Icon name="check" size={14} />Approve roster</button>
         </>}
       />
 
       <div className="grid-kpi">
-        <KPI label="Coverage" value="94.2" unit="%" trend="+2.1%" trendDir="up" foot="vs. last week" />
-        <KPI label="Total staff/wk" value="312" unit="shifts" foot="48 RNs · 12 MDs · 18 techs" />
-        <KPI label="Overtime" value="84" unit="hrs" trend="-23%" trendDir="up" foot="vs. last week" />
-        <KPI label="Weekly cost" value="$184k" trend="-$42k" trendDir="up" foot="vs. baseline" />
+        <KPI label="Coverage" value={k ? k.coverage_pct : '—'} unit="%" foot="staffed vs required" />
+        <KPI label="Payroll (13 mo)" value={k ? zarShort(k.total_payroll_zar) : '—'} foot={`${k?.n_staff ?? 0} nurses`} />
+        <KPI label="Unfilled shifts" value={k ? k.unfilled_shifts : '—'} foot={`over ${k?.days_simulated ?? 0} days`} />
+        <KPI label="BCEA violations" value={k ? k.bcea_violations : '—'} foot="45h/week breaches" />
       </div>
 
-      {/* Schedule grid */}
-      <div className="card">
+      {/* Coverage chart */}
+      <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
           <div>
-            <div className="card-title">Weekly schedule · May 4–10</div>
-            <div className="card-sub">Demand vs. scheduled coverage</div>
+            <div className="card-title">Daily coverage · required vs staffed nurses</div>
+            <div className="card-sub">Demand is driven by daily ED arrivals</div>
           </div>
           <div style={{ display: 'flex', gap: 12, fontSize: 11 }}>
-            <span><span className="dot" style={{ color: '#1e6091' }} /> Demand</span>
-            <span><span className="dot" style={{ color: '#0d9488' }} /> Scheduled</span>
-            <span><span className="dot" style={{ color: '#d97706' }} /> Overtime</span>
+            <span><span className="dot" style={{ color: C.navy }} /> Required</span>
+            <span><span className="dot" style={{ color: C.teal }} /> Staffed</span>
           </div>
         </div>
         <div className="card-body">
-          <svg viewBox="0 0 800 280" width="100%" height="280" preserveAspectRatio="none">
-            {[0, 1, 2, 3, 4].map((i) => <line key={i} x1="40" x2="780" y1={20 + i * 50} y2={20 + i * 50} stroke="#eef0f3" />)}
-            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d, i) => (
-              <text key={d} x={40 + (i + 0.5) * 105} y={272} textAnchor="middle" fontSize="11" fill="#64748b">{d}</text>
-            ))}
-            {[20, 25, 30, 35, 40].map((v, i) => {
-              const y = 220 - (v - 20) * 10;
-              return <text key={v} x={32} y={y + 3} textAnchor="end" fontSize="10" fill="#94a3b8">{v}</text>;
-            })}
-            {[28, 30, 35, 38, 36, 28, 25].map((demand, i) => {
-              const sched = [27, 30, 33, 35, 35, 27, 26][i];
-              const ot = Math.max(0, demand - sched);
-              const cx = 40 + (i + 0.5) * 105;
-              const dh = (demand - 20) * 10;
-              const sh = (sched - 20) * 10;
-              const oh = ot * 10;
-              return (
-                <g key={i}>
-                  <rect x={cx - 36} y={220 - dh} width={24} height={dh} fill="#1e6091" rx="2" />
-                  <rect x={cx - 8} y={220 - sh} width={24} height={sh} fill="#0d9488" rx="2" />
-                  <rect x={cx + 20} y={220 - oh} width={24} height={oh} fill="#d97706" rx="2" />
-                  <text x={cx} y={245} textAnchor="middle" fontSize="10" fill="#64748b">{demand}/{sched}{ot > 0 ? `+${ot}OT` : ''}</text>
-                </g>
-              );
-            })}
-          </svg>
+          {!data && <div style={{ color: C.muted }}>Loading…</div>}
+          {data && <LineChart series={[
+            { data: required, color: C.navy },
+            { data: staffed, color: C.teal },
+          ]} height={220} xLabels={xLabels} />}
         </div>
       </div>
 
-      {/* Roster table */}
+      {/* Shift breakdown */}
+      {data?.shifts && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-header"><div className="card-title">Shifts · demand & cost by time of day</div></div>
+          <div className="card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
+            {data.shifts.map((s) => (
+              <div key={s.shift} style={{ border: '1px solid #eef0f3', borderRadius: 10, padding: '14px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 12, height: 12, borderRadius: 3, background: SHIFT[s.shift] || C.muted }} />
+                  <strong style={{ color: C.ink }}>{s.shift}</strong>
+                </div>
+                <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                  <span style={{ color: C.muted }}>Avg nurses</span>
+                  <strong>{s.avg_staffed} / {s.avg_required}</strong>
+                </div>
+                <div style={{ marginTop: 4, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                  <span style={{ color: C.muted }}>Unfilled · locum</span>
+                  <span style={{ color: s.unfilled > 0 ? C.amber : C.muted }}>{s.unfilled} · {s.locum_hours}h</span>
+                </div>
+                <div style={{ marginTop: 4, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                  <span style={{ color: C.muted }}>Cost</span>
+                  <strong>{zarShort(s.cost_zar)}</strong>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Staff roster table */}
       <div className="card">
         <div className="card-header">
-          <div className="card-title">Roster · 32 RNs scheduled</div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <select className="select" style={{ width: 130, height: 30, fontSize: 12 }}>
-              <option>RNs</option>
-              <option>MDs</option>
-              <option>Techs</option>
-            </select>
-            <input className="input" placeholder="Search staff…" style={{ width: 200, height: 30, fontSize: 12 }} />
+          <div className="card-title">Nursing staff · {data?.staff?.length ?? 0}</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {['All', ...cats].map((f) => (
+              <button key={f} className="btn btn-sm" onClick={() => setCatFilter(f)}
+                style={catFilter === f ? { background: '#e8f1f8', color: C.navy, borderColor: C.navy } : {}}>
+                {f === 'All' ? 'All' : CAT_SHORT[f] || f}
+              </button>
+            ))}
           </div>
         </div>
         <table className="tbl">
           <thead>
-            <tr><th>Staff</th><th>Role</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th><th className="num">Hrs</th><th>Status</th></tr>
+            <tr><th>Staff</th><th>Role</th><th className="num">Skill</th><th className="num">Days worked</th><th className="num">Reg hrs</th><th className="num">OT hrs</th><th className="num">Avg wk hrs</th><th className="num">Sick</th><th className="num">Payroll</th><th className="num">BCEA</th></tr>
           </thead>
           <tbody>
-            {[
-              ['E. Rodriguez', 'RN-3', 'D', 'D', '—', 'D', 'D', '—', '—', 32, 'ok'],
-              ['M. Chen', 'RN-2', '—', 'N', 'N', 'N', '—', 'N', '—', 40, 'ok'],
-              ['K. Patel', 'RN-4', 'D', 'D', 'D', 'D*', 'D', '—', '—', 44, 'overtime'],
-              ['A. Johnson', 'RN-2', '—', '—', 'D', 'D', 'D', 'D', '—', 32, 'ok'],
-              ['S. Kim', 'RN-3', 'N', 'N', '—', 'N*', 'N*', '—', '—', 48, 'overtime'],
-              ['J. Williams', 'RN-1', '—', 'D', 'D', 'D', 'D', '—', 'D', 40, 'ok'],
-              ['T. Garcia', 'RN-3', '—', '—', '—', 'D?', 'D', 'D', 'D', 28, 'open'],
-            ].map((r) => (
-              <tr key={r[0]}>
-                <td style={{ fontWeight: 500, color: '#0f172a' }}>{r[0]}</td>
-                <td><span className="tag">{r[1]}</span></td>
-                {r.slice(2, 9).map((v, i) => {
-                  const isOT = String(v).includes('*');
-                  const isOpen = String(v).includes('?');
-                  return (
-                    <td key={i} className="mono" style={{ textAlign: 'center' }}>
-                      {v === '—' ? <span style={{ color: '#cbd5e1' }}>—</span> :
-                       <span style={{
-                         padding: '2px 6px', borderRadius: 3, fontWeight: 600,
-                         background: isOpen ? '#fdf3e3' : isOT ? '#fbeaea' : String(v).startsWith('D') ? '#e8f1f8' : '#f0eafe',
-                         color: isOpen ? '#d97706' : isOT ? '#dc2626' : String(v).startsWith('D') ? '#1e6091' : '#7c3aed',
-                       }}>{String(v).replace('?', '')}</span>}
-                    </td>
-                  );
-                })}
-                <td className="num">{r[9]}</td>
-                <td>
-                  {r[10] === 'ok' ? <span className="tag tag-success">OK</span> :
-                   r[10] === 'overtime' ? <span className="tag tag-warning">OT</span> :
-                   <span className="tag tag-danger">Open</span>}
-                </td>
+            {!data && <tr><td colSpan={10} style={{ color: C.muted, padding: 20 }}>Loading staff…</td></tr>}
+            {staffRows.map((s) => (
+              <tr key={s.staff_id}>
+                <td style={{ fontWeight: 500, color: C.ink }}>{s.name}</td>
+                <td><span className="tag">{CAT_SHORT[s.category] || s.category}</span></td>
+                <td className="num">{s.skill_level}</td>
+                <td className="num">{s.days_worked}</td>
+                <td className="num">{s.regular_hours}</td>
+                <td className="num" style={{ color: s.overtime_hours > 0 ? C.amber : C.muted }}>{s.overtime_hours}</td>
+                <td className="num">{s.avg_weekly_hours}</td>
+                <td className="num" style={{ color: C.muted }}>{s.days_sick}</td>
+                <td className="num">{zarShort(s.payroll_cost_zar)}</td>
+                <td className="num" style={{ color: s.bcea_violations > 0 ? C.red : C.muted }}>{s.bcea_violations}</td>
               </tr>
             ))}
           </tbody>
