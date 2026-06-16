@@ -87,11 +87,21 @@ async def overview() -> dict[str, Any]:
                 "inventory_value_zar": round(float(sub["inventory_value_zar"].sum()), 0),
             })
 
-    return {
-        "kpis": kpis,                                   # aggregated 30-seed means + CIs
-        "n_items": int(len(items)),
+    # Headline KPIs computed from THIS representative run, so they reconcile with
+    # the item table and ABC breakdown exactly. The 30-seed means+CIs go in `ci`.
+    headline = {
+        "n_items":            int(len(items)),
+        "items_at_risk":      int(sum(1 for x in rows if x["status"] == "stockout")),
+        "total_cost_zar":     round(float(items["total_cost_zar"].sum()), 0),
+        "stockout_cost_zar":  round(float(items["total_stockout_cost_zar"].sum()), 0),
         "inventory_value_zar": round(float(items["inventory_value_zar"].sum()), 0),
-        "items_at_risk": int(sum(1 for x in rows if x["status"] == "stockout")),
+    }
+    return {
+        "kpis": headline,        # this run (consistent with the table/ABC below)
+        "ci": kpis,              # 30-seed aggregated means + 95% CIs (context note)
+        "items_at_risk": headline["items_at_risk"],
+        "n_items": headline["n_items"],
+        "inventory_value_zar": headline["inventory_value_zar"],
         "items": rows,
         "by_abc": by_abc,
     }

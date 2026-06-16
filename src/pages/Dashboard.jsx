@@ -130,18 +130,18 @@ export default function Dashboard({ onNavigate }) {
           <div className="card-header"><div className="card-title">Supply</div>
             <a style={{ fontSize: 12, color: '#1e6091', cursor: 'pointer' }} onClick={() => onNavigate('supply')}>Open →</a></div>
           <div className="card-body">
-            <SnapRow label="Stockout incidence" value={sk ? Math.round(sk.stockout_incidence_pct.mean) + '%' : '—'} danger={sk?.stockout_incidence_pct.mean > 50} />
             <SnapRow label="Items at risk" value={supply ? supply.items_at_risk : '—'} danger={supply?.items_at_risk > 0} />
-            <SnapRow label="Annual cost" value={sk ? zarShort(sk.total_annual_cost_zar.mean) : '—'} />
+            <SnapRow label="Total cost" value={sk ? zarShort(sk.total_cost_zar) : '—'} />
+            <SnapRow label="Stockout penalty" value={sk ? zarShort(sk.stockout_cost_zar) : '—'} danger />
           </div>
         </div>
         <div className="card">
           <div className="card-header"><div className="card-title">Staffing</div>
             <a style={{ fontSize: 12, color: '#1e6091', cursor: 'pointer' }} onClick={() => onNavigate('staff')}>Open →</a></div>
           <div className="card-body">
-            <SnapRow label="Coverage" value={tk ? tk.coverage_pct.mean + '%' : '—'} />
-            <SnapRow label="Annual payroll" value={tk ? zarShort(tk.annual_payroll_zar.mean) : '—'} />
-            <SnapRow label="BCEA breaches/nurse" value={tk ? Math.round(tk.bcea_violations_per_staff.mean) : '—'} danger={tk?.bcea_violations_per_staff.mean > 0} />
+            <SnapRow label="Coverage" value={tk ? tk.coverage_pct + '%' : '—'} />
+            <SnapRow label="Annual payroll" value={tk ? zarShort(tk.annual_payroll_zar) : '—'} />
+            <SnapRow label="BCEA breaches/nurse" value={tk ? tk.bcea_per_nurse : '—'} danger={tk?.bcea_per_nurse > 0} />
           </div>
         </div>
         <div className="card">

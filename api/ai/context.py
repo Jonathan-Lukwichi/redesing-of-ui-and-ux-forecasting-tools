@@ -69,16 +69,16 @@ def _kpi(k: dict, name: str, unit: str = "") -> str:
 
 def build_staff_context(d: dict[str, Any]) -> str:
     k = d.get("kpis", {}) or {}
+    ci = d.get("ci", {}) or {}
     lines = ["<context>",
-             "Nurse staffing — 30-seed simulation, means with 95% confidence intervals.",
+             "Nurse staffing — one representative simulation run (numbers below), with 30-seed means as context.",
              "NOTE: BCEA limits are LOGGED not enforced (12-hour shifts are the SA public-hospital norm), so high violation counts and ~58h weeks are expected/realistic.",
-             _kpi(k, "coverage_pct", "%"),
-             _kpi(k, "annual_payroll_zar"),
-             _kpi(k, "mean_weekly_hours"),
-             _kpi(k, "bcea_violations_per_staff"),
-             _kpi(k, "locum_share_pct", "%"),
-             _kpi(k, "sick_events"),
-             f"Active nurses: {d.get('n_active_staff')} (of 30 posts; rest vacant)"]
+             f"Coverage: {k.get('coverage_pct')}%",
+             f"Annual payroll: R{round(k.get('annual_payroll_zar') or 0):,}",
+             f"Mean weekly hours: {k.get('mean_weekly_hours')}",
+             f"BCEA 45h breaches per nurse: {k.get('bcea_per_nurse')}",
+             f"Active nurses: {k.get('n_active_staff')} (of 30 posts; rest vacant)",
+             "Across 30 runs (95% CI): " + _kpi(ci, "coverage_pct", "%") + "; " + _kpi(ci, "annual_payroll_zar") + "; " + _kpi(ci, "bcea_violations_per_staff")]
     for s in (d.get("shifts") or []):
         lines.append(f"Shift {s['shift']}: avg {s['avg_filled']}/{s['avg_required']} nurses, "
                      f"{s['unfilled']} unfilled, {s['locum_hours']} locum hrs")
@@ -88,19 +88,14 @@ def build_staff_context(d: dict[str, Any]) -> str:
 
 def build_supply_context(d: dict[str, Any]) -> str:
     k = d.get("kpis", {}) or {}
+    ci = d.get("ci", {}) or {}
     lines = ["<context>",
-             "Inventory — 30-seed simulation, means with 95% confidence intervals.",
-             _kpi(k, "stockout_incidence_pct", "%"),
-             _kpi(k, "total_annual_cost_zar"),
-             _kpi(k, "annual_stockout_penalty_zar"),
-             _kpi(k, "annual_holding_zar"),
-             _kpi(k, "annual_ordering_zar"),
-             _kpi(k, "annual_expiry_zar"),
-             _kpi(k, "non_performance_rate", "%"),
-             _kpi(k, "lead_time_median_unflagged_days"),
-             _kpi(k, "n_stockout_events"),
-             f"Items at risk: {d.get('items_at_risk')} of {d.get('n_items')}",
-             f"Inventory value (seed 42): R{round(d.get('inventory_value_zar') or 0):,}"]
+             "Inventory — one representative simulation run (numbers below), with 30-seed means as context.",
+             f"Items at risk: {k.get('items_at_risk')} of {k.get('n_items')}",
+             f"Total cost (this run): R{round(k.get('total_cost_zar') or 0):,}",
+             f"Stockout penalty (this run): R{round(k.get('stockout_cost_zar') or 0):,}",
+             f"Inventory value: R{round(k.get('inventory_value_zar') or 0):,}",
+             "Across 30 runs (95% CI): " + _kpi(ci, "total_annual_cost_zar") + "; " + _kpi(ci, "stockout_incidence_pct", "%") + "; " + _kpi(ci, "non_performance_rate", "%")]
     for a in (d.get("by_abc") or []):
         lines.append(f"Class {a['abc_class']}: {a['items']} items, cost R{round(a['cost_zar']):,}")
     risky = [i for i in (d.get("items") or []) if i.get("status") == "stockout"][:6]

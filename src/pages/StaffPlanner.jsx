@@ -39,7 +39,8 @@ export default function StaffPlanner() {
     </div>
   );
 
-  const k = data?.kpis;
+  const k = data?.kpis;   // this representative run
+  const ci = data?.ci;    // 30-seed aggregated means + 95% CIs
   const daily = data?.daily || [];
   const required = daily.map((d) => d.required);
   const staffed = daily.map((d) => d.staffed);
@@ -62,22 +63,23 @@ export default function StaffPlanner() {
       />
 
       <div className="grid-kpi">
-        <KPI label="Coverage" value={k ? k.coverage_pct.mean : '—'} unit="%"
-          foot={k ? `95% CI ${k.coverage_pct.lo}–${k.coverage_pct.hi}` : ''} />
-        <KPI label="Annual payroll" value={k ? zarShort(k.annual_payroll_zar.mean) : '—'}
-          foot={`${data?.n_active_staff ?? 0} active nurses`} />
-        <KPI label="Mean weekly hours" value={k ? k.mean_weekly_hours.mean : '—'} unit="h"
+        <KPI label="Coverage" value={k ? k.coverage_pct : '—'} unit="%" foot="staffed vs required" />
+        <KPI label="Annual payroll" value={k ? zarShort(k.annual_payroll_zar) : '—'}
+          foot={`${k?.n_active_staff ?? 0} active nurses`} />
+        <KPI label="Mean weekly hours" value={k ? k.mean_weekly_hours : '—'} unit="h"
           foot="12-hour shifts · SA norm" />
-        <KPI label="BCEA breaches / nurse" value={k ? Math.round(k.bcea_violations_per_staff.mean) : '—'}
+        <KPI label="BCEA breaches / nurse" value={k ? k.bcea_per_nurse : '—'}
           foot="45h/week · logged, not enforced" />
       </div>
 
-      {k && (
+      {ci && (
         <div style={{ fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
-          Headline figures are 30-seed simulation means with 95% confidence intervals. BCEA limits are
-          <strong> logged, not enforced</strong> — 12-hour shifts and ~58h weeks are the documented SA public-hospital
-          norm, so the high breach counts are realistic, not a bug. Locum share {k.locum_share_pct.mean}% ·
-          {Math.round(k.sick_events.mean)} sick events/year · {data?.n_active_staff} of 30 posts filled (rest vacant).
+          Figures are from one representative run ({k?.n_active_staff} of 30 posts filled, rest vacant). BCEA limits are
+          <strong> logged, not enforced</strong> — 12-hour shifts and ~58h weeks are the documented SA public-hospital norm,
+          so the high breach counts are realistic, not a bug. Across 30 runs (95% CI):
+          coverage {ci.coverage_pct.mean}% [{ci.coverage_pct.lo}–{ci.coverage_pct.hi}] ·
+          payroll {zarShort(ci.annual_payroll_zar.mean)} ·
+          BCEA {Math.round(ci.bcea_violations_per_staff.mean)}/nurse · locum share {ci.locum_share_pct.mean}%.
         </div>
       )}
 

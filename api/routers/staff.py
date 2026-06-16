@@ -99,9 +99,21 @@ async def overview() -> dict[str, Any]:
         })
     by_category.sort(key=lambda x: -x["payroll_zar"])
 
+    # Headline KPIs from THIS representative run, consistent with the roster table.
+    req = float(daily["total_required_nurses"].sum())
+    staffed = float(daily["total_staffed_nurses"].sum())
+    headline = {
+        "coverage_pct":       round((staffed / req * 100) if req else 100.0, 1),
+        "annual_payroll_zar": round(float(members["total_payroll_cost_zar"].sum()), 0),
+        "mean_weekly_hours":  round(float(members["average_weekly_hours"].mean()), 1),
+        "bcea_per_nurse":     int(round(float(members["bcea_45hour_violations_count"].mean()))),
+        "locum_hours":        round(float(daily["total_locum_hours"].sum()), 0),
+        "n_active_staff":     int(len(members)),
+    }
     return {
-        "kpis": kpis,                       # aggregated 30-seed means + CIs
-        "n_active_staff": int(len(members)),
+        "kpis": headline,        # this run (consistent with the roster table)
+        "ci": kpis,              # 30-seed aggregated means + 95% CIs (context note)
+        "n_active_staff": headline["n_active_staff"],
         "days_simulated": int(daily["date"].nunique()),
         "daily": day_series,
         "shifts": shift_rows,

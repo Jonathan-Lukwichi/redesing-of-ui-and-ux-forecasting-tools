@@ -59,34 +59,34 @@ export default function SupplyPlanner() {
     </div>
   );
 
-  const k = data?.kpis;
+  const k = data?.kpis;     // this representative run (matches the table/ABC)
+  const ci = data?.ci;      // 30-seed aggregated means + 95% CIs
   return (
     <div className="content">
       <PageHero
         kicker="Operations · Supply"
         title="Supply Planner"
-        sub="Inventory levels, reorder behaviour and stockouts from a 13-month consumption simulation · 30 items across medicines, consumables & PPE · seed 42"
+        sub="Inventory, reorder behaviour and stockouts from a 13-month consumption simulation · 30 items · representative run (seed 1059)"
         image="/images/supply-bg.jpg"
         actions={<>
           <button className="btn"><Icon name="filter" size={14} />Filter</button>
-          <button className="btn btn-primary"><Icon name="bell" size={14} />Review {k?.items_at_risk ?? 0} at-risk</button>
+          <button className="btn btn-primary"><Icon name="bell" size={14} />Review {data?.items_at_risk ?? 0} at-risk</button>
         </>}
       />
 
       <div className="grid-kpi">
-        <KPI label="Stockout incidence" value={k ? Math.round(k.stockout_incidence_pct.mean) : '—'} unit="%"
-          foot={k ? `95% CI ${k.stockout_incidence_pct.lo}–${k.stockout_incidence_pct.hi}` : ''} />
-        <KPI label="Total annual cost" value={k ? zarShort(k.total_annual_cost_zar.mean) : '—'}
-          foot={k ? `CI ${zarShort(k.total_annual_cost_zar.lo)}–${zarShort(k.total_annual_cost_zar.hi)}` : ''} />
-        <KPI label="Stockout penalty" value={k ? zarShort(k.annual_stockout_penalty_zar.mean) : '—'} foot="the main cost driver" />
-        <KPI label="Items at risk" value={data ? data.items_at_risk : '—'} foot={`of ${data?.n_items ?? 0} items`} />
+        <KPI label="Items at risk" value={k ? k.items_at_risk : '—'} foot={`of ${k?.n_items ?? 0} items`} />
+        <KPI label="Total cost (this run)" value={k ? zarShort(k.total_cost_zar) : '—'} foot="holding+ordering+stockout+expiry" />
+        <KPI label="Stockout penalty" value={k ? zarShort(k.stockout_cost_zar) : '—'} foot="the main cost driver" />
+        <KPI label="Inventory value" value={k ? zarShort(k.inventory_value_zar) : '—'} foot="avg stock × price" />
       </div>
 
-      {k && (
+      {ci && (
         <div style={{ fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
-          Headline figures are 30-seed simulation means with 95% confidence intervals · controllable costs:
-          holding {zarShort(k.annual_holding_zar.mean)} · ordering {zarShort(k.annual_ordering_zar.mean)} · expiry {zarShort(k.annual_expiry_zar.mean)} ·
-          supplier non-performance {k.non_performance_rate.mean}% · median lead time {k.lead_time_median_unflagged_days.mean} days.
+          Figures are from one representative run. Across 30 simulation runs (95% CI):
+          total cost {zarShort(ci.total_annual_cost_zar.mean)} [{zarShort(ci.total_annual_cost_zar.lo)}–{zarShort(ci.total_annual_cost_zar.hi)}] ·
+          stockout incidence {ci.stockout_incidence_pct.mean}% [{ci.stockout_incidence_pct.lo}–{ci.stockout_incidence_pct.hi}] ·
+          supplier non-performance {ci.non_performance_rate.mean}% · median lead time {ci.lead_time_median_unflagged_days.mean} days.
         </div>
       )}
 
