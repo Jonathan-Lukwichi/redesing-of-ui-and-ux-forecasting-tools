@@ -1,4 +1,5 @@
 // ---- Storytelling primitives ----------------------------------------------
+import { useId } from 'react';
 
 const CATEGORY_TOKEN = {
   risk:   { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', label: 'Risk' },
@@ -371,11 +372,12 @@ export function Sparkline({ data, color = '#1e6091', width = 80, height = 28, fi
   );
 }
 
-export function LineChart({ series, height = 220, xLabels, showGrid = true }) {
-  const w = 720, h = height, pad = { l: 48, r: 16, t: 10, b: 30 };
+export function LineChart({ series, height = 220, xLabels, showGrid = true, fillArea = true }) {
+  const uid = useId().replace(/[:]/g, '');
+  const w = 720, h = height, pad = { l: 44, r: 18, t: 14, b: 28 };
   const allVals = series.flatMap((s) => s.data.filter((v) => v != null && v !== 0));
-  const max = Math.max(...allVals) * 1.1;
-  const min = Math.min(0, Math.min(...allVals));
+  const max = (allVals.length ? Math.max(...allVals) : 1) * 1.1;
+  const min = Math.min(0, allVals.length ? Math.min(...allVals) : 0);
   const innerW = w - pad.l - pad.r, innerH = h - pad.t - pad.b;
   const n = series[0].data.length;
   const x = (i) => pad.l + (i / (n - 1)) * innerW;
@@ -383,22 +385,44 @@ export function LineChart({ series, height = 220, xLabels, showGrid = true }) {
 
   const yTicks = 4;
   const tickVals = Array.from({ length: yTicks + 1 }, (_, i) => min + (i / yTicks) * (max - min));
+  const xIdx = xLabels && xLabels.length > 1
+    ? xLabels.map((_, i) => i * Math.floor((n - 1) / (xLabels.length - 1))) : [];
 
   return (
     <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+      <defs>
+        {series.map((s, si) => (
+          <linearGradient key={si} id={`${uid}-g${si}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={s.color} stopOpacity="0.16" />
+            <stop offset="100%" stopColor={s.color} stopOpacity="0" />
+          </linearGradient>
+        ))}
+      </defs>
+
+      {/* horizontal grid + y labels */}
       {showGrid && tickVals.map((v, i) => (
-        <g key={i}>
-          <line x1={pad.l} x2={w - pad.r} y1={y(v)} y2={y(v)} stroke="#eef0f3" strokeWidth="1" />
-          <text x={pad.l - 8} y={y(v) + 4} textAnchor="end" fontSize="12" fill="#94a3b8">{Math.round(v)}</text>
+        <g key={'h' + i}>
+          <line x1={pad.l} x2={w - pad.r} y1={y(v)} y2={y(v)} stroke="#eef2f7" strokeWidth="1" />
+          <text x={pad.l - 9} y={y(v) + 4} textAnchor="end" fontSize="11" fill="#94a3b8" fontFamily="inherit">{Math.round(v)}</text>
         </g>
       ))}
-      {xLabels && xLabels.map((lbl, i) => (
-        <text key={i} x={x(i * Math.floor((n - 1) / (xLabels.length - 1)))} y={h - 6} textAnchor="middle" fontSize="12" fill="#94a3b8">{lbl}</text>
+      {/* vertical grid at x-label positions */}
+      {showGrid && xIdx.map((xi, i) => (
+        <line key={'v' + i} x1={x(xi)} x2={x(xi)} y1={pad.t} y2={pad.t + innerH} stroke="#f5f7fa" strokeWidth="1" />
       ))}
+      {/* baseline */}
+      <line x1={pad.l} x2={w - pad.r} y1={y(min)} y2={y(min)} stroke="#e2e8f0" strokeWidth="1.25" />
+
+      {xLabels && xLabels.map((lbl, i) => (
+        <text key={i} x={x(xIdx[i])} y={h - 6} textAnchor="middle" fontSize="11" fill="#94a3b8" fontFamily="inherit">{lbl}</text>
+      ))}
+
       {series.map((s, si) => {
         const validPts = s.data.map((v, i) => [i, v]).filter(([, v]) => v != null && v !== 0);
         if (validPts.length < 2) return null;
-        const path = validPts.map(([i, v], pi) => (pi === 0 ? 'M' : 'L') + x(i) + ' ' + y(v)).join(' ');
+        const line = validPts.map(([i, v], pi) => (pi === 0 ? 'M' : 'L') + x(i) + ' ' + y(v)).join(' ');
+        const x0 = x(validPts[0][0]), x1 = x(validPts[validPts.length - 1][0]);
+        const area = `${line} L${x1} ${y(min)} L${x0} ${y(min)} Z`;
         return (
           <g key={si}>
             {s.band && (
@@ -409,16 +433,15 @@ export function LineChart({ series, height = 220, xLabels, showGrid = true }) {
                   [...s.band.lower].reverse().map((v, i) => 'L' + x(s.band.lower.length - 1 - i) + ' ' + y(v)).join(' ') +
                   ' Z'
                 }
-                fill={s.color}
-                opacity="0.14"
-                stroke="none"
+                fill={s.color} opacity="0.12" stroke="none"
               />
             )}
-            {s.dashed ? (
-              <path d={path} fill="none" stroke={s.color} strokeWidth="2.5" strokeDasharray="5 4" />
-            ) : (
-              <path d={path} fill="none" stroke={s.color} strokeWidth="2.5" />
+            {fillArea && !s.dashed && !s.band && (
+              <path d={area} fill={`url(#${uid}-g${si})`} stroke="none" />
             )}
+            <path d={line} fill="none" stroke={s.color} strokeWidth="2.25"
+              strokeLinejoin="round" strokeLinecap="round"
+              strokeDasharray={s.dashed ? '5 4' : undefined} />
           </g>
         );
       })}
