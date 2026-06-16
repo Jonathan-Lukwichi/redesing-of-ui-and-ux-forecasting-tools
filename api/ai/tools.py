@@ -33,6 +33,11 @@ TOOL_SCHEMAS = [
         "description": "Get current nurse staffing status: coverage, payroll, overtime, unfilled shifts, BCEA compliance, and per-shift breakdown. Use for questions about rosters, coverage, or staffing cost.",
         "input_schema": {"type": "object", "properties": {}},
     },
+    {
+        "name": "get_optimization",
+        "description": "Get the forecast-driven optimization plan: the cost-minimal lawful nurse roster (lawful coverage, nurse shortfall, locum hours needed, locum saved) and the (s,S) reorder plan (items to order this week, order cost, stockout risk addressed). Use for questions about what to do next week, the optimal roster, or what to reorder.",
+        "input_schema": {"type": "object", "properties": {}},
+    },
 ]
 
 
@@ -87,6 +92,30 @@ def execute(name: str, inp: dict[str, Any]) -> dict[str, Any]:
             if d.get("error") or d.get("detail"):
                 return {"error": "Staffing data not available — the simulation files may not be loaded."}
             return {"kpis": d.get("kpis"), "shifts": d.get("shifts")}
+        if name == "get_optimization":
+            d = _get("/api/optimization/last")
+            if not d or not d.get("staff"):
+                d = _post("/api/optimization/run", {"model": "statistical"})
+            if d.get("error") or d.get("detail") or not d.get("staff"):
+                return {"error": "Optimization plan not available — run it on the Optimization page."}
+            sk = d["staff"]["kpis"]; uk = d["supply"]["kpis"]
+            return {
+                "week_starting": (d.get("forecast") or {}).get("week_starting"),
+                "forecast_source": (d.get("forecast") or {}).get("source"),
+                "staff": {k: sk.get(k) for k in (
+                    "lawful_coverage_pct", "baseline_coverage_pct", "staffing_shortfall",
+                    "nurses_needed_lawful", "nurses_available", "locum_hours",
+                    "weekly_savings_zar", "unfilled_slots")},
+                "staff_by_shift": [{"shift": s["shift"], "required": s["required"],
+                                    "assigned": s["assigned"], "unfilled": s["unfilled"]}
+                                   for s in d["staff"]["shifts"]],
+                "supply": {k: uk.get(k) for k in (
+                    "items_to_order", "items_total", "order_cost_zar",
+                    "stockout_risk_addressed_zar", "items_at_risk_now")},
+                "orders_now": [{"item": o["item_name"], "qty": o["order_qty"],
+                                "abc": o["abc_class"], "cost_zar": o["order_cost_zar"]}
+                               for o in d["supply"]["orders"] if o["status"] == "order_now"][:8],
+            }
     except Exception as e:
         return {"error": f"tool failed: {type(e).__name__}: {e}"}
     return {"error": f"unknown tool {name}"}

@@ -12,9 +12,10 @@ from ai.client import _client
 
 def gather_signals() -> dict[str, Any]:
     return {
-        "forecast": tools.execute("get_forecast", {"horizon": 7, "model": "statistical"}),
-        "supply":   tools.execute("get_supply_status", {}),
-        "staff":    tools.execute("get_staff_status", {}),
+        "forecast":     tools.execute("get_forecast", {"horizon": 7, "model": "statistical"}),
+        "optimization": tools.execute("get_optimization", {}),
+        "supply":       tools.execute("get_supply_status", {}),
+        "staff":        tools.execute("get_staff_status", {}),
     }
 
 
@@ -45,8 +46,12 @@ def generate() -> dict[str, Any]:
     signals = gather_signals()
     client = _client()
     content = (
-        "Here are the live operational signals. Turn them into a ranked action list "
-        "(most urgent first). Only use numbers present here.\n\n<context>\n"
+        "Here are the live operational signals. The 'optimization' block is the "
+        "forecast-driven plan for next week (the cost-minimal lawful nurse roster "
+        "and the reorder plan) — prefer it as the basis for concrete actions: the "
+        "nurse shortfall and locum hours, the busiest under-covered shifts, and the "
+        "specific items to reorder. Turn them into a ranked action list (most "
+        "urgent first). Only use numbers present here.\n\n<context>\n"
         + json.dumps(signals, default=str)
         + "\n</context>"
     )

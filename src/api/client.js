@@ -95,6 +95,17 @@ export const api = {
     overview: (signal) => request('/api/staff/overview', { signal }),
   },
 
+  optimization: {
+    // POST — runs forecast → staff IP + supply (s,S). Server has sensible defaults.
+    run: ({ model = 'statistical', kappa = 1.65, service_level = 0.95, weekly_budget_zar = null, start_date = null } = {}) =>
+      request('/api/optimization/run', {
+        method: 'POST',
+        body: { model, kappa, service_level, weekly_budget_zar, start_date },
+      }),
+    last:      (signal) => request('/api/optimization/last', { signal }),
+    staffPool: (signal) => request('/api/optimization/staff-pool', { signal }),
+  },
+
   task1: {
     // GET /api/task1/models — sorted by val_RMSE asc, each item has badge + card.
     models:   (signal) => request('/api/task1/models', { signal }),

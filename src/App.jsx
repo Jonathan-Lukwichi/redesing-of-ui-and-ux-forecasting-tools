@@ -10,6 +10,7 @@ import Task1Forecast from './pages/Task1Forecast';
 import Task2Forecast from './pages/Task2Forecast';
 import StaffPlanner from './pages/StaffPlanner';
 import SupplyPlanner from './pages/SupplyPlanner';
+import Optimization from './pages/Optimization';
 import ActionCenter from './pages/ActionCenter';
 
 const PAGES = {
@@ -21,6 +22,7 @@ const PAGES = {
   'forecast-specialty': Task2Forecast,
   staff:                StaffPlanner,
   supply:               SupplyPlanner,
+  optimize:             Optimization,
   actions:              ActionCenter,
 };
 

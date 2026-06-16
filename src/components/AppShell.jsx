@@ -15,9 +15,10 @@ const NAV_ITEMS = [
     { id: 'forecast-specialty', label: 'By specialty', icon: 'chart' },
   ]},
   { section: 'Operations', items: [
-    { id: 'staff',   label: 'Staffing',      icon: 'users', badge: '3' },
-    { id: 'supply',  label: 'Supply',        icon: 'box' },
-    { id: 'actions', label: 'Action Center', icon: 'bolt', badge: '12' },
+    { id: 'staff',    label: 'Staffing',      icon: 'users', badge: '3' },
+    { id: 'supply',   label: 'Supply',        icon: 'box' },
+    { id: 'optimize', label: 'Optimization',  icon: 'bolt' },
+    { id: 'actions',  label: 'Action Center', icon: 'bolt', badge: '12' },
   ]},
 ];
 
@@ -30,6 +31,7 @@ const CRUMB_MAP = {
   'forecast-specialty': ['Forecasting', 'By Specialty'],
   staff:     ['Operations', 'Staff Planner'],
   supply:    ['Operations', 'Supply Planner'],
+  optimize:  ['Operations', 'Optimization'],
   actions:   ['Operations', 'Action Center'],
 };
 
