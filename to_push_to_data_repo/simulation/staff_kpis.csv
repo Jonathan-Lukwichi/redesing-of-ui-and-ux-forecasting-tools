@@ -1,0 +1,8 @@
+kpi,n_seeds,mean,half_width_95,lower_95,upper_95
+locum_share_pct,30,3.134,0.126,3.008,3.26
+coverage_pct,30,96.866,0.126,96.74,96.992
+mean_weekly_hours,30,58.092,0.076,58.016,58.168
+bcea_violations_per_staff,30,241.796,0.497,241.298,242.293
+sick_events,30,426.1,6.337,419.763,432.437
+annual_payroll_zar,30,12879397.917,21384.936,12858012.981,12900782.853
+total_arrivals,30,25413.0,0.0,25413.0,25413.0

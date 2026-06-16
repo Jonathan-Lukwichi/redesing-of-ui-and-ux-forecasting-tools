@@ -74,11 +74,21 @@ export default function SupplyPlanner() {
       />
 
       <div className="grid-kpi">
-        <KPI label="Service level" value={k ? k.service_level_pct : '—'} unit="%" foot="units served on demand" />
-        <KPI label="Items at risk" value={k ? k.items_at_risk : '—'} foot="below 98% service" />
-        <KPI label="Stockout-days" value={k ? k.stockout_events : '—'} foot="over 396 days" />
-        <KPI label="Inventory value" value={k ? zarShort(k.inventory_value_zar) : '—'} foot={`across ${k?.n_items ?? 0} items`} />
+        <KPI label="Stockout incidence" value={k ? Math.round(k.stockout_incidence_pct.mean) : '—'} unit="%"
+          foot={k ? `95% CI ${k.stockout_incidence_pct.lo}–${k.stockout_incidence_pct.hi}` : ''} />
+        <KPI label="Total annual cost" value={k ? zarShort(k.total_annual_cost_zar.mean) : '—'}
+          foot={k ? `CI ${zarShort(k.total_annual_cost_zar.lo)}–${zarShort(k.total_annual_cost_zar.hi)}` : ''} />
+        <KPI label="Stockout penalty" value={k ? zarShort(k.annual_stockout_penalty_zar.mean) : '—'} foot="the main cost driver" />
+        <KPI label="Items at risk" value={data ? data.items_at_risk : '—'} foot={`of ${data?.n_items ?? 0} items`} />
       </div>
+
+      {k && (
+        <div style={{ fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          Headline figures are 30-seed simulation means with 95% confidence intervals · controllable costs:
+          holding {zarShort(k.annual_holding_zar.mean)} · ordering {zarShort(k.annual_ordering_zar.mean)} · expiry {zarShort(k.annual_expiry_zar.mean)} ·
+          supplier non-performance {k.non_performance_rate.mean}% · median lead time {k.lead_time_median_unflagged_days.mean} days.
+        </div>
+      )}
 
       {data && <AiPanel surface="supply" context={data} label="Explain the inventory" />}
 
@@ -117,7 +127,7 @@ export default function SupplyPlanner() {
         </div>
         <table className="tbl">
           <thead>
-            <tr><th>Item</th><th>Category</th><th>ABC</th><th className="num">Use/day</th><th className="num">Days cover</th><th className="num">Service</th><th className="num">Stockout-days</th><th className="num">Cost</th><th>Status</th></tr>
+            <tr><th>Item</th><th>Category</th><th>ABC</th><th className="num">Use/day</th><th className="num">Days cover</th><th className="num">Service</th><th className="num">Stockouts</th><th className="num">Cost</th><th>Status</th></tr>
           </thead>
           <tbody>
             {!data && <tr><td colSpan={9} style={{ color: C.muted, padding: 20 }}>Loading inventory…</td></tr>}
@@ -129,7 +139,7 @@ export default function SupplyPlanner() {
                 <td className="num">{it.mean_daily_consumption}</td>
                 <td className="num">{it.days_cover ?? '—'}{it.days_cover != null ? 'd' : ''}</td>
                 <td className="num">{it.service_level}%</td>
-                <td className="num" style={{ color: it.stockout_days > 0 ? C.red : C.muted }}>{it.stockout_days}</td>
+                <td className="num" style={{ color: it.stockout_events > 0 ? C.red : C.muted }}>{it.stockout_events}</td>
                 <td className="num">{zarShort(it.total_cost_zar)}</td>
                 <td><span className={`tag ${STATUS[it.status].tag}`}>{STATUS[it.status].label}</span></td>
               </tr>

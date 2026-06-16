@@ -77,8 +77,9 @@ def execute(name: str, inp: dict[str, Any]) -> dict[str, Any]:
                 return {"error": "Supply data not available — the simulation files may not be loaded."}
             return {
                 "kpis": d.get("kpis"),
+                "items_at_risk": d.get("items_at_risk"),
                 "at_risk": [{"item": i["item_name"], "class": i["abc_class"],
-                             "service_pct": i["service_level"], "stockout_days": i["stockout_days"]}
+                             "service_pct": i["service_level"], "stockout_events": i["stockout_events"]}
                             for i in d.get("items", []) if i.get("status") == "stockout"][:8],
             }
         if name == "get_staff_status":

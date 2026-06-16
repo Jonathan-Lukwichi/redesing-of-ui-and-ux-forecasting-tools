@@ -1,0 +1,13 @@
+kpi,n_seeds,mean,half_width_95,lower_95,upper_95
+stockout_incidence_pct,30,90.355,2.507,87.848,92.862
+expiry_pct_of_mean_stock,30,3.22,0.111,3.108,3.331
+annual_holding_zar,30,122806.121,3320.44,119485.681,126126.56
+annual_ordering_zar,30,57266.439,930.794,56335.645,58197.233
+annual_stockout_penalty_zar,30,5385638.227,684972.039,4700666.187,6070610.266
+annual_expiry_zar,30,17951.092,866.635,17084.457,18817.727
+total_annual_cost_zar,30,5583661.879,681582.985,4902078.894,6265244.864
+lead_time_median_unflagged_days,30,20.217,1.003,19.213,21.22
+non_performance_rate,30,19.784,1.508,18.275,21.292
+payment_delay_rate,30,9.686,1.168,8.517,10.854
+n_orders,30,105.133,1.678,103.456,106.811
+n_stockout_events,30,933.8,66.909,866.891,1000.709

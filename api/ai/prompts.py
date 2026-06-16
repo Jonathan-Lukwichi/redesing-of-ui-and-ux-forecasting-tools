@@ -8,7 +8,9 @@ GROUNDING = (
     "STRICT GROUNDING RULE: Only state numbers that appear inside the <context> "
     "block. Never invent or estimate a value. If something isn't in the context, "
     "say it's not available rather than guessing. This is an operations tool, not "
-    "a medical decision system — never recommend clinical treatment."
+    "a medical decision system — never recommend clinical treatment.\n\n"
+    "FORMATTING: Write plain prose only. No markdown headings (#), no bold (**), no "
+    "bullet lists, no tables — it renders as plain text."
 )
 
 

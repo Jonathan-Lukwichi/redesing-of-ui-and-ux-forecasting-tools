@@ -62,11 +62,24 @@ export default function StaffPlanner() {
       />
 
       <div className="grid-kpi">
-        <KPI label="Coverage" value={k ? k.coverage_pct : '—'} unit="%" foot="staffed vs required" />
-        <KPI label="Payroll (13 mo)" value={k ? zarShort(k.total_payroll_zar) : '—'} foot={`${k?.n_staff ?? 0} nurses`} />
-        <KPI label="Unfilled shifts" value={k ? k.unfilled_shifts : '—'} foot={`over ${k?.days_simulated ?? 0} days`} />
-        <KPI label="BCEA violations" value={k ? k.bcea_violations : '—'} foot="45h/week breaches" />
+        <KPI label="Coverage" value={k ? k.coverage_pct.mean : '—'} unit="%"
+          foot={k ? `95% CI ${k.coverage_pct.lo}–${k.coverage_pct.hi}` : ''} />
+        <KPI label="Annual payroll" value={k ? zarShort(k.annual_payroll_zar.mean) : '—'}
+          foot={`${data?.n_active_staff ?? 0} active nurses`} />
+        <KPI label="Mean weekly hours" value={k ? k.mean_weekly_hours.mean : '—'} unit="h"
+          foot="12-hour shifts · SA norm" />
+        <KPI label="BCEA breaches / nurse" value={k ? Math.round(k.bcea_violations_per_staff.mean) : '—'}
+          foot="45h/week · logged, not enforced" />
       </div>
+
+      {k && (
+        <div style={{ fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          Headline figures are 30-seed simulation means with 95% confidence intervals. BCEA limits are
+          <strong> logged, not enforced</strong> — 12-hour shifts and ~58h weeks are the documented SA public-hospital
+          norm, so the high breach counts are realistic, not a bug. Locum share {k.locum_share_pct.mean}% ·
+          {Math.round(k.sick_events.mean)} sick events/year · {data?.n_active_staff} of 30 posts filled (rest vacant).
+        </div>
+      )}
 
       {data && <AiPanel surface="staff" context={data} label="Explain the roster" />}
 
@@ -104,7 +117,7 @@ export default function StaffPlanner() {
                 </div>
                 <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                   <span style={{ color: C.muted }}>Avg nurses</span>
-                  <strong>{s.avg_staffed} / {s.avg_required}</strong>
+                  <strong>{s.avg_filled} / {s.avg_required}</strong>
                 </div>
                 <div style={{ marginTop: 4, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                   <span style={{ color: C.muted }}>Unfilled · locum</span>
@@ -141,7 +154,7 @@ export default function StaffPlanner() {
             {!data && <tr><td colSpan={10} style={{ color: C.muted, padding: 20 }}>Loading staff…</td></tr>}
             {staffRows.map((s) => (
               <tr key={s.staff_id}>
-                <td style={{ fontWeight: 500, color: C.ink }}>{s.name}</td>
+                <td style={{ fontWeight: 500, color: C.ink }} className="mono">{s.staff_id}</td>
                 <td><span className="tag">{CAT_SHORT[s.category] || s.category}</span></td>
                 <td className="num">{s.skill_level}</td>
                 <td className="num">{s.days_worked}</td>

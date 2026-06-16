@@ -60,35 +60,52 @@ def build_forecast_context(data: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _kpi(k: dict, name: str, unit: str = "") -> str:
+    v = (k or {}).get(name)
+    if not isinstance(v, dict):
+        return f"{name}: n/a"
+    return f"{name}: {v['mean']}{unit} (95% CI {v['lo']}–{v['hi']})"
+
+
 def build_staff_context(d: dict[str, Any]) -> str:
     k = d.get("kpis", {}) or {}
-    lines = ["<context>", "Nurse staffing summary (13-month simulation, seed 42):",
-             f"Coverage: {k.get('coverage_pct')}% (staffed vs required)",
-             f"Total payroll: R{round(k.get('total_payroll_zar') or 0):,}",
-             f"Overtime hours: {k.get('overtime_hours')}",
-             f"Unfilled shifts: {k.get('unfilled_shifts')} over {k.get('days_simulated')} days",
-             f"BCEA 45h/week violations: {k.get('bcea_violations')}",
-             f"Nurses: {k.get('n_staff')}"]
+    lines = ["<context>",
+             "Nurse staffing — 30-seed simulation, means with 95% confidence intervals.",
+             "NOTE: BCEA limits are LOGGED not enforced (12-hour shifts are the SA public-hospital norm), so high violation counts and ~58h weeks are expected/realistic.",
+             _kpi(k, "coverage_pct", "%"),
+             _kpi(k, "annual_payroll_zar"),
+             _kpi(k, "mean_weekly_hours"),
+             _kpi(k, "bcea_violations_per_staff"),
+             _kpi(k, "locum_share_pct", "%"),
+             _kpi(k, "sick_events"),
+             f"Active nurses: {d.get('n_active_staff')} (of 30 posts; rest vacant)"]
     for s in (d.get("shifts") or []):
-        lines.append(f"Shift {s['shift']}: avg {s['avg_staffed']}/{s['avg_required']} nurses, "
-                     f"{s['unfilled']} unfilled, {s['locum_hours']} locum hrs, cost R{round(s['cost_zar']):,}")
+        lines.append(f"Shift {s['shift']}: avg {s['avg_filled']}/{s['avg_required']} nurses, "
+                     f"{s['unfilled']} unfilled, {s['locum_hours']} locum hrs")
     lines.append("</context>")
     return "\n".join(lines)
 
 
 def build_supply_context(d: dict[str, Any]) -> str:
     k = d.get("kpis", {}) or {}
-    lines = ["<context>", "Inventory summary (13-month simulation, seed 42):",
-             f"Service level: {k.get('service_level_pct')}%",
-             f"Items at risk: {k.get('items_at_risk')} of {k.get('n_items')}",
-             f"Stockout-days: {k.get('stockout_events')}",
-             f"Total cost: R{round(k.get('total_cost_zar') or 0):,}",
-             f"Inventory value: R{round(k.get('inventory_value_zar') or 0):,}"]
+    lines = ["<context>",
+             "Inventory — 30-seed simulation, means with 95% confidence intervals.",
+             _kpi(k, "stockout_incidence_pct", "%"),
+             _kpi(k, "total_annual_cost_zar"),
+             _kpi(k, "annual_stockout_penalty_zar"),
+             _kpi(k, "annual_holding_zar"),
+             _kpi(k, "annual_ordering_zar"),
+             _kpi(k, "annual_expiry_zar"),
+             _kpi(k, "non_performance_rate", "%"),
+             _kpi(k, "lead_time_median_unflagged_days"),
+             _kpi(k, "n_stockout_events"),
+             f"Items at risk: {d.get('items_at_risk')} of {d.get('n_items')}",
+             f"Inventory value (seed 42): R{round(d.get('inventory_value_zar') or 0):,}"]
     for a in (d.get("by_abc") or []):
         lines.append(f"Class {a['abc_class']}: {a['items']} items, cost R{round(a['cost_zar']):,}")
     risky = [i for i in (d.get("items") or []) if i.get("status") == "stockout"][:6]
     for i in risky:
-        lines.append(f"At risk: {i['item_name']} (class {i['abc_class']}), service {i['service_level']}%, {i['stockout_days']} stockout-days")
+        lines.append(f"At risk: {i['item_name']} (class {i['abc_class']}), service {i['service_level']}%, {i['stockout_events']} stockout events")
     lines.append("</context>")
     return "\n".join(lines)
 
