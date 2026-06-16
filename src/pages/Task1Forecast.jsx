@@ -12,6 +12,7 @@
 // =============================================================================
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
+import AiPanel from '../components/AiPanel';
 
 const C = {
   ink: '#0f172a', muted: '#64748b', line: '#eef0f3',
@@ -247,7 +248,8 @@ export default function Task1Forecast({ onNavigate }) {
 
       {/* Result panel */}
       {result && (result.ok
-        ? <ForecastResult data={result.data} horizonId={result.horizonId} badge="operational" />
+        ? <><ForecastResult data={result.data} horizonId={result.horizonId} badge="operational" />
+            <AiPanel context={result.data} /></>
         : <ForecastError result={result} onTryAnother={() => setResult(null)} onNavigate={onNavigate} />)}
 
       {/* Technical / thesis section — the 6 research models, tucked away */}
