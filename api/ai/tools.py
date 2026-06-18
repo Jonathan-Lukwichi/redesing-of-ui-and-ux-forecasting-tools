@@ -38,6 +38,17 @@ TOOL_SCHEMAS = [
         "description": "Get the forecast-driven optimization plan: the cost-minimal lawful nurse roster (lawful coverage, nurse shortfall, locum hours needed, locum saved) and the (s,S) reorder plan (items to order this week, order cost, stockout risk addressed). Use for questions about what to do next week, the optimal roster, or what to reorder.",
         "input_schema": {"type": "object", "properties": {}},
     },
+    {
+        "name": "lookup_knowledge",
+        "description": "Look up a plain-language explanation of a METHOD or CONCEPT used in the app — e.g. how the forecast works, SARIMAX vs machine learning, recursive vs direct multi-step, what accuracy/MAPE means, the (s,S) reorder policy, safety stock and service level, the four inventory costs, Monte-Carlo simulation, the staffing integer programme, or how the forecast drives the plans. Returns a short teaching summary and the source it is grounded in. Use this to EXPLAIN the analysis/methodology (not to fetch live numbers).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "The concept or question to explain, e.g. 'safety stock' or 'how does the ML forecast work'."},
+            },
+            "required": ["query"],
+        },
+    },
 ]
 
 
@@ -65,10 +76,10 @@ def execute(name: str, inp: dict[str, Any]) -> dict[str, Any]:
                 return {"error": "Forecast not available — G1 (Daily demand) may not be merged. Build it on the Prepare page."}
             days = d.get("forecast", [])
             return {
+                # NOTE: accuracy/error figures are deliberately omitted — the public
+                # assistant must not quote accuracy numbers (see chat prompt).
                 "horizon_days": len(days),
                 "forecast_start": d.get("forecast_start"),
-                "accuracy_pct": d.get("confidence_pct"),
-                "typical_miss_patients": d.get("mae"),
                 "total": round(sum(x["predicted"] for x in days)),
                 "busiest": max(days, key=lambda x: x["predicted"], default=None) and {
                     "date": max(days, key=lambda x: x["predicted"])["date"],
@@ -92,6 +103,13 @@ def execute(name: str, inp: dict[str, Any]) -> dict[str, Any]:
             if d.get("error") or d.get("detail"):
                 return {"error": "Staffing data not available — the simulation files may not be loaded."}
             return {"kpis": d.get("kpis"), "shifts": d.get("shifts")}
+        if name == "lookup_knowledge":
+            from ai import knowledge
+            cards = knowledge.search(inp.get("query", ""), k=2)
+            if not cards:
+                return {"note": "No specific card matched; explain from general knowledge but keep it simple and grounded.",
+                        "available_topics": knowledge.topics()}
+            return {"cards": cards}
         if name == "get_optimization":
             d = _get("/api/optimization/last")
             if not d or not d.get("staff"):

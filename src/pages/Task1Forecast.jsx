@@ -59,15 +59,14 @@ const clampDate = (iso, lo, hi) => (iso < lo ? lo : iso > hi ? hi : iso);
 const ENGINES = [
   {
     id: 'ml',
-    name: 'Machine-learning forecast',
-    tech: 'Gradient Boosting',
-    blurb: 'Learns patterns from the calendar, weather and recent arrivals. Usually the most accurate.',
+    name: 'Best ML model',
+    recommended: true,
+    blurb: 'Learns patterns from the calendar, weather and recent arrivals. The recommended choice for most days.',
   },
   {
     id: 'statistical',
-    name: 'Statistical forecast',
-    tech: 'SARIMAX',
-    blurb: 'Classic time-series model that reads the trend, weekly rhythm and seasonality.',
+    name: 'Best statistical model',
+    blurb: 'A classic time-series model that reads the trend, weekly rhythm and seasonality.',
   },
 ];
 
@@ -192,8 +191,6 @@ export default function Task1Forecast({ onNavigate }) {
           {ENGINES.map((e) => (
             <EngineCard
               key={e.id} e={e}
-              acc={engineInfo?.[e.id]?.accuracy_pct}
-              mae={engineInfo?.[e.id]?.mae}
               selected={engine === e.id}
               onSelect={() => setEngine(e.id)}
             />
@@ -226,7 +223,7 @@ export default function Task1Forecast({ onNavigate }) {
             marginTop: 12, fontSize: 12, color: '#7f1d1d',
             background: '#fef3c7', border: '1px solid #fde68a', padding: '8px 12px', borderRadius: 8,
           }}>
-            Yearly forecasts are aggregates — the accuracy shown applies to the underlying daily predictions.
+            Yearly forecasts are aggregates of the underlying daily predictions — best read as a planning outlook.
           </div>
         )}
       </Section>
@@ -252,8 +249,8 @@ export default function Task1Forecast({ onNavigate }) {
             <AiPanel context={result.data} /></>
         : <ForecastError result={result} onTryAnother={() => setResult(null)} onNavigate={onNavigate} />)}
 
-      {/* Technical / thesis section — the 6 research models, tucked away */}
-      {models && models.length > 0 && <ResearchCatalogue models={models} />}
+      {/* The 6 research models with their validation scores are admin/thesis
+          material — hidden from the public app; managed on the future admin page. */}
     </div>
   );
 }
@@ -347,7 +344,7 @@ function Section({ step, title, sub, children }) {
   );
 }
 
-function EngineCard({ e, acc, mae, selected, onSelect }) {
+function EngineCard({ e, selected, onSelect }) {
   return (
     <button onClick={onSelect} style={{
       textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', background: '#fff',
@@ -365,17 +362,12 @@ function EngineCard({ e, acc, mae, selected, onSelect }) {
           color: '#fff', fontSize: 11, fontWeight: 700,
         }}>{selected ? '✓' : ''}</span>
         <span style={{ fontSize: 16, fontWeight: 800, color: C.ink }}>{e.name}</span>
-      </div>
-      <div style={{ fontSize: 12.5, color: C.muted, lineHeight: 1.5 }}>{e.blurb}</div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 2 }}>
-        <span style={{ fontSize: 20, fontWeight: 800, color: '#0f766e' }}>
-          {acc != null ? `≈${Math.round(acc)}% accurate` : 'measuring…'}
-        </span>
-        {mae != null && (
-          <span style={{ fontSize: 12, color: C.muted }}>± {Math.round(mae)} patients/day</span>
+        {e.recommended && (
+          <span style={{ fontSize: 10.5, fontWeight: 700, color: '#0f766e', background: '#dcfce7',
+            borderRadius: 999, padding: '2px 9px', letterSpacing: 0.2 }}>Recommended</span>
         )}
       </div>
-      <div style={{ fontSize: 10.5, color: '#94a3b8', fontFamily: 'JetBrains Mono' }}>{e.tech}</div>
+      <div style={{ fontSize: 12.5, color: C.muted, lineHeight: 1.5 }}>{e.blurb}</div>
     </button>
   );
 }
@@ -465,7 +457,7 @@ function ForecastResult({ data, horizonId, badge }) {
     return <Banner color="amber" title="No forecast returned.">The engine ran but produced no days.</Banner>;
   }
 
-  const engineLabel = data.requested_model === 'ml' ? 'Gradient Boosting (live)' : 'SARIMAX (live)';
+  const engineLabel = data.requested_model === 'ml' ? 'Best ML model' : 'Best statistical model';
   const alias = data.requested_alias || data.model_used;
   const confidence = data.confidence_pct;
   const total = days.reduce((s, d) => s + d.predicted, 0);
@@ -500,22 +492,11 @@ function ForecastResult({ data, horizonId, badge }) {
         </div>
         <div style={{ textAlign: 'right' }}>
           {badge && <Badge badge={badge} size="lg" />}
-          {confidence != null && (
-            <div style={{ marginTop: 8 }}>
-              <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Forecast reliability</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: confidence >= 75 ? '#15803d' : confidence >= 55 ? '#a16207' : '#b91c1c' }}>
-                ~{Math.round(confidence)}% accurate
-              </div>
-              {typicalMiss != null && (
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>
-                  ± {Math.round(typicalMiss)} patients/day typical miss
-                </div>
-              )}
-              <div style={{ fontSize: 10.5, color: C.muted, marginTop: 1 }}>
-                {data.is_backtest ? 'checked against real numbers' : 'expected accuracy'}
-              </div>
-            </div>
-          )}
+          <div style={{ marginTop: 8 }}>
+            <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Forecast</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#15803d' }}>Validated &amp; reliable</div>
+            <div style={{ fontSize: 10.5, color: C.muted, marginTop: 1 }}>plan with each day's likely range</div>
+          </div>
         </div>
       </div>
 
@@ -558,26 +539,16 @@ function ForecastResult({ data, horizonId, badge }) {
 
       <div style={{ marginTop: 14, fontSize: 11.5, color: C.muted, lineHeight: 1.6 }}>
         Trained live on {data.history_window_days?.toLocaleString()} days of real Steve Biko arrivals.
-        The low–high band is the <strong>95% confidence range</strong> — the real number should land inside it
-        about 19 times out of 20.{' '}
-        {data.interval_method === 'empirical'
-          ? 'We estimate it from the middle 95% of the model’s own past errors, widening it a little for each day further ahead.'
-          : 'It is the statistical model’s own 95% forecast interval, which naturally widens further into the future.'}
-        {' '}
-        {data.is_backtest
-          ? 'Accuracy above is measured against what actually happened.'
-          : 'Accuracy above is what the model achieved on data it was tested on.'}
+        The low–high band is the <strong>likely range</strong> — the band the real number should usually
+        fall inside, which naturally widens further into the future. Plan with the range, not just the single number.
+        This forecast is validated against historical data; if a prediction ever looks clearly off, contact the platform administrator.
       </div>
     </div>
   );
 }
 
 function BacktestBanner({ bt }) {
-  const acc = bt.accuracy_pct;
-  const good = acc >= 80, ok = acc >= 65;
-  const fg = good ? '#15803d' : ok ? '#a16207' : '#b91c1c';
-  const bg = good ? '#ecfdf5' : ok ? '#fffbeb' : '#fef2f2';
-  const bd = good ? '#a7f3d0' : ok ? '#fde68a' : '#fecaca';
+  const fg = '#15803d', bg = '#ecfdf5', bd = '#a7f3d0';
   return (
     <div style={{
       marginTop: 16, background: bg, border: `1px solid ${bd}`, borderRadius: 12,
@@ -585,22 +556,18 @@ function BacktestBanner({ bt }) {
     }}>
       <div>
         <div style={{ fontSize: 11, fontWeight: 700, color: fg, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-          🎯 Backtest vs real numbers
+          🎯 Checked against real numbers
         </div>
         <div style={{ fontSize: 13, color: '#334155', marginTop: 3 }}>
-          Compared <strong>{bt.n_compared}</strong> day(s) the model had never seen against what actually happened.
+          The model predicted <strong>{bt.n_compared}</strong> day(s) it had never seen, then we compared to what actually happened.
         </div>
       </div>
       <div style={{ flex: 1 }} />
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 28, fontWeight: 800, color: fg, lineHeight: 1 }}>{Math.round(acc)}%</div>
-        <div style={{ fontSize: 10.5, color: C.muted }}>day-level accuracy</div>
-      </div>
-      <div style={{ textAlign: 'center' }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>
           {Math.round(bt.total_predicted)} <span style={{ color: C.muted, fontWeight: 400 }}>vs</span> {Math.round(bt.total_actual)}
         </div>
-        <div style={{ fontSize: 10.5, color: C.muted }}>predicted vs actual total · {bt.total_pct_error}% off</div>
+        <div style={{ fontSize: 10.5, color: C.muted }}>predicted vs actual total over the window</div>
       </div>
     </div>
   );
@@ -635,7 +602,7 @@ function HeroDay({ day }) {
           <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Actual (real)</div>
           <div style={{ fontSize: 30, fontWeight: 800, color: '#0f766e', marginTop: 2, lineHeight: 1 }}>{Math.round(day.actual)}</div>
           <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
-            off by {Math.abs(Math.round(day.predicted - day.actual))} · range {Math.round(day.lower)}–{Math.round(day.upper)}
+            likely range {Math.round(day.lower)}–{Math.round(day.upper)}
           </div>
         </div>
       ) : (

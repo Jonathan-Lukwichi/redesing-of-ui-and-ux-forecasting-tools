@@ -83,8 +83,8 @@ export default function Dashboard({ onNavigate }) {
         <KPI label="Peak day" value={busiest ? Math.round(busiest.predicted) : '—'} unit={busiest ? wd(busiest.date) : ''}
           foot={busiest ? `${MONTH3[new Date(busiest.date + 'T00:00:00').getMonth()]} ${new Date(busiest.date + 'T00:00:00').getDate()}` : ''}
           spark={days.map((d) => d.predicted)} sparkColor="#d97706" />
-        <KPI label="Forecast accuracy" value={fc ? Math.round(fc.confidence_pct) : '—'} unit="%"
-          foot={fc ? `±${Math.round(fc.mae)} patients/day` : ''} sparkColor="#7c3aed" />
+        <KPI label="Forecast" value={fc ? 'Reliable' : '—'} unit=""
+          foot={fc ? 'validated · plan with the range' : ''} />
       </div>
 
       {/* Forecast chart + day-of-week */}
@@ -93,7 +93,7 @@ export default function Dashboard({ onNavigate }) {
           <div className="card-header">
             <div>
               <div className="card-title">Patient arrivals — history + 7-day forecast</div>
-              <div className="card-sub">{hist.length} days history · live {fc?.requested_model === 'ml' ? 'ML (Gradient Boosting)' : 'SARIMAX'} forecast · 95% range shaded</div>
+              <div className="card-sub">{hist.length} days history · live {fc?.requested_model === 'ml' ? 'best ML model' : 'best statistical model'} · likely range shaded</div>
             </div>
             <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#64748b' }}>
               <span><span className="dot" style={{ color: '#475569' }} /> Historical</span>

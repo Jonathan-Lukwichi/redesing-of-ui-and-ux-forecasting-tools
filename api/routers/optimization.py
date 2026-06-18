@@ -24,7 +24,9 @@ from routers.forecast import _forecast_from_series, _series_for
 
 router = APIRouter(prefix="/api/optimization", tags=["optimization"])
 
-_MODEL_LABEL = {"statistical": "SARIMAX (statistical)", "ml": "Gradient Boosting (ML)"}
+# Public-facing generic names (no algorithm names, no accuracy). The real model
+# identities and accuracy live on the (future) admin page, not the public app.
+_MODEL_LABEL = {"statistical": "Best statistical model", "ml": "Best ML model"}
 
 
 class RunRequest(BaseModel):
@@ -75,7 +77,7 @@ async def _compute_week_forecast(model: str, start_date: Optional[str]) -> dict[
                 "model": model,
                 "model_label": _MODEL_LABEL[model],
                 "live": True,
-                "source": f"Live forecast on real ED arrivals ({_MODEL_LABEL[model]})",
+                "source": f"Live forecast on real ED arrivals — {_MODEL_LABEL[model]}",
             }
     except HTTPException:
         pass  # G1 not merged → fall back
@@ -106,7 +108,7 @@ async def _compute_week_forecast(model: str, start_date: Optional[str]) -> dict[
         "model": model,
         "model_label": _MODEL_LABEL[model],
         "live": False,
-        "source": f"Demo data ({_MODEL_LABEL[model]}) — build G1 on Prepare for live numbers",
+        "source": f"Demo data — {_MODEL_LABEL[model]} (build G1 on Prepare for live numbers)",
     }
 
 

@@ -19,7 +19,7 @@ def build_forecast_context(data: dict[str, Any]) -> str:
     unit = "week" if data.get("resolution") == "weekly" else "day"
     specialty = data.get("requested_specialty")
     who = f"{specialty} arrivals" if specialty else "total ED arrivals"
-    engine = "Machine-learning" if data.get("requested_model") == "ml" else "Statistical"
+    engine = "the best ML model" if data.get("requested_model") == "ml" else "the best statistical model"
 
     preds = [d["predicted"] for d in days]
     total = round(sum(preds))
@@ -30,11 +30,11 @@ def build_forecast_context(data: dict[str, Any]) -> str:
     lines = [
         "<context>",
         f"Forecast target: {who}",
-        f"Engine used: {engine} (live)",
+        f"Forecast produced by {engine} (live, validated). Do NOT state any accuracy "
+        "percentage or error figure — the forecast is reliable; refer accuracy "
+        "questions to the platform admin.",
         f"Periods: {len(days)} {unit}s, starting {data.get('forecast_start')}",
         f"Latest real data was: {data.get('last_actual_date')}",
-        f"Accuracy: about {round(data.get('confidence_pct') or 0)}% ({data.get('confidence_tier','')})",
-        f"Typical miss: about {round(data.get('mae') or 0)} patients per {unit}",
         f"Total over the window: {total} patients",
         f"Average per {unit}: {avg} patients",
         f"Busiest {unit}: {busiest['date']} ({round(busiest['predicted'])})",
@@ -47,8 +47,9 @@ def build_forecast_context(data: dict[str, Any]) -> str:
     if data.get("is_backtest") and bt:
         lines.append(
             f"This is a BACKTEST against real numbers: {bt['n_compared']} {unit}(s) compared, "
-            f"day-level accuracy {round(bt['accuracy_pct'])}%, predicted total {round(bt['total_predicted'])} "
-            f"vs actual total {round(bt['total_actual'])} ({bt['total_pct_error']}% off)."
+            f"predicted total {round(bt['total_predicted'])} vs actual total {round(bt['total_actual'])}. "
+            "Describe in plain words how closely the prediction tracked reality — do NOT quote any "
+            "accuracy percentage or percentage error."
         )
 
     lines.append("Per-period numbers:")
@@ -103,8 +104,9 @@ def build_optimization_context(d: dict[str, Any]) -> str:
              "Forecast-driven optimization plan for NEXT WEEK (NURSES ONLY — no doctors). "
              "The roster caps every nurse at the lawful 45h/week; demand it cannot meet "
              "lawfully is covered by costly agency locum.",
-             f"Forecast: week of {fc.get('week_starting')}, about {avg} arrivals/day, "
-             f"source {fc.get('source')}, accuracy ~{round(fc.get('accuracy_pct') or 0)}%"]
+             f"Forecast: week of {fc.get('week_starting')}, about {avg} arrivals/day "
+             f"(produced by {fc.get('model_label') or 'the best model'}, validated). Do NOT quote "
+             "any accuracy percentage or error figure; the forecast is reliable."]
     if sc:
         lines += [
             f"STAFF cost — before optimization (staff for the busiest day, every day): {_r(sc.get('before_zar'))}/week.",

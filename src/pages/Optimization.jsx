@@ -111,22 +111,23 @@ export default function Optimization({ onNavigate }) {
         </div>
         <div className="card-body">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 12 }}>
-            {(fcOptions || [{ model: 'statistical', label: 'SARIMAX (statistical)' }, { model: 'ml', label: 'Gradient Boosting (ML)' }]).map((o) => (
+            {(fcOptions || [{ model: 'ml', label: 'Best ML model' }, { model: 'statistical', label: 'Best statistical model' }]).map((o) => (
               <button key={o.model} onClick={() => selectModel(o.model)} disabled={busy.staff || busy.supply} style={{
                 textAlign: 'left', cursor: busy.staff || busy.supply ? 'wait' : 'pointer', fontFamily: 'inherit',
                 border: `2px solid ${model === o.model ? C.navy : '#e5e9f0'}`, borderRadius: 10,
                 background: model === o.model ? '#f0f6fc' : '#fff', padding: '12px 14px',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
                   <strong style={{ fontSize: 13.5, color: C.ink }}>{o.label}</strong>
-                  {model === o.model && <span className="tag tag-success" style={{ fontSize: 10 }}>Selected</span>}
+                  {model === o.model
+                    ? <span className="tag tag-success" style={{ fontSize: 10 }}>Selected</span>
+                    : (o.model === 'ml' && <span className="tag" style={{ fontSize: 10, background: '#dcfce7', color: '#0f766e', border: 'none' }}>Recommended</span>)}
                 </div>
-                {o.accuracy_pct != null ? (
-                  <div style={{ marginTop: 6, fontSize: 12, color: C.muted }}>
-                    <strong style={{ color: o.accuracy_pct >= 80 ? C.green : C.amber, fontSize: 15 }}>≈{Math.round(o.accuracy_pct)}% accurate</strong>
-                    {' '}· usually within ±{Math.round(o.mae)} patients/day
-                  </div>
-                ) : <div style={{ marginTop: 6, fontSize: 12, color: C.muted }}>{o.error ? 'unavailable' : 'loading…'}</div>}
+                <div style={{ marginTop: 6, fontSize: 12, color: C.muted, lineHeight: 1.4 }}>
+                  {o.model === 'ml'
+                    ? 'Learns from arrivals, calendar and weather — best for most days.'
+                    : 'A classic time-series model — a transparent, dependable baseline.'}
+                </div>
               </button>
             ))}
           </div>
@@ -140,9 +141,9 @@ export default function Optimization({ onNavigate }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 12, color: C.muted }} title="Safety buffer (κ) on per-shift nurse demand">Staffing safety buffer</span>
               <select className="select" value={kappa} onChange={(e) => changeKappa(Number(e.target.value))}>
-                <option value={1.0}>Lean (≈84%)</option>
-                <option value={1.65}>Standard (≈95%)</option>
-                <option value={2.05}>Cautious (≈98%)</option>
+                <option value={1.0}>Lean (less headroom)</option>
+                <option value={1.65}>Standard</option>
+                <option value={2.05}>Cautious (more headroom)</option>
               </select>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -185,8 +186,7 @@ export default function Optimization({ onNavigate }) {
               </div>
               {usedModelLabel && (
                 <div style={{ fontSize: 11.5, color: C.muted, marginTop: 6 }}>
-                  Forecast used: <strong style={{ color: C.ink }}>{usedModelLabel}</strong>
-                  {usedAccuracy != null && <> · accuracy {Math.round(usedAccuracy)}%</>}
+                  Forecast used: <strong style={{ color: C.ink }}>{usedModelLabel}</strong> · validated
                 </div>
               )}
             </div>
@@ -411,23 +411,23 @@ function ForecastComparison({ cmp, onUse }) {
       </tr>
     );
   };
+  const bestLabel = best === 'ml' ? b.label : a.label;
   return (
     <div className="card" style={{ marginBottom: 16, border: '1px solid #c7d2fe' }}>
       <div className="card-header"><div>
-        <div className="card-title">What forecast accuracy is worth</div>
-        <div className="card-sub">Same optimization run under each forecast model — the only thing that changes is forecast accuracy.</div>
+        <div className="card-title">Which forecast gives the better plan</div>
+        <div className="card-sub">The same optimization, run under each forecast model — compare the resulting cost.</div>
       </div></div>
       <div className="card-body">
         <div style={{ background: '#eef2ff', borderRadius: 10, padding: '12px 16px', marginBottom: 14, fontSize: 13, color: C.ink, lineHeight: 1.6 }}>
-          The more accurate <strong>{best === 'ml' ? b.label : a.label}</strong> ({Math.round((best === 'ml' ? b : a).accuracy_pct)}% vs {Math.round((best === 'ml' ? a : b).accuracy_pct)}%, +{c.accuracy_gain_pts} pts)
-          runs the hospital <strong style={{ color: C.green }}>{zarShort(c.total_after_diff_zar)}/yr cheaper</strong> —
-          {' '}{Math.round(c.staff_locum_diff_hours)} fewer agency-locum hours and {zarShort(c.supply_after_diff_zar)} less tied up in safety stock. Better forecasts → leaner, cheaper operations.
+          The <strong>{bestLabel}</strong> runs the hospital
+          {' '}<strong style={{ color: C.green }}>{zarShort(c.total_after_diff_zar)}/yr cheaper</strong> —
+          {' '}{Math.round(c.staff_locum_diff_hours)} fewer agency-locum hours and {zarShort(c.supply_after_diff_zar)} less tied up in safety stock.
+          A sharper forecast makes the whole plan leaner.
         </div>
         <table className="tbl" style={{ maxWidth: 620 }}>
           <thead><tr><th></th><th className="num">{a.label}</th><th className="num">{b.label}</th></tr></thead>
           <tbody>
-            <Row label="Forecast accuracy" fmt={(v) => Math.round(v) + '%'} sa={a.accuracy_pct} ml={b.accuracy_pct} lowerBetter={false} />
-            <Row label="Typical miss (patients/day)" fmt={(v) => '±' + v} sa={a.mae} ml={b.mae} />
             <Row label="Staff cost after (per week)" fmt={zarShort} sa={a.staff.after_zar} ml={b.staff.after_zar} />
             <Row label="Locum hours needed" fmt={(v) => Math.round(v) + 'h'} sa={a.staff.locum_hours} ml={b.staff.locum_hours} />
             <Row label="Supply cost after (per year)" fmt={zarShort} sa={a.supply.after_zar} ml={b.supply.after_zar} />
@@ -435,8 +435,8 @@ function ForecastComparison({ cmp, onUse }) {
           </tbody>
         </table>
         <div style={{ marginTop: 12 }}>
-          <button className="btn btn-sm btn-primary" onClick={() => onUse(best)}>Use {best === 'ml' ? b.label : a.label} →</button>
-          <span style={{ fontSize: 11.5, color: C.muted, marginLeft: 10 }}>then run each optimization below with the more accurate forecast</span>
+          <button className="btn btn-sm btn-primary" onClick={() => onUse(best)}>Use {bestLabel} →</button>
+          <span style={{ fontSize: 11.5, color: C.muted, marginLeft: 10 }}>then run each optimization below with this forecast</span>
         </div>
       </div>
     </div>

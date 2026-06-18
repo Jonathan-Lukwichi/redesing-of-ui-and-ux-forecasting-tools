@@ -39,7 +39,14 @@ export default function AskChat() {
     }
   };
 
-  const SUGGEST = ['Will Thursday be busy?', 'Which supplies are at risk?', 'How is staffing coverage?'];
+  const newChat = () => { setMsgs([]); setInput(''); setBusy(false); };
+
+  const SUGGEST = [
+    'What can this app do?',
+    'How does the forecast work?',
+    'Why do we hold safety stock?',
+    'Which supplies are at risk?',
+  ];
 
   return (
     <>
@@ -59,15 +66,23 @@ export default function AskChat() {
           boxShadow: '0 20px 50px rgba(15,23,41,0.25)', display: 'flex', flexDirection: 'column',
           overflow: 'hidden',
         }}>
-          <div style={{ padding: '12px 16px', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: '#fff' }}>
-            <div style={{ fontWeight: 800, fontSize: 14 }}>✦ Ask the assistant</div>
-            <div style={{ fontSize: 11, opacity: 0.9 }}>Reads your live data · can't change anything</div>
+          <div style={{ padding: '12px 16px', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 14 }}>✦ Ask the assistant</div>
+              <div style={{ fontSize: 11, opacity: 0.9 }}>Explains the app & reads your live data</div>
+            </div>
+            <button onClick={newChat} disabled={busy || msgs.length === 0} title="Start a new chat" style={{
+              border: '1px solid rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.12)', color: '#fff',
+              borderRadius: 8, padding: '5px 10px', cursor: busy || msgs.length === 0 ? 'default' : 'pointer',
+              fontFamily: 'inherit', fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap',
+              opacity: busy || msgs.length === 0 ? 0.5 : 1,
+            }}>↻ New chat</button>
           </div>
 
           <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
             {msgs.length === 0 && (
               <div style={{ color: '#64748b', fontSize: 13, lineHeight: 1.6 }}>
-                Ask about forecasts, staffing, or supplies in plain English.
+                Ask how the app works, what a page does, or about your live forecasts, staffing and supplies — in plain English.
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
                   {SUGGEST.map((s) => (
                     <button key={s} onClick={() => setInput(s)} style={{
