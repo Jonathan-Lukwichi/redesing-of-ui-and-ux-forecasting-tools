@@ -96,12 +96,27 @@ export const api = {
   },
 
   optimization: {
-    // POST — runs forecast → staff IP + supply (s,S). Server has sensible defaults.
-    run: ({ model = 'statistical', kappa = 1.65, service_level = 0.95, weekly_budget_zar = null, start_date = null } = {}) =>
+    // Each "Run" button hits one of these. Server has sensible defaults.
+    runStaff: ({ model = 'ml', kappa = 1.65, weekly_budget_zar = null, start_date = null } = {}) =>
+      request('/api/optimization/staff', {
+        method: 'POST',
+        body: { model, kappa, weekly_budget_zar, start_date },
+      }),
+    runSupply: ({ model = 'ml', service_level = 0.95, start_date = null } = {}) =>
+      request('/api/optimization/supply', {
+        method: 'POST',
+        body: { model, service_level, start_date },
+      }),
+    // Combined (both models) — used by the Action Center.
+    run: ({ model = 'ml', kappa = 1.65, service_level = 0.95, weekly_budget_zar = null, start_date = null } = {}) =>
       request('/api/optimization/run', {
         method: 'POST',
         body: { model, kappa, service_level, weekly_budget_zar, start_date },
       }),
+    // Run the full optimization under BOTH forecast models and compare.
+    compare: ({ kappa = 1.65, service_level = 0.95 } = {}) =>
+      request('/api/optimization/compare', { method: 'POST', body: { kappa, service_level } }),
+    forecastOptions: (signal) => request('/api/optimization/forecast-options', { signal }),
     last:      (signal) => request('/api/optimization/last', { signal }),
     staffPool: (signal) => request('/api/optimization/staff-pool', { signal }),
   },

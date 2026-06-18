@@ -51,12 +51,46 @@ def _z_for(sl: float) -> float:
     return _Z[min(_Z, key=lambda k: abs(k - sl))]
 
 
-# Last solution, kept for /last and the Action Center.
-_LAST: dict[str, Any] | None = None
+# Last solution, kept for /last and the Action Center. Staff and supply can be
+# run independently (each button on the page), so we accumulate the halves.
+_LAST: dict[str, Any] = {"forecast": None, "staff": None, "supply": None,
+                          "impact": None, "meta": None}
 
 
 def get_last() -> dict[str, Any] | None:
+    if _LAST.get("staff") is None and _LAST.get("supply") is None:
+        return None
     return _LAST
+
+
+def _build_impact() -> dict[str, Any]:
+    """Assemble the headline impact (incl. combined saving) from whichever
+    halves have been solved."""
+    st = _LAST.get("staff") or {}
+    sup = _LAST.get("supply") or {}
+    sc = st.get("cost") or {}
+    uc = sup.get("cost") or {}
+    sk = st.get("kpis") or {}
+    uk = sup.get("kpis") or {}
+    # Reconcile to a common ANNUAL basis: staff savings are weekly (×52), supply
+    # savings are already annualised by the Monte-Carlo horizon.
+    staff_annual = sc.get("saving_annual_zar") or 0
+    supply_annual = uc.get("saving_zar") or 0
+    return {
+        "staff_cost": sc,
+        "supply_cost": uc,
+        "total_saving_annual_zar": round(staff_annual + supply_annual, 0),
+        "staff_saving_weekly_zar": sc.get("saving_zar") or 0,
+        "staff_saving_annual_zar": staff_annual,
+        "supply_saving_annual_zar": supply_annual,
+        "lawful_coverage_pct": sk.get("lawful_coverage_pct"),
+        "staffing_shortfall": sk.get("staffing_shortfall"),
+        "locum_hours": sk.get("locum_hours"),
+        "items_to_order": uk.get("items_to_order"),
+        "order_cost_zar": uk.get("order_cost_zar"),
+        "stockout_risk_addressed_zar": uk.get("stockout_risk_addressed_zar"),
+        "forecast_factor": sup.get("forecast_factor"),
+    }
 
 
 # ── Staff: per-shift demand from the forecast (§3.5.8) ───────────────────────
@@ -112,24 +146,27 @@ def solve_staff(
     # the PN-on-every-shift rule can never force infeasibility).
     pn_short = {(d, sh): LpVariable(f"pn_{d}_{sh}", lowBound=0, cat=LpInteger)
                 for d in day_idx for sh in SHIFTS} if pns else {}
+    # Balance variable: the minimum coverage FRACTION achieved across all shifts.
+    # Maximising it spreads the limited nurses evenly instead of dumping them on
+    # one shift (a plain min-cost LP goes to a lop-sided corner solution).
+    min_cov = LpVariable("min_cov", lowBound=0, upBound=1)
 
-    # Objective (set ONCE): real payroll + locum cost for the shortfall + a
-    # small penalty for unmet skills-mix. The locum penalty is weighted up
-    # slightly by shift demand so that, among equal-cost optima, the solver
-    # prefers to cover the BUSIEST shifts first (otherwise CBC may starve a
-    # high-demand day arbitrarily). The reported locum cost still uses the flat
-    # rate — this weight is only a deterministic tie-breaker on allocation.
-    prob += (lpSum(shift_cost[s["staff_id"]] * x[(s["staff_id"], d, sh)]
-                   for s in staff for d in day_idx for sh in SHIFTS)
-             + lpSum(locum_shift_cost * (1 + 0.08 * d_s[(d, sh)]) * unfilled[(d, sh)]
-                     for d in day_idx for sh in SHIFTS)
-             + lpSum(0.5 * locum_shift_cost * v for v in pn_short.values()))
+    # Objective (set ONCE), lexicographic via weights:
+    #   1. minimise total locum-covered shortfall  (BIG weight) → max coverage
+    #   2. maximise the worst shift's coverage      (−1)        → even spread
+    #   3. small penalty for unmet skills-mix
+    BIG = 1_000_000.0
+    prob += (BIG * lpSum(unfilled[(d, sh)] for d in day_idx for sh in SHIFTS)
+             - min_cov
+             + lpSum(0.001 * v for v in pn_short.values()))
 
     # Demand coverage (soft via the locum slack).
     for d in day_idx:
         for sh in SHIFTS:
-            prob += (lpSum(x[(s["staff_id"], d, sh)] for s in staff) + unfilled[(d, sh)]
-                     >= d_s[(d, sh)])
+            covered = lpSum(x[(s["staff_id"], d, sh)] for s in staff)
+            prob += covered + unfilled[(d, sh)] >= d_s[(d, sh)]
+            # Every shift must reach at least the common min-coverage fraction.
+            prob += covered >= min_cov * d_s[(d, sh)]
 
     # 45-hour weekly cap — HARD (the lawful constraint; BCEA s9).
     for s in staff:
@@ -210,34 +247,42 @@ def solve_staff(
     coverage = (total_assigned / total_required * 100) if total_required else 100.0
     lawful_coverage = ((total_required - total_unfilled) / total_required * 100) if total_required else 100.0
 
-    # ── Naive baseline: the SAME nurse-hours, but allocated flat (spread evenly
-    # across every shift, ignoring which shifts the forecast says are busy). This
-    # is the "fixed roster" a manager runs without a forecast. Because it wastes
-    # capacity on quiet shifts, it leaves more demand uncovered → more costly
-    # locum. The optimizer's saving is the locum it avoids by matching the peaks.
-    n_slots = n_days * len(SHIFTS)
-    flat_per_slot = total_assigned / n_slots if n_slots else 0.0
-    baseline_unfilled = sum(max(0.0, d_s[(d, sh)] - flat_per_slot)
-                            for d in day_idx for sh in SHIFTS)
-    baseline_locum_cost = baseline_unfilled * locum_shift_cost
-    baseline_cost = payroll + baseline_locum_cost
-    baseline_coverage = (total_assigned / total_required * 100) if total_required else 100.0  # same hours, but...
-    # ...spread flat, the *effective* covered demand is lower (capacity lands on
-    # quiet shifts): effective coverage = filled demand under the flat split.
-    baseline_filled = sum(min(d_s[(d, sh)], flat_per_slot) for d in day_idx for sh in SHIFTS)
-    baseline_coverage = (baseline_filled / total_required * 100) if total_required else 100.0
-    savings = max(0.0, baseline_cost - total_cost)
+    # ── BEFORE optimization: the "fixed peak roster" a manager runs WITHOUT a
+    # forecast — staff every shift to the busiest day of the week, every day (the
+    # safe default). It covers demand but over-provisions on quieter days, so it
+    # buys more expensive agency locum than necessary. AFTER optimization we
+    # provision exactly the forecast demand, so the locum bill drops. The own-
+    # nurse payroll is the same in both (the 23 salaried nurses work either way);
+    # the saving is the agency locum the forecast lets us avoid.
+    peak_slots = sum(max(d_s[(d, sh)] for d in day_idx) for sh in SHIFTS) * n_days
+    before_locum_slots = max(0, peak_slots - total_assigned)
+    after_locum_slots = total_unfilled
+    before_locum_cost = before_locum_slots * locum_shift_cost
+    after_locum_cost = after_locum_slots * locum_shift_cost
+    before_cost = payroll + before_locum_cost
+    after_cost = payroll + after_locum_cost
+    savings = max(0.0, before_cost - after_cost)
 
     nurses_needed = math.ceil(total_required * SHIFT_HOURS / LEGAL_WEEKLY_HOURS)
 
     return {
         "status": status,
         "solve_time_seconds": round(time.perf_counter() - t0, 2),
-        "objective_value_zar": round(total_cost, 0),
+        "cost": {
+            "before_zar": round(before_cost, 0),       # fixed peak roster
+            "after_zar": round(after_cost, 0),         # forecast-optimized
+            "saving_zar": round(savings, 0),
+            "saving_pct": round(savings / before_cost * 100, 1) if before_cost else 0.0,
+            "saving_annual_zar": round(savings * 52, 0),
+            "own_payroll_zar": round(payroll, 0),
+            "before_locum_zar": round(before_locum_cost, 0),
+            "after_locum_zar": round(after_locum_cost, 0),
+            "before_locum_hours": round(before_locum_slots * SHIFT_HOURS, 0),
+            "after_locum_hours": round(after_locum_slots * SHIFT_HOURS, 0),
+        },
         "kpis": {
             "coverage_pct": round(coverage, 1),
             "lawful_coverage_pct": round(lawful_coverage, 1),
-            "baseline_coverage_pct": round(baseline_coverage, 1),
             "total_required_slots": total_required,
             "total_filled_slots": total_assigned,
             "unfilled_slots": total_unfilled,
@@ -249,9 +294,6 @@ def solve_staff(
             "staffing_shortfall": max(0, nurses_needed - len(staff)),
             "weekly_payroll_zar": round(payroll, 0),
             "weekly_cost_zar": round(total_cost, 0),
-            "baseline_cost_zar": round(baseline_cost, 0),
-            "weekly_savings_zar": round(savings, 0),
-            "savings_pct": round(savings / baseline_cost * 100, 1) if baseline_cost else 0.0,
         },
         "demand_vs_coverage": per_day,
         "shifts": shift_rows,
@@ -259,82 +301,276 @@ def solve_staff(
     }
 
 
-# ── Supply: forecast-scaled (s,S) reorder ────────────────────────────────────
+# -- Supply: two-stage stochastic (s,S) programme (Chapter 3 §3.5.6) ----------
+# Stage 1 sets (s, S); stage 2 observes demand drawn from the forecast predictive
+# distribution. s* is closed-form; S* is the order-up-to level that minimises the
+# Monte-Carlo expectation of the per-day total cost
+#   C_t = K*1[order] + h*I+ + p*(y~ - I)+ + w*wastage,
+# simulated over a rolling horizon for many replications.
+MC_HORIZON_DAYS = 90
+MC_REPS = 800
+MC_GRID = 11
+
+
+def _item_cost_params(it: dict, price: float) -> tuple[float, float, float, float]:
+    """Derive (K, h, p, w) for an item from its simulation cost record.
+    K = fixed cost per order; h = holding cost / unit / day; p = stockout
+    penalty / unit short; w = wastage cost / unit expired."""
+    orders_placed = float(it.get("total_orders_placed") or 0)
+    K = (float(it.get("total_ordering_cost_zar") or 0) / orders_placed) if orders_placed > 0 else 350.0
+    avg_stock = float(it.get("avg_stock_on_hand") or 0)
+    hold_total = float(it.get("total_holding_cost_zar") or 0)
+    h = (hold_total / (avg_stock * 396.0)) if (avg_stock > 0 and hold_total > 0) else price * 0.25 / 365.0
+    so_units = float(it.get("total_stockout_units") or 0)
+    so_cost = float(it.get("total_stockout_cost_zar") or 0)
+    p = (so_cost / so_units) if (so_units > 0 and so_cost > 0) else max(price * 5.0, 1.0)
+    w = price  # full value lost on expiry
+    return K, max(h, 0.0), max(p, 0.0), max(w, 0.0)
+
+
+def _simulate_policies(D, s_arr, S_arr, I0, L, K, h, p, w, cap):
+    """Vectorised inventory simulation over (reps x policies). D is the
+    pre-sampled demand matrix (horizon x reps) -- common random numbers across
+    all candidate policies. Returns per-policy mean total cost and the mean
+    cost split into (ordering, holding, stockout, wastage)."""
+    T, R = D.shape
+    G = len(S_arr)
+    I = np.full((R, G), float(I0))
+    on_order = np.zeros((R, G))
+    arrivals = np.zeros((T + L + 1, R, G))
+    Kc = np.zeros((R, G)); Hc = np.zeros((R, G)); Pc = np.zeros((R, G)); Wc = np.zeros((R, G))
+    s_row = s_arr[None, :]; S_row = S_arr[None, :]
+    finite_cap = np.isfinite(cap)
+    for t in range(T):
+        recv = arrivals[t]
+        I += recv; on_order -= recv
+        ip = I + on_order
+        order_qty = np.where(ip <= s_row, np.clip(S_row - ip, 0.0, None), 0.0)
+        on_order += order_qty
+        arrivals[t + L] += order_qty
+        Kc += K * (order_qty > 0)
+        d = D[t][:, None]
+        Pc += p * np.clip(d - I, 0.0, None)
+        I = I - np.minimum(I, d)
+        if finite_cap:
+            expired = np.clip(I - cap, 0.0, None)
+            Wc += w * expired
+            I = np.minimum(I, cap)
+        Hc += h * I
+    total = Kc + Hc + Pc + Wc
+    return (total.mean(axis=0),
+            {"ordering": Kc.mean(axis=0), "holding": Hc.mean(axis=0),
+             "stockout": Pc.mean(axis=0), "wastage": Wc.mean(axis=0)})
+
+
 def reorder_supply(
     items: list[dict],
     forecast_factor: float,
     service_level: float = 0.95,
     review_days: int = 7,
+    horizon_days: int = MC_HORIZON_DAYS,
+    n_reps: int = MC_REPS,
+    forecast_rel_err: float = 0.15,
 ) -> dict[str, Any]:
-    """Forecast-driven (s,S) policy. `forecast_factor` scales each item's mean
-    daily consumption by next week's demand vs its historical baseline."""
+    """Forecast-driven two-stage (s,S) optimisation (Chapter 3 §3.5.6).
+
+    Per item: D_bar = forecast-scaled mean daily demand, sigma = demand SD
+    (intrinsic demand noise combined with the forecast residual σ_ε, so a more
+    accurate forecast lowers the required safety stock).
+      s* = D_bar*L + z_alpha*sigma*sqrt(L)            (closed form)
+      S* = argmin_S  E[ sum C_t(s*, S) ]              (Monte-Carlo grid search)
+    BEFORE = a naive policy that ignores forecast uncertainty (no safety stock:
+    s=D_bar*L, S=D_bar*(L+R)); AFTER = the optimised (s*, S*). Both costs come
+    from the SAME simulator and horizon, so the saving is the value the forecast
+    adds. Costs are reported annualised."""
     z = _z_for(service_level)
     factor = float(np.clip(forecast_factor, 0.5, 2.0))
+    rng = np.random.default_rng(42)            # deterministic across re-runs
+    annual = 365.0 / horizon_days
+
     orders = []
+    before_total = after_total = 0.0
     order_cost = 0.0
-    risk_addressed = 0.0
-    n_to_order = 0
-    n_at_risk = 0
+    n_to_order = n_at_risk = 0
+    breakdown_before = {"ordering": 0.0, "holding": 0.0, "stockout": 0.0, "wastage": 0.0}
+    breakdown_after = dict(breakdown_before)
 
     for it in items:
         d_base = float(it.get("mean_daily_consumption") or 0)
-        sd = float(it.get("sd_daily_consumption") or 0)
-        L = float(it.get("lead_time_mean_days") or 5)
-        # Current stock = the latest recorded snapshot when available, else the
-        # yearly average (the average rarely sits below the reorder point).
+        intrinsic_sd = float(it.get("sd_daily_consumption") or 0)
+        L = max(1, int(round(float(it.get("lead_time_mean_days") or 5))))
         _cur = it.get("current_stock_units")
         on_hand = float(_cur if _cur is not None else (it.get("avg_stock_on_hand") or 0))
         price = float(it.get("unit_price_zar") or 0)
+        shelf_days = float(it.get("shelf_life_months") or 24) * 30.0
         d_proj = d_base * factor
 
-        safety = z * sd * math.sqrt(max(L, 0.0))
-        rop = d_proj * L + safety                       # reorder point s
-        order_up_to = d_proj * (L + review_days) + safety   # level S
-        days_cover = round(on_hand / d_proj, 1) if d_proj > 0 else None
+        # σ_ε (§3.5.6): intrinsic demand noise ⊕ forecast residual. The forecast
+        # component (D̄·rel_err) is the part a better forecast shrinks — so model
+        # accuracy directly changes the safety stock, and hence the cost.
+        fc_sigma = d_proj * forecast_rel_err
+        sigma = math.hypot(intrinsic_sd, fc_sigma)
+        safety = z * sigma * math.sqrt(L)
+        s_opt = d_proj * L + safety                          # closed-form reorder s*
+        s_base = d_proj * L                                  # naive: no safety
+        S_base = d_proj * (L + review_days)                  # naive order-up-to
 
+        if d_proj <= 0:
+            orders.append(_order_row(it, on_hand, d_proj, L, safety, s_opt, S_base, 0, price, None, "ok"))
+            continue
+
+        K, h, p, w = _item_cost_params(it, price)
+        cap = shelf_days * d_proj if shelf_days > 0 else np.inf
+
+        # Candidate S grid (>= s*), spanning up to ~2 review+lead cycles of cover.
+        S_hi = s_opt + d_proj * (L + review_days) * 2.0 + safety
+        S_grid = np.linspace(max(s_opt, S_base), max(S_hi, S_base + 1.0), MC_GRID)
+        s_arr = np.concatenate([[s_base], np.full(MC_GRID, s_opt)])
+        S_arr = np.concatenate([[S_base], S_grid])
+
+        D = np.clip(rng.normal(d_proj, max(sigma, 1e-6), size=(horizon_days, n_reps)), 0.0, None)
+        costs, comp = _simulate_policies(D, s_arr, S_arr, on_hand, L, K, h, p, w, cap)
+
+        before_cost = float(costs[0])
+        opt_idx = 1 + int(np.argmin(costs[1:]))
+        after_cost = float(costs[opt_idx])
+        S_star = float(S_arr[opt_idx])
+
+        before_total += before_cost
+        after_total += after_cost
+        for kk in breakdown_before:
+            breakdown_before[kk] += float(comp[kk][0])
+            breakdown_after[kk] += float(comp[kk][opt_idx])
+
+        days_cover = round(on_hand / d_proj, 1)
         order_qty = 0
         status = "ok"
-        if on_hand <= rop:
-            order_qty = int(math.ceil(max(0.0, order_up_to - on_hand)))
+        if on_hand <= s_opt:
+            order_qty = int(math.ceil(max(0.0, S_star - on_hand)))
             status = "order_now"
             n_to_order += 1
             order_cost += order_qty * price
-            risk_addressed += float(it.get("total_stockout_cost_zar") or 0)
         if on_hand < safety:
             n_at_risk += 1
-        elif on_hand > order_up_to * 2.5 and d_proj > 0:
+        elif on_hand > S_star * 2.5:
             status = "excess"
 
-        orders.append({
-            "item_id": it.get("item_id"), "item_name": it.get("item_name"),
-            "category": it.get("category"), "abc_class": it.get("abc_class"),
-            "unit": it.get("unit"), "on_hand": round(on_hand, 0),
-            "proj_daily": round(d_proj, 1), "lead_time_days": round(L, 0),
-            "safety_stock": round(safety, 0), "reorder_point": round(rop, 0),
-            "order_up_to": round(order_up_to, 0), "order_qty": order_qty,
-            "order_cost_zar": round(order_qty * price, 0),
-            "days_cover": days_cover, "status": status,
-        })
+        orders.append(_order_row(it, on_hand, d_proj, L, safety, s_opt, S_star,
+                                 order_qty, price, days_cover, status,
+                                 saved=round((before_cost - after_cost) * annual, 0)))
 
     rank = {"order_now": 0, "excess": 1, "ok": 2}
     abc = {"A": 0, "B": 1, "C": 2}
     orders.sort(key=lambda o: (rank.get(o["status"], 9), abc.get(o["abc_class"], 9), -o["order_cost_zar"]))
 
+    before_a = before_total * annual
+    after_a = after_total * annual
+    saving_a = max(0.0, before_a - after_a)
+    stockout_cut = max(0.0, (breakdown_before["stockout"] - breakdown_after["stockout"]) * annual)
+
     return {
         "service_level": service_level,
         "forecast_factor": round(factor, 3),
+        "horizon_days": horizon_days,
+        "n_reps": n_reps,
+        "cost": {
+            "before_zar": round(before_a, 0),     # naive policy, annualised
+            "after_zar": round(after_a, 0),       # optimised (s*,S*), annualised
+            "saving_zar": round(saving_a, 0),
+            "saving_pct": round(saving_a / before_a * 100, 1) if before_a else 0.0,
+            "basis": "annualised expected total cost (Monte-Carlo)",
+        },
+        "cost_breakdown": {
+            "before": {k: round(v * annual, 0) for k, v in breakdown_before.items()},
+            "after": {k: round(v * annual, 0) for k, v in breakdown_after.items()},
+        },
         "kpis": {
             "items_total": len(items),
             "items_to_order": n_to_order,
             "items_at_risk_now": n_at_risk,
             "order_cost_zar": round(order_cost, 0),
-            "stockout_risk_addressed_zar": round(risk_addressed, 0),
+            "stockout_risk_addressed_zar": round(stockout_cut, 0),
         },
         "orders": orders,
     }
 
 
+def _order_row(it, on_hand, d_proj, L, safety, rop, order_up_to, order_qty, price,
+               days_cover, status, saved=0):
+    return {
+        "item_id": it.get("item_id"), "item_name": it.get("item_name"),
+        "category": it.get("category"), "abc_class": it.get("abc_class"),
+        "unit": it.get("unit"), "on_hand": round(on_hand, 0),
+        "proj_daily": round(d_proj, 1), "lead_time_days": round(L, 0),
+        "safety_stock": round(safety, 0), "reorder_point": round(rop, 0),
+        "order_up_to": round(order_up_to, 0), "order_qty": order_qty,
+        "order_cost_zar": round(order_qty * price, 0),
+        "annual_saving_zar": saved,
+        "days_cover": days_cover, "status": status,
+    }
+
+
 # ── Orchestration ────────────────────────────────────────────────────────────
+def _meta(forecast: dict, **kw) -> dict[str, Any]:
+    m = {"solver": "CBC", "forecast_source": forecast.get("source"),
+         "forecast_model": forecast.get("model"), "forecast_model_label": forecast.get("model_label"),
+         "forecast_accuracy_pct": forecast.get("accuracy_pct"), "forecast_mae": forecast.get("mae")}
+    m.update(kw)
+    return m
+
+
+def forecast_rel_err(forecast: dict) -> float:
+    """Forecast residual relative error (MAE / mean) — the σ_ε lever. A more
+    accurate forecast has a smaller value, which shrinks safety stock."""
+    daily = forecast.get("daily_total") or []
+    mean = float(np.mean(daily)) if daily else 0.0
+    mae = float(forecast.get("mae") or DEFAULT_SIGMA_EPS)
+    return float(np.clip(mae / mean, 0.02, 0.6)) if mean else 0.15
+
+
+def forecast_factor(forecast: dict) -> float:
+    baseline = float(forecast.get("baseline_avg") or 0)
+    daily = forecast.get("daily_total") or []
+    fc_avg = float(np.mean(daily)) if daily else baseline
+    return fc_avg / baseline if baseline else 1.0
+
+
+def run_staff(
+    forecast: dict,
+    staff: list[dict],
+    kappa: float = 1.65,
+    weekly_budget_zar: Optional[float] = None,
+) -> dict[str, Any]:
+    """Run ONLY the staff optimization; update the shared cache; return the
+    staff slice of the page payload."""
+    sigma_eps = float(forecast.get("mae") or DEFAULT_SIGMA_EPS)
+    res = solve_staff(forecast["daily_total"], forecast["dates"], staff,
+                      kappa=kappa, sigma_eps=sigma_eps, weekly_budget_zar=weekly_budget_zar)
+    _LAST["forecast"] = forecast
+    _LAST["staff"] = res
+    _LAST["meta"] = _meta(forecast, status=res["status"],
+                          solve_time_seconds=res["solve_time_seconds"], kappa=kappa)
+    _LAST["impact"] = _build_impact()
+    return {"meta": _LAST["meta"], "forecast": forecast, "staff": res, "impact": _LAST["impact"]}
+
+
+def run_supply(
+    forecast: dict,
+    items: list[dict],
+    service_level: float = 0.95,
+) -> dict[str, Any]:
+    """Run ONLY the supply optimization; update the shared cache; return the
+    supply slice of the page payload."""
+    res = reorder_supply(items, forecast_factor(forecast), service_level=service_level,
+                         forecast_rel_err=forecast_rel_err(forecast))
+    _LAST["forecast"] = forecast
+    _LAST["supply"] = res
+    if _LAST.get("meta") is None:
+        _LAST["meta"] = _meta(forecast, service_level=service_level)
+    _LAST["impact"] = _build_impact()
+    return {"meta": _LAST["meta"], "forecast": forecast, "supply": res, "impact": _LAST["impact"]}
+
+
 def optimize(
     forecast: dict,
     staff: list[dict],
@@ -343,45 +579,27 @@ def optimize(
     service_level: float = 0.95,
     weekly_budget_zar: Optional[float] = None,
 ) -> dict[str, Any]:
-    """Run both optimizations from one forecast and assemble the page payload."""
-    global _LAST
-    daily_total = forecast["daily_total"]
-    dates = forecast["dates"]
+    """Run BOTH optimizations (used by the combined endpoint + Action Center)."""
+    run_staff(forecast, staff, kappa=kappa, weekly_budget_zar=weekly_budget_zar)
+    run_supply(forecast, items, service_level=service_level)
+    return {
+        "meta": _LAST["meta"], "forecast": forecast,
+        "staff": _LAST["staff"], "supply": _LAST["supply"], "impact": _LAST["impact"],
+    }
+
+
+def compute_both(
+    forecast: dict,
+    staff: list[dict],
+    items: list[dict],
+    kappa: float = 1.65,
+    service_level: float = 0.95,
+) -> dict[str, Any]:
+    """Run both optimizations PURELY (no cache write) — for the forecast
+    comparison, which evaluates several forecasts without disturbing _LAST."""
     sigma_eps = float(forecast.get("mae") or DEFAULT_SIGMA_EPS)
-
-    staff_res = solve_staff(daily_total, dates, staff, kappa=kappa,
-                            sigma_eps=sigma_eps, weekly_budget_zar=weekly_budget_zar)
-
-    baseline_avg = float(forecast.get("baseline_avg") or np.mean(daily_total))
-    fc_avg = float(np.mean(daily_total))
-    factor = fc_avg / baseline_avg if baseline_avg else 1.0
-    supply_res = reorder_supply(items, factor, service_level=service_level)
-
-    impact = {
-        "staff_savings_zar": staff_res["kpis"]["weekly_savings_zar"],
-        "staff_savings_pct": staff_res["kpis"]["savings_pct"],
-        "lawful_coverage_pct": staff_res["kpis"]["lawful_coverage_pct"],
-        "staffing_shortfall": staff_res["kpis"]["staffing_shortfall"],
-        "locum_hours": staff_res["kpis"]["locum_hours"],
-        "items_to_order": supply_res["kpis"]["items_to_order"],
-        "order_cost_zar": supply_res["kpis"]["order_cost_zar"],
-        "stockout_risk_addressed_zar": supply_res["kpis"]["stockout_risk_addressed_zar"],
-        "forecast_factor": supply_res["forecast_factor"],
-    }
-
-    payload = {
-        "meta": {
-            "solver": "CBC",
-            "status": staff_res["status"],
-            "solve_time_seconds": staff_res["solve_time_seconds"],
-            "forecast_source": forecast.get("source"),
-            "kappa": kappa,
-            "service_level": service_level,
-        },
-        "forecast": forecast,
-        "staff": staff_res,
-        "supply": supply_res,
-        "impact": impact,
-    }
-    _LAST = payload
-    return payload
+    staff_res = solve_staff(forecast["daily_total"], forecast["dates"], staff,
+                            kappa=kappa, sigma_eps=sigma_eps)
+    supply_res = reorder_supply(items, forecast_factor(forecast), service_level=service_level,
+                                forecast_rel_err=forecast_rel_err(forecast))
+    return {"forecast": forecast, "staff": staff_res, "supply": supply_res}

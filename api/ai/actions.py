@@ -12,7 +12,7 @@ from ai.client import _client
 
 def gather_signals() -> dict[str, Any]:
     return {
-        "forecast":     tools.execute("get_forecast", {"horizon": 7, "model": "statistical"}),
+        "forecast":     tools.execute("get_forecast", {"horizon": 7, "model": "ml"}),
         "optimization": tools.execute("get_optimization", {}),
         "supply":       tools.execute("get_supply_status", {}),
         "staff":        tools.execute("get_staff_status", {}),

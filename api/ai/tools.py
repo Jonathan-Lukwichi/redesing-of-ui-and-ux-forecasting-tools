@@ -19,7 +19,7 @@ TOOL_SCHEMAS = [
             "type": "object",
             "properties": {
                 "horizon": {"type": "integer", "enum": [1, 7, 30], "description": "Days ahead (1, 7, or 30)."},
-                "model": {"type": "string", "enum": ["statistical", "ml"], "description": "Engine; default statistical."},
+                "model": {"type": "string", "enum": ["statistical", "ml"], "description": "Engine; default ml (most accurate)."},
             },
         },
     },
@@ -58,7 +58,7 @@ def execute(name: str, inp: dict[str, Any]) -> dict[str, Any]:
     try:
         if name == "get_forecast":
             d = _post("/api/forecast/run", {
-                "model": inp.get("model", "statistical"),
+                "model": inp.get("model", "ml"),
                 "horizon": int(inp.get("horizon", 7)),
             })
             if d.get("error") or d.get("detail"):
@@ -95,26 +95,29 @@ def execute(name: str, inp: dict[str, Any]) -> dict[str, Any]:
         if name == "get_optimization":
             d = _get("/api/optimization/last")
             if not d or not d.get("staff"):
-                d = _post("/api/optimization/run", {"model": "statistical"})
+                d = _post("/api/optimization/run", {"model": "ml"})
             if d.get("error") or d.get("detail") or not d.get("staff"):
                 return {"error": "Optimization plan not available — run it on the Optimization page."}
-            sk = d["staff"]["kpis"]; uk = d["supply"]["kpis"]
+            staff = d.get("staff") or {}; supply = d.get("supply") or {}
+            sk = staff.get("kpis") or {}; sc = staff.get("cost") or {}
+            uk = supply.get("kpis") or {}; uc = supply.get("cost") or {}
             return {
                 "week_starting": (d.get("forecast") or {}).get("week_starting"),
                 "forecast_source": (d.get("forecast") or {}).get("source"),
+                "staff_cost_before_after_saving_zar": [sc.get("before_zar"), sc.get("after_zar"), sc.get("saving_zar")],
                 "staff": {k: sk.get(k) for k in (
-                    "lawful_coverage_pct", "baseline_coverage_pct", "staffing_shortfall",
-                    "nurses_needed_lawful", "nurses_available", "locum_hours",
-                    "weekly_savings_zar", "unfilled_slots")},
+                    "lawful_coverage_pct", "staffing_shortfall", "nurses_needed_lawful",
+                    "nurses_available", "locum_hours", "unfilled_slots")},
                 "staff_by_shift": [{"shift": s["shift"], "required": s["required"],
                                     "assigned": s["assigned"], "unfilled": s["unfilled"]}
-                                   for s in d["staff"]["shifts"]],
+                                   for s in (staff.get("shifts") or [])],
+                "supply_cost_before_after_saving_zar": [uc.get("before_zar"), uc.get("after_zar"), uc.get("saving_zar")],
                 "supply": {k: uk.get(k) for k in (
                     "items_to_order", "items_total", "order_cost_zar",
                     "stockout_risk_addressed_zar", "items_at_risk_now")},
                 "orders_now": [{"item": o["item_name"], "qty": o["order_qty"],
                                 "abc": o["abc_class"], "cost_zar": o["order_cost_zar"]}
-                               for o in d["supply"]["orders"] if o["status"] == "order_now"][:8],
+                               for o in (supply.get("orders") or []) if o["status"] == "order_now"][:8],
             }
     except Exception as e:
         return {"error": f"tool failed: {type(e).__name__}: {e}"}

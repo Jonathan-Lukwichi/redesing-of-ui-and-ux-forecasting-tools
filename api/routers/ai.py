@@ -64,10 +64,11 @@ async def explain_forecast(req: ExplainForecastRequest):
 
 # Generic explain — one panel component, any page.
 _EXPLAIN = {
-    "forecast": (prompts.forecast_explainer, context.build_forecast_context),
-    "staff":    (prompts.staff_explainer,    context.build_staff_context),
-    "supply":   (prompts.supply_explainer,   context.build_supply_context),
-    "explore":  (prompts.explore_explainer,  context.build_explore_context),
+    "forecast":     (prompts.forecast_explainer,     context.build_forecast_context),
+    "staff":        (prompts.staff_explainer,        context.build_staff_context),
+    "supply":       (prompts.supply_explainer,       context.build_supply_context),
+    "explore":      (prompts.explore_explainer,      context.build_explore_context),
+    "optimization": (prompts.optimization_explainer, context.build_optimization_context),
 }
 
 

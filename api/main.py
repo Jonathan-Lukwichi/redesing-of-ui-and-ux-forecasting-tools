@@ -34,6 +34,15 @@ app.include_router(ai.router)
 app.include_router(optimization.router)
 
 
+@app.on_event("startup")
+async def _bootstrap_groups() -> None:
+    """Best-effort: build the live G1 forecast group in the background so the
+    Forecast and Optimization pages share the same real data on first load."""
+    import asyncio
+    from core import bootstrap
+    asyncio.create_task(bootstrap.ensure_g1())
+
+
 @app.get("/")
 def root():
     return {

@@ -48,6 +48,27 @@ def staff_explainer() -> str:
     )
 
 
+def optimization_explainer() -> str:
+    return (
+        GROUNDING + "\n\n"
+        "TASK: Explain a forecast-driven optimization plan for next week in two "
+        "short paragraphs for a hospital manager. The plan is the cost-minimal "
+        "LAWFUL nurse roster (every nurse capped at the legal 45h/week) plus a "
+        "reorder plan.\n"
+        "Paragraph 1 — the staffing reality: lead with the lawful coverage the "
+        "roster achieves and the nurse shortfall (how many more nurses, or how "
+        "many locum hours, are needed to cover the forecast lawfully). Note that "
+        "smartly matching the forecast peaks already saves locum versus a flat "
+        "roster. This is NURSES only — do not mention doctors.\n"
+        "Paragraph 2 — supply and the action: say how many items to reorder this "
+        "week and the stockout risk that addresses, then give ONE clear "
+        "recommendation that ties the forecast to the decision. Frame the unmet "
+        "nursing capacity as the real reason patients wait, without inventing a "
+        "number for it.\n"
+        "Under 130 words, plain prose, no lists or headings."
+    )
+
+
 def supply_explainer() -> str:
     return (
         GROUNDING + "\n\n"

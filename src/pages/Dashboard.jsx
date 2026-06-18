@@ -19,7 +19,7 @@ export default function Dashboard({ onNavigate }) {
 
   useEffect(() => {
     let alive = true;
-    api.forecast.run({ model: 'statistical', horizon: 7 })
+    api.forecast.run({ model: 'ml', horizon: 7 })   // most accurate engine (matches Forecast & Optimization pages)
       .then((d) => { if (alive) setFc(d); })
       .catch((e) => { if (alive) setError(e.detail?.error === 'g1_not_merged' ? 'g1' : (e.message || 'error')); });
     api.supply.overview().then((d) => alive && setSupply(d)).catch(() => {});
@@ -93,7 +93,7 @@ export default function Dashboard({ onNavigate }) {
           <div className="card-header">
             <div>
               <div className="card-title">Patient arrivals — history + 7-day forecast</div>
-              <div className="card-sub">{hist.length} days history · live SARIMAX · 95% range shaded</div>
+              <div className="card-sub">{hist.length} days history · live {fc?.requested_model === 'ml' ? 'ML (Gradient Boosting)' : 'SARIMAX'} forecast · 95% range shaded</div>
             </div>
             <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#64748b' }}>
               <span><span className="dot" style={{ color: '#475569' }} /> Historical</span>

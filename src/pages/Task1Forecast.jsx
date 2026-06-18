@@ -640,11 +640,11 @@ function HeroDay({ day }) {
         </div>
       ) : (
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Confidence range</div>
+          <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Likely range</div>
           <div style={{ fontSize: 18, fontWeight: 700, color: '#334155', marginTop: 4 }}>
             {Math.round(day.lower)} – {Math.round(day.upper)}
           </div>
-          <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>± {Math.round((day.upper - day.lower) / 2)} patients</div>
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>where it should land</div>
         </div>
       )}
     </div>

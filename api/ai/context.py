@@ -85,6 +85,50 @@ def build_staff_context(d: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def build_optimization_context(d: dict[str, Any]) -> str:
+    fc = d.get("forecast", {}) or {}
+    staff = d.get("staff") or {}
+    supply = d.get("supply") or {}
+    st = staff.get("kpis", {}) or {}
+    sc = staff.get("cost", {}) or {}
+    uk = supply.get("kpis", {}) or {}
+    uc = supply.get("cost", {}) or {}
+    daily = fc.get("daily_total") or []
+    avg = round(sum(daily) / len(daily)) if daily else None
+
+    def _r(v):
+        return f"R{round(v or 0):,}"
+
+    lines = ["<context>",
+             "Forecast-driven optimization plan for NEXT WEEK (NURSES ONLY — no doctors). "
+             "The roster caps every nurse at the lawful 45h/week; demand it cannot meet "
+             "lawfully is covered by costly agency locum.",
+             f"Forecast: week of {fc.get('week_starting')}, about {avg} arrivals/day, "
+             f"source {fc.get('source')}, accuracy ~{round(fc.get('accuracy_pct') or 0)}%"]
+    if sc:
+        lines += [
+            f"STAFF cost — before optimization (staff for the busiest day, every day): {_r(sc.get('before_zar'))}/week.",
+            f"STAFF cost — after optimization (matched to the forecast): {_r(sc.get('after_zar'))}/week.",
+            f"STAFF saving: {_r(sc.get('saving_zar'))}/week ({sc.get('saving_pct')}%), about {_r(sc.get('saving_annual_zar'))}/year if sustained.",
+            f"Lawful own-nurse coverage: {st.get('lawful_coverage_pct')}% — the rest needs {st.get('locum_hours')} agency locum hours; "
+            f"meeting demand with own staff would need ~{st.get('nurses_needed_lawful')} nurses (have {st.get('nurses_available')}, short {st.get('staffing_shortfall')}).",
+        ]
+    if uc:
+        lines += [
+            f"SUPPLY cost (two-stage stochastic (s,S), Monte-Carlo) — annual expected total cost.",
+            f"  before optimization (naive policy, no forecast safety stock): {_r(uc.get('before_zar'))}/year.",
+            f"  after optimization (optimised s*,S* — order-up-to that minimises expected cost): {_r(uc.get('after_zar'))}/year.",
+            f"SUPPLY saving: {_r(uc.get('saving_zar'))}/year ({uc.get('saving_pct')}%), mostly from cutting stockout penalties; "
+            f"order {uk.get('items_to_order')} of {uk.get('items_total')} items now for {_r(uk.get('order_cost_zar'))}.",
+        ]
+    for s in (staff.get("shifts") or []):
+        lines.append(f"Shift {s['shift']}: {s['assigned']}/{s['required']} nurses scheduled, {s['unfilled']} need locum")
+    for o in [o for o in (supply.get("orders") or []) if o.get("status") == "order_now"][:6]:
+        lines.append(f"Reorder: {o['item_name']} (class {o['abc_class']}) — order {o['order_qty']}")
+    lines.append("</context>")
+    return "\n".join(lines)
+
+
 def build_supply_context(d: dict[str, Any]) -> str:
     k = d.get("kpis", {}) or {}
     ci = d.get("ci", {}) or {}
