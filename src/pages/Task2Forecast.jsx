@@ -217,7 +217,7 @@ export default function Task2Forecast({ onNavigate }) {
           borderRadius: 8, padding: '8px 12px', marginBottom: 10, lineHeight: 1.5,
         }}>
           ℹ️ Other specialties (Surgery, Paediatrics, Maternity, Psychiatry, Gynaecology, Orthopaedics) see only a
-          few patients a day at Steve Biko — too little signal for a reliable daily forecast — so they're not shown here.
+          few patients a day at the hospital — too little signal for a reliable daily forecast — so they're not shown here.
         </div>
         {catalogue && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>

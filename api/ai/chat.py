@@ -6,12 +6,12 @@ final answer. Read-only by design — it can look things up but never act.
 from __future__ import annotations
 from typing import Iterator
 
-from ai import config, prompts, tools
+from ai import config, prompts, tools, redact
 from ai.client import _client, AIError
 
 APP_GUIDE = (
     "ABOUT THE APP — HealthForecast is a decision-support tool for the Emergency "
-    "Department / Casualty Unit of Steve Biko Academic Hospital (Pretoria). It "
+    "Department / Casualty Unit of a public hospital. It "
     "forecasts patient arrivals and turns those forecasts into staffing and supply "
     "plans. The left sidebar groups the pages into Overview, Data, Forecasting and "
     "Operations. The pages and what they do:\n"
@@ -128,10 +128,10 @@ def stream_chat(messages: list[dict]) -> Iterator[tuple[str, object]]:
             convo.append({"role": "user", "content": results})
             continue
 
-        # Final answer — emit its text.
+        # Final answer — emit its text (scrubbed of any hospital identifier).
         for block in resp.content:
             if block.type == "text" and block.text:
-                yield ("delta", block.text)
+                yield ("delta", redact.scrub(block.text))
         break
 
     yield ("usage", {"in": in_tok, "out": out_tok})

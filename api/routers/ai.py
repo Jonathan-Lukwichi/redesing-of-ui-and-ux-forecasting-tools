@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
-from ai import config, client as ai_client, context, prompts, telemetry, chat as ai_chat, actions as ai_actions
+from ai import config, client as ai_client, context, prompts, telemetry, chat as ai_chat, actions as ai_actions, redact
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -39,22 +39,28 @@ class ExplainForecastRequest(BaseModel):
 
 
 def _stream(surface: str, system: str, content: str):
-    """Yield plain-text chunks; record usage when done."""
+    """Yield plain-text chunks (scrubbed of any hospital identifier); record usage."""
     model = config.pick_model(surface)
-    in_tok = out_tok = 0
+    usage = {"in": 0, "out": 0}
+
+    def _raw():
+        try:
+            for kind, payload in ai_client.stream_text(system, content, model=model):
+                if kind == "delta":
+                    yield payload
+                elif kind == "usage":
+                    usage["in"], usage["out"] = payload["in"], payload["out"]
+        except ai_client.AIError as e:
+            yield f"\n[assistant unavailable: {e}]"
+        except Exception as e:  # network/API hiccup — fail gracefully, don't 500 the stream
+            yield f"\n[the assistant is temporarily unavailable: {type(e).__name__}]"
+
     try:
-        for kind, payload in ai_client.stream_text(system, content, model=model):
-            if kind == "delta":
-                yield payload
-            elif kind == "usage":
-                in_tok, out_tok = payload["in"], payload["out"]
-    except ai_client.AIError as e:
-        yield f"\n[assistant unavailable: {e}]"
-    except Exception as e:  # network/API hiccup — fail gracefully, don't 500 the stream
-        yield f"\n[the assistant is temporarily unavailable: {type(e).__name__}]"
+        for chunk in redact.scrub_stream(_raw()):
+            yield chunk
     finally:
-        if in_tok or out_tok:
-            telemetry.record(surface, model, in_tok, out_tok)
+        if usage["in"] or usage["out"]:
+            telemetry.record(surface, model, usage["in"], usage["out"])
 
 
 @router.post("/explain/forecast")

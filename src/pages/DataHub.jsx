@@ -207,7 +207,7 @@ export default function DataHub() {
       <SectionHeader
         kicker="Section A · Private"
         title="Hospital data"
-        sub="Steve Biko PURE DATASET · 4 files · stays in-memory in the FastAPI process for this session only"
+        sub="Hospital dataset · 4 files · stays in-memory in the FastAPI process for this session only"
       />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
         {hospitalItems.map((item) => (
@@ -230,7 +230,7 @@ export default function DataHub() {
       <SectionHeader
         kicker="Section B · Public"
         title="External factors"
-        sub="South African calendar + Pretoria weather (Open-Meteo ERA5) · 3 files · usually preloaded across the full 2019–2026 window"
+        sub="South African calendar + local weather (Open-Meteo ERA5) · 3 files · usually preloaded across the full 2019–2026 window"
       />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
         {externalItems.map((item) => (

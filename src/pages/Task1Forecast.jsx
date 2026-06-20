@@ -162,7 +162,7 @@ export default function Task1Forecast({ onNavigate }) {
         </h1>
         <div style={{ fontSize: 13.5, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
           Hospital-wide capacity planning, nurse rostering by date, monthly budget allocation.
-          Live forecast engines · Steve Biko Academic Hospital, Pretoria.
+          Live forecast engines · Hospital Emergency Department.
         </div>
       </div>
 
@@ -538,7 +538,7 @@ function ForecastResult({ data, horizonId, badge }) {
       </div>
 
       <div style={{ marginTop: 14, fontSize: 11.5, color: C.muted, lineHeight: 1.6 }}>
-        Trained live on {data.history_window_days?.toLocaleString()} days of real Steve Biko arrivals.
+        Trained live on {data.history_window_days?.toLocaleString()} days of real hospital arrivals.
         The low–high band is the <strong>likely range</strong> — the band the real number should usually
         fall inside, which naturally widens further into the future. Plan with the range, not just the single number.
         This forecast is validated against historical data; if a prediction ever looks clearly off, contact the platform administrator.

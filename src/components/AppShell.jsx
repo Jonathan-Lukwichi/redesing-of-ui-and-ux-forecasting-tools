@@ -42,7 +42,7 @@ function Sidebar({ active, onNavigate }) {
         <div className="sidebar-brand-mark">HF</div>
         <div>
           <div className="sidebar-brand-name">HealthForecast</div>
-          <div className="sidebar-brand-sub">Memorial General Hospital</div>
+          <div className="sidebar-brand-sub">Hospital</div>
         </div>
       </div>
 

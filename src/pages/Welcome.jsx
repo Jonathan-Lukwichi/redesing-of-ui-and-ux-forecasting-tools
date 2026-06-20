@@ -33,7 +33,7 @@ export default function Welcome({ onNavigate }) {
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginTop: 32, maxWidth: 460 }}>
-            {[{ v: '96%', l: 'Forecast accuracy' }, { v: '23%', l: 'Overtime reduction' }, { v: '7d', l: 'Forward horizon' }].map((s) => (
+            {[{ v: 'Live', l: 'Validated forecasts' }, { v: '23%', l: 'Overtime reduction' }, { v: '7d', l: 'Forward horizon' }].map((s) => (
               <div key={s.l}>
                 <div style={{ fontSize: 24, fontWeight: 600, color: 'white', letterSpacing: '-0.5px' }}>{s.v}</div>
                 <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{s.l}</div>

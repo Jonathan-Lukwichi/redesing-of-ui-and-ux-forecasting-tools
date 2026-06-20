@@ -22,7 +22,7 @@ router = APIRouter(prefix="/api/task2", tags=["task2"])
 
 # --- GET /api/task2/specialties ---------------------------------------------
 
-# Specialties whose forecasts are actually usable. Steve Biko sees only a
+# Specialties whose forecasts are actually usable. The hospital sees only a
 # handful of patients a day in most specialties (Surgery ~1.9/day, Paediatrics
 # ~2.3, Gynaecology ~1.7, Maternity ~0.3, Psychiatry ~0.1, Orthopaedics ~10 but
 # very noisy), so a per-specialty daily/weekly forecast there carries no real

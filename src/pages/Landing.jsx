@@ -55,7 +55,7 @@ export default function Landing({ onNavigate }) {
           <div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', background: 'rgba(125,211,252,0.15)', border: '1px solid rgba(125,211,252,0.35)', borderRadius: 999, fontSize: 12, fontWeight: 600, color: '#7dd3fc', letterSpacing: 0.4, marginBottom: 28 }}>
               <span style={{ width: 6, height: 6, background: '#7dd3fc', borderRadius: '50%' }} />
-              NEW · AI-Powered · 96% forecast accuracy · 14 departments
+              NEW · AI-Powered · validated forecasts · 14 departments
             </div>
             <h1 style={{ fontSize: 64, fontWeight: 600, lineHeight: 1.05, letterSpacing: '-1.5px', margin: '0 0 24px 0' }}>
               Forecast demand.<br />
@@ -73,7 +73,7 @@ export default function Landing({ onNavigate }) {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, auto)', gap: 32, paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.15)' }}>
-              {[['14', 'Departments supported'], ['96%', 'Forecast accuracy'], ['23%', 'Overtime reduction'], ['7-day', 'Forward horizon']].map(([v, l]) => (
+              {[['14', 'Departments supported'], ['Live', 'Validated forecasts'], ['23%', 'Overtime reduction'], ['7-day', 'Forward horizon']].map(([v, l]) => (
                 <div key={l}>
                   <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: '-0.8px' }}>{v}</div>
                   <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>{l}</div>
@@ -211,7 +211,7 @@ export default function Landing({ onNavigate }) {
               <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, color: '#7dd3fc', textTransform: 'uppercase', marginBottom: 12 }}>Under the hood</div>
               <h2 style={{ fontSize: 40, fontWeight: 600, letterSpacing: '-0.8px', margin: '0 0 20px 0', lineHeight: 1.15 }}>Powered by AI & ML. One champion. Always your call.</h2>
               <p style={{ fontSize: 16, color: '#cbd5e1', lineHeight: 1.6, margin: '0 0 28px 0' }}>
-                Our platform trains multiple advanced AI and machine learning models in parallel — then automatically promotes the one that delivers the highest accuracy on YOUR data, with full statistical evidence.
+                Our platform trains multiple advanced AI and machine learning models in parallel — then automatically promotes the best-performing one on YOUR data, validated against real history.
               </p>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {['AI explainability', 'Confidence intervals', 'Anomaly detection', 'Auto model selection', 'Continuous learning', 'Cross-validation'].map((c) => (
@@ -221,15 +221,14 @@ export default function Landing({ onNavigate }) {
             </div>
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 24 }}>
               <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>Live leaderboard · last training run</div>
-              {[['Champion model', 6.4, true], ['Ensemble model', 6.7, false], ['Gradient boosting', 7.1, false], ['Deep learning (seq)', 7.4, false], ['Neural network', 7.8, false], ['Statistical model A', 9.2, false], ['Statistical model B', 11.4, false]].map(([n, v, best]) => (
+              {[['Champion model', 6.4, true], ['Ensemble model', 6.7, false], ['ML model A', 7.1, false], ['ML model B', 7.4, false], ['ML model C', 7.8, false], ['Statistical model A', 9.2, false], ['Statistical model B', 11.4, false]].map(([n, v, best]) => (
                 <div key={n} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div style={{ width: 140, fontSize: 13, color: best ? 'white' : '#cbd5e1', fontWeight: best ? 600 : 400 }}>
+                  <div style={{ width: 150, fontSize: 13, color: best ? 'white' : '#cbd5e1', fontWeight: best ? 600 : 400 }}>
                     {n} {best && <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 6px', background: '#0d9488', color: 'white', borderRadius: 3 }}>WINNER</span>}
                   </div>
                   <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: `${(15 - v) / 9 * 100}%`, background: best ? 'linear-gradient(90deg, #7dd3fc, #5eead4)' : 'rgba(125,211,252,0.4)' }} />
                   </div>
-                  <div style={{ width: 50, fontSize: 13, fontFamily: 'JetBrains Mono, monospace', textAlign: 'right', color: best ? '#5eead4' : '#94a3b8' }}>{v}%</div>
                 </div>
               ))}
             </div>

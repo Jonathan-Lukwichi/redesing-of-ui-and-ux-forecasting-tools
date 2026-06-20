@@ -6,7 +6,7 @@ import json
 import re
 from typing import Any
 
-from ai import config, prompts, tools
+from ai import config, prompts, tools, redact
 from ai.client import _client
 
 
@@ -90,4 +90,6 @@ def generate() -> dict[str, Any]:
     actions.sort(key=lambda a: rank.get(a.get("urgency"), 9))
     for i, a in enumerate(actions):
         a["id"] = i
+        a["title"] = redact.scrub(a.get("title", ""))   # confidentiality safety-net
+        a["reason"] = redact.scrub(a.get("reason", ""))
     return {"actions": actions, "usage": {"in": usage[0], "out": usage[1]}}

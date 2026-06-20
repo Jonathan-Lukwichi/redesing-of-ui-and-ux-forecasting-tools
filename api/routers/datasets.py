@@ -1,6 +1,6 @@
 """
-/api/datasets/* — upload and inspect the 7 source files of the Steve Biko
-hospital forecasting pipeline. Data lives in core/registry (in-memory only).
+/api/datasets/* — upload and inspect the 7 source files of the hospital
+forecasting pipeline. Data lives in core/registry (in-memory only).
 """
 from __future__ import annotations
 import hashlib

@@ -55,7 +55,7 @@ export default function Dashboard({ onNavigate }) {
       <PageHero
         kicker="Operations · Live"
         title="Operations Dashboard"
-        sub="Steve Biko Academic Hospital · live forecast, KPIs, and a daily AI briefing"
+        sub="Hospital · live forecast, KPIs, and a daily AI briefing"
         image="/images/dashboard-bg.jpg"
         actions={<>
           <button className="btn" onClick={() => window.location.reload()}><Icon name="refresh" size={14} />Refresh</button>

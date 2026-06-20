@@ -1,5 +1,5 @@
 """
-Dataset schemas for the 7 source files of the Steve Biko hospital forecasting
+Dataset schemas for the 7 source files of the hospital forecasting
 project. Used by /api/datasets/* routes to validate uploads against the
 DATA_DICTIONARY column contracts.
 
@@ -203,7 +203,7 @@ CALENDAR = DatasetSchema(
 WEATHER_DAILY = DatasetSchema(
     id="weather_daily",
     label="Weather daily",
-    description="Pretoria daily weather (Open-Meteo ERA5).",
+    description="Local daily weather (Open-Meteo ERA5).",
     category="external",
     grain="daily",
     key_columns=("date",),
@@ -222,7 +222,7 @@ WEATHER_DAILY = DatasetSchema(
 WEATHER_HOURLY = DatasetSchema(
     id="weather_hourly",
     label="Weather hourly",
-    description="Pretoria hourly weather (Open-Meteo ERA5).",
+    description="Local hourly weather (Open-Meteo ERA5).",
     category="external",
     grain="hourly",
     key_columns=("date", "hour"),
