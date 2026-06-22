@@ -41,4 +41,7 @@ export const aiApi = {
 
   // AI-ranked action list from live signals.
   actions: () => fetch(`${API_BASE}/api/ai/actions`).then((r) => r.json()),
+
+  // Admin / governance: durable AI audit trail.
+  audit: (n = 50) => fetch(`${API_BASE}/api/ai/audit?n=${n}`).then((r) => r.json()),
 };

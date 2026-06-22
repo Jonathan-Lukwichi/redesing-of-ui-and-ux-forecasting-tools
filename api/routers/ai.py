@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
-from ai import config, client as ai_client, context, prompts, telemetry, chat as ai_chat, actions as ai_actions, redact
+from ai import config, client as ai_client, context, prompts, telemetry, chat as ai_chat, actions as ai_actions, redact, audit
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -55,12 +55,15 @@ def _stream(surface: str, system: str, content: str):
         except Exception as e:  # network/API hiccup — fail gracefully, don't 500 the stream
             yield f"\n[the assistant is temporarily unavailable: {type(e).__name__}]"
 
+    parts: list[str] = []
     try:
         for chunk in redact.scrub_stream(_raw()):
+            parts.append(chunk)
             yield chunk
     finally:
         if usage["in"] or usage["out"]:
             telemetry.record(surface, model, usage["in"], usage["out"])
+        audit.log_event(surface, model, content, "".join(parts), usage["in"], usage["out"])
 
 
 @router.post("/explain/forecast")
@@ -138,12 +141,15 @@ async def chat(req: ChatRequest):
         return JSONResponse(429, {"error": "budget_exhausted", "message": "Daily budget reached."})
 
     msgs = [{"role": m.role, "content": m.content} for m in req.messages]
+    last_user = next((m["content"] for m in reversed(msgs) if m["role"] == "user"), "")
 
     def gen():
         in_tok = out_tok = 0
+        parts: list[str] = []
         try:
             for kind, payload in ai_chat.stream_chat(msgs):
                 if kind == "delta":
+                    parts.append(payload)
                     yield payload
                 elif kind == "usage":
                     in_tok, out_tok = payload["in"], payload["out"]
@@ -154,6 +160,7 @@ async def chat(req: ChatRequest):
         finally:
             if in_tok or out_tok:
                 telemetry.record("chat", config.model_reasoning(), in_tok, out_tok)
+            audit.log_event("chat", config.model_reasoning(), last_user, "".join(parts), in_tok, out_tok)
 
     return StreamingResponse(gen(), media_type="text/plain; charset=utf-8")
 
@@ -171,6 +178,22 @@ async def actions():
     except ai_client.AIError as e:
         return JSONResponse(503, {"error": "ai_error", "message": str(e)})
     u = out.pop("usage", None)
+    in_t = (u or {}).get("in", 0)
+    out_t = (u or {}).get("out", 0)
     if u:
-        telemetry.record("actions", config.model_fast(), u["in"], u["out"])
+        telemetry.record("actions", config.model_fast(), in_t, out_t)
+    import json as _json
+    audit.log_event("actions", config.model_fast(), "live forecast/staff/supply/optimization signals",
+                    _json.dumps(out.get("actions", []), default=str), in_t, out_t)
     return out
+
+
+@router.get("/audit")
+async def audit_log(n: int = 50) -> dict[str, Any]:
+    """Durable AI audit trail (most-recent-first) for the admin/governance view."""
+    return {"events": audit.recent(n), "stats": audit.stats()}
+
+
+@router.get("/audit/stats")
+async def audit_stats() -> dict[str, Any]:
+    return audit.stats()

@@ -12,6 +12,7 @@ import StaffPlanner from './pages/StaffPlanner';
 import SupplyPlanner from './pages/SupplyPlanner';
 import Optimization from './pages/Optimization';
 import ActionCenter from './pages/ActionCenter';
+import Admin from './pages/Admin';
 
 const PAGES = {
   dashboard:            Dashboard,
@@ -24,6 +25,7 @@ const PAGES = {
   supply:               SupplyPlanner,
   optimize:             Optimization,
   actions:              ActionCenter,
+  admin:                Admin,
 };
 
 export default function App() {

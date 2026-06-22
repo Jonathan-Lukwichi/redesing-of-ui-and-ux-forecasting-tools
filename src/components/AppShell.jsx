@@ -20,6 +20,9 @@ const NAV_ITEMS = [
     { id: 'optimize', label: 'Optimization',  icon: 'bolt' },
     { id: 'actions',  label: 'Action Center', icon: 'bolt', badge: '12' },
   ]},
+  { section: 'Governance', items: [
+    { id: 'admin', label: 'Admin', icon: 'settings' },
+  ]},
 ];
 
 const CRUMB_MAP = {
@@ -33,6 +36,7 @@ const CRUMB_MAP = {
   supply:    ['Operations', 'Supply Planner'],
   optimize:  ['Operations', 'Optimization'],
   actions:   ['Operations', 'Action Center'],
+  admin:     ['Governance', 'Admin & AI Governance'],
 };
 
 function Sidebar({ active, onNavigate }) {
