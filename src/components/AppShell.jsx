@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import Icon from './Icon';
 import AskChat from './AskChat';
 
@@ -39,31 +40,57 @@ const CRUMB_MAP = {
   admin:     ['Governance', 'Admin & AI Governance'],
 };
 
-function Sidebar({ active, onNavigate }) {
+function ToggleBtn({ collapsed, onToggle }) {
+  return (
+    <button onClick={onToggle} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      style={{
+        border: 0, cursor: 'pointer', fontFamily: 'inherit',
+        background: 'rgba(255,255,255,0.12)', color: 'inherit',
+        width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 15, lineHeight: 1,
+      }}>{collapsed ? '»' : '«'}</button>
+  );
+}
+
+function Sidebar({ active, onNavigate, collapsed, onToggle }) {
   return (
     <aside className="sidebar">
-      <div className="sidebar-brand">
-        <div className="sidebar-brand-mark">HF</div>
-        <div>
-          <div className="sidebar-brand-name">HealthForecast</div>
-          <div className="sidebar-brand-sub">Hospital</div>
-        </div>
+      <div className="sidebar-brand" style={collapsed
+        ? { padding: '18px 0', justifyContent: 'center' }
+        : { justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        {!collapsed && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+            <div className="sidebar-brand-mark">HF</div>
+            <div style={{ minWidth: 0 }}>
+              <div className="sidebar-brand-name">HealthForecast</div>
+              <div className="sidebar-brand-sub">Hospital</div>
+            </div>
+          </div>
+        )}
+        <ToggleBtn collapsed={collapsed} onToggle={onToggle} />
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
         {NAV_ITEMS.map((sec) => (
           <div key={sec.section}>
-            <div className="sidebar-section">{sec.section}</div>
+            {collapsed ? <div style={{ height: 12 }} /> : <div className="sidebar-section">{sec.section}</div>}
             <nav className="sidebar-nav">
               {sec.items.map((it) => (
                 <div
                   key={it.id}
                   className={'sidebar-item' + (it.id === active ? ' active' : '')}
                   onClick={() => onNavigate(it.id)}
+                  title={collapsed ? it.label : undefined}
+                  style={collapsed ? { justifyContent: 'center', padding: '11px 0', position: 'relative' } : undefined}
                 >
                   <span className="sidebar-item-icon"><Icon name={it.icon} size={15} /></span>
-                  <span>{it.label}</span>
-                  {it.badge && <span className="sidebar-item-badge">{it.badge}</span>}
+                  {!collapsed && <span>{it.label}</span>}
+                  {!collapsed && it.badge && <span className="sidebar-item-badge">{it.badge}</span>}
+                  {collapsed && it.badge && (
+                    <span style={{ position: 'absolute', top: 6, right: 12, width: 7, height: 7, borderRadius: '50%', background: '#f59e0b' }} />
+                  )}
                 </div>
               ))}
             </nav>
@@ -76,17 +103,19 @@ function Sidebar({ active, onNavigate }) {
           className="sidebar-footer-btn"
           onClick={() => onNavigate('landing')}
           title="Back to home page"
+          style={collapsed ? { justifyContent: 'center' } : undefined}
         >
           <Icon name="home" size={14} />
-          <span>Home</span>
+          {!collapsed && <span>Home</span>}
         </button>
         <button
           className="sidebar-footer-btn sidebar-footer-btn-danger"
           onClick={() => onNavigate('welcome')}
           title="Sign out"
+          style={collapsed ? { justifyContent: 'center' } : undefined}
         >
           <Icon name="logout" size={14} />
-          <span>Sign out</span>
+          {!collapsed && <span>Sign out</span>}
         </button>
       </div>
     </aside>
