@@ -51,7 +51,7 @@ export default function AskChat() {
   return (
     <>
       {/* Floating button */}
-      <button onClick={() => setOpen((o) => !o)} title="Ask the assistant" style={{
+      <button onClick={() => setOpen((o) => !o)} title="Analyst Assistant" style={{
         position: 'fixed', right: 22, bottom: 22, zIndex: 1000,
         width: 56, height: 56, borderRadius: '50%', border: 0, cursor: 'pointer',
         background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', color: '#fff',
@@ -68,7 +68,7 @@ export default function AskChat() {
         }}>
           <div style={{ padding: '12px 16px', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 14 }}>✦ Ask the assistant</div>
+              <div style={{ fontWeight: 800, fontSize: 14 }}>✦ Analyst Assistant</div>
               <div style={{ fontSize: 11, opacity: 0.9 }}>Explains the app & reads your live data</div>
             </div>
             <button onClick={newChat} disabled={busy || msgs.length === 0} title="Start a new chat" style={{

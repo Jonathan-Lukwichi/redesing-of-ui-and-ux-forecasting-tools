@@ -148,9 +148,20 @@ function Topbar({ crumbs = [], onNavigate }) {
 
 export default function AppShell({ active = 'dashboard', onNavigate, children }) {
   const crumbs = CRUMB_MAP[active] || ['Dashboard'];
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('hf_sidebar_collapsed') === '1'; } catch { return false; }
+  });
+  const toggle = () => setCollapsed((c) => {
+    const next = !c;
+    try { localStorage.setItem('hf_sidebar_collapsed', next ? '1' : '0'); } catch { /* ignore */ }
+    return next;
+  });
   return (
-    <div className="app">
-      <Sidebar active={active} onNavigate={onNavigate} />
+    <div className="app" style={{
+      gridTemplateColumns: collapsed ? '72px 1fr' : 'minmax(220px, 280px) 1fr',
+      transition: 'grid-template-columns .18s ease',
+    }}>
+      <Sidebar active={active} onNavigate={onNavigate} collapsed={collapsed} onToggle={toggle} />
       <div className="main">
         <Topbar crumbs={crumbs} onNavigate={onNavigate} />
         {children}

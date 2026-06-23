@@ -38,7 +38,7 @@ export default function ActionCenter() {
       <PageHero
         kicker="Operations · Action Center"
         title="Recommended Actions"
-        sub="The assistant turns next week's optimization plan — the lawful roster and reorder list — plus live forecast, staffing and supply signals into a ranked to-do list. Nothing happens until you approve."
+        sub="The Analyst Assistant turns next week's optimization plan — the lawful roster and reorder list — plus live forecast, staffing and supply signals into a ranked to-do list. Nothing happens until you approve."
         image="/images/actions-bg.jpg"
         actions={<>
           <button className="btn" onClick={load}><Icon name="refresh" size={14} />Re-generate</button>

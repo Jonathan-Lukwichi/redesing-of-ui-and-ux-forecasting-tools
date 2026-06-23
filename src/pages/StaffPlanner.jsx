@@ -80,7 +80,7 @@ export default function StaffPlanner() {
           {' '}{k.n_active_staff} of {k.n_posts} nursing posts filled, rest vacant.
           {ci && <> Across 30 runs (95% CI): coverage {ci.coverage_pct.mean}% [{ci.coverage_pct.lo}–{ci.coverage_pct.hi}] ·
             payroll {zarShort(ci.annual_payroll_zar.mean)} · BCEA {Math.round(ci.bcea_violations_per_staff.mean)}/nurse.</>}
-          {' '}Ask the assistant to explain what this gap means.
+          {' '}Ask the Analyst Assistant to explain what this gap means.
         </div>
       )}
 
