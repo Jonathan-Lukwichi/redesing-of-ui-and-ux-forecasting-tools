@@ -300,3 +300,146 @@ The minimum useful first commit, enough to run the historical load by hand:
 - [ ] One pytest covering a known-PII fixture going in and a column-stripped DataFrame coming out.
 
 A second PR adds the HTTP endpoints + the Data Hub UI for Part C. Same pipeline, same gate, same audit log — only the trigger differs.
+
+---
+
+---
+
+# Part D — The Data Access Gate (front-of-house onboarding flow)
+
+Everything above is about *how* data gets onto the platform. Part D is about *routing the user to the right door the moment they sign in* — so an upload-capable user lands on the upload page, a read-only user lands on the analysis, and a user whose data isn't on the server yet is sent to their administrator instead of hitting a dead end.
+
+This is a **UI-only** addition. It changes no backend behaviour and adds no new endpoints — it reuses the dataset endpoints that already exist. The real anonymisation gate and `/api/pipeline/*` background jobs (Parts A & C) remain the follow-up work; Part D simply *leads into* the existing Data Hub when the user chooses to upload.
+
+## D.1 The decision the gate makes
+
+Immediately after sign-in, before the dashboard, the user is asked a short branching question with **three terminal outcomes**:
+
+```
+                  ┌─ "Is your data already on the server?" ─┐
+                 YES                                        NO
+                  │                                          │
+   "What would you like to do?"                 ┌─ Contact the admin ─────────┐
+        │                    │                  │ + Request-access form        │
+   Upload new           Use existing            │ (data not on server yet,     │
+   data                 analysis                │  user cannot self-serve)     │
+        │                    │                  └──────────────────────────────┘
+        ▼                    ▼
+   Data Hub            Dashboard
+   (upload → pipeline   (forecast /
+    → integrated)        prediction /
+                         optimization)
+```
+
+| Outcome | Where it goes | Meaning |
+|---|---|---|
+| **Yes → Upload new data** | Data Hub (`upload` route) | The user has a new Casualty Daily Register file to add. It is validated, fed into the pipeline, and integrated into the analysis dataset. |
+| **Yes → Use existing analysis** | Dashboard (`dashboard` route) | Data is already on the server; the user just wants to consume the analysis — dashboards, forecasts, predictions, optimization. This is the "read-only configuration." |
+| **No → Contact admin** | In-gate contact + request-access form | The data has not been loaded onto the server. The one-time historical load (Part A) is an admin/IT task, so the user is given contact details and a form to request access. |
+
+## D.2 Decisions already locked for this build
+
+1. **Placement:** the gate appears **after sign-in, on every login** (no "don't ask again" yet). Flow becomes `landing → welcome → gate → app`.
+2. **Scope:** **gate UI only** in this pass. No new backend. The upload outcome leads to the existing Data Hub; the full anonymise-and-run-pipeline backend stays as the Appendix follow-up.
+3. **"No data" path:** a **contact-admin screen plus a request-access form** (name, hospital, work email, optional message).
+
+## D.3 Smart pre-answer (not a blind question)
+
+Q1 ("is the data on the server?") is pre-answered using endpoints that already exist, then confirmed by the user:
+
+- `GET /api/datasets/inventory` → `loaded_count` / `total` (see `api/routers/datasets.py:187`).
+- `GET /api/datasets/source/status` → `configured` (see `api/routers/datasets.py:248`).
+
+Rule: **data is considered "on the server" if `loaded_count > 0` OR `source.configured` is true.** The gate shows a detection chip ("We detected 6/7 datasets loaded, source connected") and marks the matching choice card as *Suggested* — but the user still chooses, so detection being wrong never traps them.
+
+## D.4 Files to add / change
+
+### New file — `src/pages/DataAccessGate.jsx`
+
+A self-contained, full-screen page (styled like `Welcome.jsx` / `Landing.jsx`: dark gradient over `/images/login-bg1.jpg`, `btn-primary`, rounded glass cards). It is a 3-state machine:
+
+- `q1` → "Is your data on the server?" → **Yes** goes to `q2`, **No** goes to `admin`.
+- `q2` → "What would you like to do?" → **Upload** calls `onNavigate('upload')`, **Use existing** calls `onNavigate('dashboard')`.
+- `admin` → contact details + request-access form.
+
+Props: `{ onNavigate }` (same convention as every other page).
+
+On mount it calls `api.datasets.inventory()` + `api.datasets.sourceStatus()` (both already exported in `src/api/client.js:58-69`) to compute the detection chip and the *Suggested* badge.
+
+The request-access form has no backend yet, so on submit it appends the request to `localStorage` under `hf_access_requests` and shows a confirmation. A `// wire to an email/notify endpoint later` comment marks the seam.
+
+Reference skeleton (full component is ~330 lines; this is the shape):
+
+```jsx
+import { useEffect, useState } from 'react';
+import Icon from '../components/Icon';
+import { api } from '../api/client';
+
+export default function DataAccessGate({ onNavigate }) {
+  const [step, setStep] = useState('q1');          // 'q1' | 'q2' | 'admin'
+  const [detect, setDetect] = useState(null);      // {onServer, loadedCount, total, configured}
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    Promise.all([
+      api.datasets.inventory(ctrl.signal),
+      api.datasets.sourceStatus(ctrl.signal).catch(() => null),
+    ]).then(([inv, src]) => setDetect({
+      loadedCount: inv?.loaded_count ?? 0,
+      total: inv?.total ?? 7,
+      configured: !!src?.configured,
+      onServer: (inv?.loaded_count ?? 0) > 0 || !!src?.configured,
+    })).catch(() => setDetect({ loadedCount: 0, total: 7, configured: false, onServer: false }));
+    return () => ctrl.abort();
+  }, []);
+
+  // q1: two ChoiceCards (Yes -> setStep('q2'), No -> setStep('admin')), detection chip from `detect`
+  // q2: two ChoiceCards (Upload -> onNavigate('upload'), Use existing -> onNavigate('dashboard'))
+  // admin: contact card + request-access form (localStorage 'hf_access_requests'), Back -> setStep('q1')
+}
+```
+
+Building blocks to implement inside the file: `Shell` (gradient page frame + Home button), `Panel` (kicker/title/sub + optional Back), `ChoiceCard` (icon, title, desc, CTA, hover lift, *Suggested* badge), `ContactRow`, and a `Field` input helper. Use `Icon` names that already exist in the project: `check`, `settings`, `upload`, `chart`, `users`, `file`, `home`, `arrow-left`.
+
+### Changed file — `src/App.jsx`
+
+Add the import and route the gate as an early-return page alongside `landing`/`welcome`:
+
+```jsx
+import DataAccessGate from './pages/DataAccessGate';
+// ...
+if (page === 'landing') return <Landing onNavigate={setPage} />;
+if (page === 'welcome') return <Welcome onNavigate={setPage} />;
+if (page === 'gate')    return <DataAccessGate onNavigate={setPage} />;   // <-- add
+```
+
+(The gate lives outside `AppShell` because it is a pre-app screen, exactly like `landing` and `welcome`.)
+
+### Changed file — `src/pages/Welcome.jsx`
+
+Point the "Sign in" button at the gate instead of straight to the dashboard:
+
+```jsx
+// line 80, currently: onClick={() => onNavigate('dashboard')}
+onClick={() => onNavigate('gate')}
+```
+
+## D.5 Data Hub follow-through (small, optional in this pass)
+
+When a user arrives at the Data Hub *from the gate's "Upload new data" choice*, add a one-line banner on `DataHub.jsx`: *"New data uploaded here is validated and added to the analysis dataset."* This banner is also the natural seam where the real `/api/pipeline` background-job flow (Part C) plugs in later — today it just leads to the existing per-file upload tiles.
+
+## D.6 What this pass explicitly does NOT do
+
+- No anonymisation gate, no `/api/pipeline/*` endpoints, no background jobs, no SQLite job table — all of that stays in Parts A/C above.
+- No real auth/RBAC — the gate is a routing aid, not a security boundary (same posture as the existing `Admin.jsx` demo code).
+- The request-access form does not yet email anyone; it records to `localStorage` until a notify endpoint exists.
+
+## D.7 Acceptance checklist for Part D
+
+- [ ] After sign-in, the gate appears every time (before the dashboard).
+- [ ] Q1 shows a detection chip and a *Suggested* badge driven by `inventory` + `source/status`.
+- [ ] Yes → Upload navigates to the Data Hub (`upload`).
+- [ ] Yes → Use existing navigates to the Dashboard (`dashboard`).
+- [ ] No → shows admin contact details and a working request-access form (name/hospital/email required), with a confirmation state after submit.
+- [ ] Back buttons return to Q1; Home returns to the landing page.
+- [ ] No backend changes; existing endpoints only.
