@@ -89,6 +89,11 @@ export const api = {
   supply: {
     overview: (signal) => request('/api/supply/overview', { signal }),
     item: (id, signal) => request(`/api/supply/item/${id}`, { signal }),
+    // Policy comparison + lead-time sweep (forecast-value demonstration cards).
+    compare:     (payload) => request('/api/supply/compare', { method: 'POST', body: payload }),
+    sweep:       (payload) => request('/api/supply/sweep', { method: 'POST', body: payload }),
+    compareDemo: (signal) => request('/api/supply/compare-demo', { signal }),
+    sweepDemo:   (signal) => request('/api/supply/sweep-demo', { signal }),
   },
 
   staff: {

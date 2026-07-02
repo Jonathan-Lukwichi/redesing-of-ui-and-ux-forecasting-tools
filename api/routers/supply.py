@@ -3,13 +3,19 @@ simulation. Headline KPIs are the 30-seed aggregated means (with 95% CIs); the
 item table and time-series come from the representative seed (42)."""
 from __future__ import annotations
 import math
-from typing import Any
+from typing import Any, List, Optional
 
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from core import simulation_data
+from core.optimization_engine import (
+    optimize_supply_multi_arm,
+    optimize_supply_lead_time_sweep,
+    DEFAULT_LEAD_TIME_SWEEP,
+)
 
 router = APIRouter(prefix="/api/supply", tags=["supply"])
 
@@ -147,3 +153,115 @@ async def item_detail(item_id: str) -> dict[str, Any]:
         },
         "series": series,
     }
+
+
+# ─── Policy comparison + lead-time sweep (forecast-value demonstration) ────────
+#
+# These endpoints power the two new Supply Planner cards. They run a
+# self-contained 4-policy inventory simulation (naive / static (s,S) / dynamic
+# forecast base-stock / oracle) so the app can SHOW where feeding the forecast
+# into the reorder decision actually pays — and where it doesn't (long lead
+# times). The demo endpoints use a small illustrative basket; the POST variants
+# accept a caller-supplied basket for the same engine.
+
+class SupplyItemIn(BaseModel):
+    sku: str
+    name: str = ""
+    category: str = ""
+    on_hand: int = 0
+    unit_cost: float
+    ordering_cost: float = 50.0
+    holding_rate: float = 0.25
+    lead_time_days: int = 5
+    daily_demand_avg: float
+    daily_demand_std: float = 0.0
+
+
+class SupplyCompareRequest(BaseModel):
+    items: List[SupplyItemIn]
+    service_level: float = 0.95
+    lead_time_mean: Optional[float] = None
+
+
+class SupplySweepRequest(BaseModel):
+    items: List[SupplyItemIn]
+    service_level: float = 0.95
+    lead_times: Optional[List[float]] = None
+
+
+# Illustrative hospital consumables basket for the demo cards (self-contained;
+# independent of the calibrated 30-item chapter-7 panel served by /overview).
+DEMO_ITEMS = [
+    {"sku": "N95-3M-1860", "name": "N95 Respirator (3M 1860)", "category": "PPE",
+     "on_hand": 78,   "unit_cost": 1.85, "ordering_cost": 45, "holding_rate": 0.25,
+     "lead_time_days": 5, "daily_demand_avg": 24.0, "daily_demand_std": 4.5},
+    {"sku": "GLOVE-NIT-M", "name": "Nitrile gloves (M)", "category": "PPE",
+     "on_hand": 4200, "unit_cost": 0.12, "ordering_cost": 30, "holding_rate": 0.20,
+     "lead_time_days": 3, "daily_demand_avg": 140.0, "daily_demand_std": 18.0},
+    {"sku": "IV-SAL-1L", "name": "IV Saline 1L", "category": "Fluids",
+     "on_hand": 142,  "unit_cost": 2.40, "ordering_cost": 60, "holding_rate": 0.22,
+     "lead_time_days": 4, "daily_demand_avg": 50.0, "daily_demand_std": 9.0},
+    {"sku": "SYRG-10ML", "name": "Syringe 10mL", "category": "Disposable",
+     "on_hand": 1840, "unit_cost": 0.35, "ordering_cost": 35, "holding_rate": 0.20,
+     "lead_time_days": 3, "daily_demand_avg": 80.0, "daily_demand_std": 12.0},
+    {"sku": "OXY-MASK-A", "name": "Oxygen mask (adult)", "category": "Resp",
+     "on_hand": 64,   "unit_cost": 3.20, "ordering_cost": 40, "holding_rate": 0.25,
+     "lead_time_days": 5, "daily_demand_avg": 16.0, "daily_demand_std": 3.5},
+    {"sku": "EPI-1MG", "name": "Epinephrine 1mg", "category": "Pharm",
+     "on_hand": 218,  "unit_cost": 8.50, "ordering_cost": 80, "holding_rate": 0.30,
+     "lead_time_days": 7, "daily_demand_avg": 8.0,  "daily_demand_std": 2.0},
+    {"sku": "BAND-EL-4", "name": "Elastic bandage 4\"", "category": "Wound",
+     "on_hand": 412,  "unit_cost": 1.10, "ordering_cost": 25, "holding_rate": 0.20,
+     "lead_time_days": 2, "daily_demand_avg": 14.0, "daily_demand_std": 3.0},
+]
+
+
+@router.post("/compare")
+async def supply_compare(req: SupplyCompareRequest) -> dict[str, Any]:
+    """Run four inventory policies side by side at one lead-time setting.
+
+    naive · static (s,S) · dynamic forecast base-stock (Li et al.) · oracle.
+    """
+    if not req.items:
+        raise HTTPException(400, "Provide at least one inventory item.")
+    if not (0.8 <= req.service_level <= 0.999):
+        raise HTTPException(400, "service_level must be between 0.80 and 0.999.")
+    try:
+        return optimize_supply_multi_arm(
+            items=[i.model_dump() for i in req.items],
+            service_level=req.service_level,
+            lead_time_mean=req.lead_time_mean,
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Supply comparison failed: {e}")
+
+
+@router.post("/sweep")
+async def supply_sweep(req: SupplySweepRequest) -> dict[str, Any]:
+    """Sweep all four policies across a range of mean lead times (crossover chart)."""
+    if not req.items:
+        raise HTTPException(400, "Provide at least one inventory item.")
+    if not (0.8 <= req.service_level <= 0.999):
+        raise HTTPException(400, "service_level must be between 0.80 and 0.999.")
+    try:
+        return optimize_supply_lead_time_sweep(
+            items=[i.model_dump() for i in req.items],
+            service_level=req.service_level,
+            lead_times=req.lead_times,
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Supply sweep failed: {e}")
+
+
+@router.get("/compare-demo")
+async def supply_compare_demo() -> dict[str, Any]:
+    """Demo multi-arm comparison at the mean of the demo-item lead times."""
+    return optimize_supply_multi_arm(DEMO_ITEMS, service_level=0.95)
+
+
+@router.get("/sweep-demo")
+async def supply_sweep_demo() -> dict[str, Any]:
+    """Demo lead-time sweep for the crossover chart."""
+    return optimize_supply_lead_time_sweep(
+        DEMO_ITEMS, service_level=0.95, lead_times=list(DEFAULT_LEAD_TIME_SWEEP),
+    )

@@ -23,12 +23,31 @@ const STATUS = {
 const ABC = { A: '#dc2626', B: '#d97706', C: '#0d9488' };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+// Forecast-value demonstration: the four inventory policies, ordered by how
+// fully each consumes the demand forecast.
+const POLICY_ORDER = ['naive', 'ss_static', 'dynamic', 'oracle'];
+const POLICY_LABEL = {
+  naive:     'Naive monthly bulk',
+  ss_static: 'Static (s, S)',
+  dynamic:   'Dynamic forecast base-stock',
+  oracle:    'Oracle (perfect foresight)',
+};
+const POLICY_COLOR = {
+  naive:     '#94a3b8',
+  ss_static: '#d97706',
+  dynamic:   '#0d9488',
+  oracle:    '#1e6091',
+};
+
 export default function SupplyPlanner() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('All');
   const [selected, setSelected] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [compare, setCompare] = useState(null);
+  const [sweep, setSweep] = useState(null);
+  const [policyErr, setPolicyErr] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -36,6 +55,17 @@ export default function SupplyPlanner() {
       .then((d) => { if (alive) setData(d); })
       .catch((e) => { if (alive) setError(e.message); });
     return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    Promise.all([
+      api.supply.compareDemo(ctrl.signal),
+      api.supply.sweepDemo(ctrl.signal),
+    ])
+      .then(([c, s]) => { setCompare(c); setSweep(s); })
+      .catch((e) => { if (e.name !== 'AbortError') setPolicyErr(e.message || String(e)); });
+    return () => ctrl.abort();
   }, []);
 
   const openItem = async (id) => {
@@ -148,6 +178,137 @@ export default function SupplyPlanner() {
         </table>
       </div>
 
+      {/* Policy comparison — naive → static → forecast-driven → oracle -------- */}
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="card-header">
+          <div>
+            <div className="card-title">Policy comparison · naive → static → forecast-driven → oracle</div>
+            <div className="card-sub">
+              Where the demand forecast pays. Four reorder policies simulated over {compare?.sim_horizon_days ?? 60} days ×
+              {' '}{compare?.n_seeds ?? 3} seeds (common random numbers), at mean lead time{' '}
+              {compare?.lead_time_mean_days != null ? `${compare.lead_time_mean_days.toFixed(1)}d` : '—'}. Illustrative basket.
+            </div>
+          </div>
+        </div>
+        <div className="card-body">
+          {policyErr && (
+            <div style={{ padding: 12, background: '#fef2f2', color: C.red, borderRadius: 6, fontSize: 12 }}>
+              Backend error: {policyErr}. Is the API running on 127.0.0.1:8000?
+            </div>
+          )}
+          {!compare && !policyErr && (
+            <div style={{ padding: 16, color: C.muted, fontSize: 13 }}>Running four policies against the demo basket…</div>
+          )}
+          {compare && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>
+              {POLICY_ORDER.map((p) => {
+                const s = compare.policies[p];
+                if (!s) return null;
+                const isWinner = p === 'dynamic';
+                const delta = s.delta_vs_baseline_pct;
+                return (
+                  <div key={p} style={{
+                    border: `1px solid ${isWinner ? C.teal : '#e4e7eb'}`,
+                    borderRadius: 8, padding: '14px 16px',
+                    background: isWinner ? '#ecfeff' : 'white',
+                  }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: POLICY_COLOR[p], textTransform: 'uppercase', letterSpacing: 1.2 }}>
+                      {POLICY_LABEL[p]}
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: C.ink, marginTop: 8, fontVariantNumeric: 'tabular-nums' }}>
+                      {zar(s.total_cost_mean)}
+                    </div>
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                      total cost · {compare.sim_horizon_days}d sim
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 12, fontSize: 12 }}>
+                      <Row label="Service level" value={`${(s.service_level_mean * 100).toFixed(2)}%`} />
+                      <Row label="Stockouts" value={s.stockouts_mean.toFixed(1)} />
+                      <Row label="Holding" value={zar(s.holding_mean)} />
+                      <Row label="Ordering" value={zar(s.ordering_mean)} />
+                      <Row
+                        label="vs static (s,S)"
+                        value={`${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`}
+                        valueColor={p === 'ss_static' ? C.muted : delta > 0 ? '#16a34a' : C.red}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Where forecasting pays — cost vs lead time --------------------------- */}
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="card-header">
+          <div>
+            <div className="card-title">Where forecasting pays · cost vs lead time</div>
+            <div className="card-sub">
+              {sweep?.crossover_lead_time_days
+                ? <>The dynamic forecast-driven policy beats the static (s, S) baseline out to a mean lead time of about <b>{sweep.crossover_lead_time_days} days</b>. To the left, feeding the forecast into a base-stock target buys real cost reduction; to the right, the forecast horizon under-covers the lead-time window and the gain fades.</>
+                : 'Comparing forecast-driven vs static (s, S) across a range of mean lead times.'}
+            </div>
+          </div>
+        </div>
+        <div className="card-body">
+          {!sweep && !policyErr && <div style={{ color: C.muted, fontSize: 13 }}>Sweeping lead times…</div>}
+          {sweep && (
+            <>
+              <LineChart
+                height={280}
+                xLabels={sweep.lead_times.map((L) => `${L}d`)}
+                series={POLICY_ORDER.map((p) => ({
+                  data: sweep.series[p],
+                  color: POLICY_COLOR[p],
+                  dashed: p === 'oracle',
+                }))}
+              />
+              <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
+                {POLICY_ORDER.map((p) => (
+                  <div key={p} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#334155' }}>
+                    <span style={{ display: 'inline-block', width: 18, height: 3, background: POLICY_COLOR[p], borderRadius: 2 }} />
+                    <span style={{ fontWeight: 600 }}>{POLICY_LABEL[p]}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 16, borderTop: '1px solid #eef0f3', paddingTop: 12, overflowX: 'auto' }}>
+                <table className="tbl">
+                  <thead>
+                    <tr>
+                      <th className="num">Lead time</th>
+                      <th className="num">Naive</th>
+                      <th className="num">Static (s, S)</th>
+                      <th className="num">Dynamic</th>
+                      <th className="num">Oracle</th>
+                      <th className="num">Dyn vs static</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sweep.rows.map((row) => {
+                      const positive = row.dynamic_vs_ss_static_pct >= 0;
+                      return (
+                        <tr key={row.lead_time_days}>
+                          <td className="num" style={{ fontWeight: 600 }}>{row.lead_time_days}d</td>
+                          <td className="num">{zar(row.naive_cost)}</td>
+                          <td className="num">{zar(row.ss_static_cost)}</td>
+                          <td className="num" style={{ fontWeight: 600, color: C.teal }}>{zar(row.dynamic_cost)}</td>
+                          <td className="num" style={{ color: C.muted }}>{zar(row.oracle_cost)}</td>
+                          <td className="num" style={{ fontWeight: 600, color: positive ? '#16a34a' : C.red }}>
+                            {positive ? '+' : ''}{row.dynamic_vs_ss_static_pct.toFixed(1)}%
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Item detail */}
       {selected && (
         <div className="card" style={{ marginTop: 16 }}>
@@ -183,5 +344,14 @@ function ItemDetail({ detail, onClose }) {
         <LineChart series={[{ data: consumption, color: C.teal }]} height={140} xLabels={xLabels} />
       </div>
     </>
+  );
+}
+
+function Row({ label, value, valueColor }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+      <span style={{ color: '#94a3b8' }}>{label}</span>
+      <span style={{ fontWeight: 600, color: valueColor || '#0f172a', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+    </div>
   );
 }
