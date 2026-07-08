@@ -254,9 +254,17 @@ async def supply_sweep(req: SupplySweepRequest) -> dict[str, Any]:
 
 
 @router.get("/compare-demo")
-async def supply_compare_demo() -> dict[str, Any]:
-    """Demo multi-arm comparison at the mean of the demo-item lead times."""
-    return optimize_supply_multi_arm(DEMO_ITEMS, service_level=0.95)
+async def supply_compare_demo(
+    lead_time: Optional[float] = None,
+    service_level: float = 0.95,
+) -> dict[str, Any]:
+    """Demo multi-arm comparison. `lead_time` overrides the mean-of-demo lead
+    time so the UI can let the user see which policy wins for THEIR lead time."""
+    if not (0.8 <= service_level <= 0.999):
+        raise HTTPException(400, "service_level must be between 0.80 and 0.999.")
+    return optimize_supply_multi_arm(
+        DEMO_ITEMS, service_level=service_level, lead_time_mean=lead_time,
+    )
 
 
 @router.get("/sweep-demo")

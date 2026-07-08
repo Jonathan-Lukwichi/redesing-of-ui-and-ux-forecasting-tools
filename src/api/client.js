@@ -92,7 +92,13 @@ export const api = {
     // Policy comparison + lead-time sweep (forecast-value demonstration cards).
     compare:     (payload) => request('/api/supply/compare', { method: 'POST', body: payload }),
     sweep:       (payload) => request('/api/supply/sweep', { method: 'POST', body: payload }),
-    compareDemo: (signal) => request('/api/supply/compare-demo', { signal }),
+    compareDemo: ({ leadTime, serviceLevel } = {}, signal) => {
+      const p = new URLSearchParams();
+      if (leadTime != null) p.set('lead_time', leadTime);
+      if (serviceLevel != null) p.set('service_level', serviceLevel);
+      const q = p.toString();
+      return request(`/api/supply/compare-demo${q ? '?' + q : ''}`, { signal });
+    },
     sweepDemo:   (signal) => request('/api/supply/sweep-demo', { signal }),
   },
 

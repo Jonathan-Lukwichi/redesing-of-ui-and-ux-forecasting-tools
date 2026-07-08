@@ -609,12 +609,16 @@ def compute_both(
 #
 # Four inventory policies, ranked by how well they consume the demand forecast:
 #   1. naive       — flat monthly bulk order sized to historical mean (no forecast)
-#   2. ss_static   — classical (s, S) with mean-scaled safety stock (the baseline
+#   2. s_q         — continuous-review (s, Q): order a FIXED EOQ whenever the
+#                    inventory position falls to the reorder point s (textbook).
+#   3. r_s         — periodic-review (R, S): every review period, order up to a
+#                    mean-based order-up-to level S (textbook periodic policy).
+#   4. ss_static   — classical (s, S) with mean-scaled safety stock (the baseline
 #                    the current Optimization page already runs)
-#   3. dynamic     — forecast-driven order-up-to BASE-STOCK (Li et al. 2022):
+#   5. dynamic     — forecast-driven order-up-to BASE-STOCK (Li et al. 2022):
 #                    S_t = Σ forecast over (L + R) + z·√(forecast_var + demand_var).
 #                    Weekly review; order only when position < target.
-#   4. oracle      — perfect-foresight base-stock using ACTUAL demand over the
+#   6. oracle      — perfect-foresight base-stock using ACTUAL demand over the
 #                    protection window — a ceiling/benchmark, not deployable.
 #
 # The point: `dynamic` beats `ss_static` most at SHORT lead times, where the
@@ -636,7 +640,7 @@ DEFAULT_LEAD_TIME_SWEEP = [3, 5, 7, 10, 14, 21, 30]
 # Fixed policy ordering / index — used for DETERMINISTIC rng seeding (the
 # reference used hash(), which is per-process randomised and breaks
 # reproducibility of the thesis figures across restarts).
-_POLICIES = ("naive", "ss_static", "dynamic", "oracle")
+_POLICIES = ("naive", "s_q", "r_s", "ss_static", "dynamic", "oracle")
 _POLICY_IDX = {p: i for i, p in enumerate(_POLICIES)}
 
 
@@ -748,6 +752,22 @@ def _simulate_item_policy(
         if policy == "naive":
             if day % 30 == 0:                                   # monthly bulk
                 place = max(1, int(round(d_avg * 30 * NAIVE_BUFFER)))
+
+        elif policy == "s_q":
+            # Continuous-review (s, Q): check every day; order a FIXED EOQ
+            # whenever the inventory position drops to the reorder point.
+            position = stock + sum(q for _, q in pending)
+            if position <= s_thr:
+                place = max(1, int(round(eoq)))
+
+        elif policy == "r_s":
+            # Periodic-review (R, S): every review, top up to a mean-based
+            # order-up-to level covering demand over the (L + R) window.
+            if day % REVIEW_PERIOD_DAYS == 0:
+                S_rs = d_avg * (lead_time_mean + REVIEW_PERIOD_DAYS) + safety
+                position = stock + sum(q for _, q in pending)
+                if position < S_rs:
+                    place = max(1, int(round(S_rs - position)))
 
         elif policy == "ss_static":
             if day % REVIEW_PERIOD_DAYS == 0:
@@ -901,10 +921,7 @@ def optimize_supply_lead_time_sweep(
             series[p].append(round(summary[p]["total_cost_mean"], 2))
         rows.append({
             "lead_time_days": float(L),
-            "naive_cost": round(summary["naive"]["total_cost_mean"], 2),
-            "ss_static_cost": round(summary["ss_static"]["total_cost_mean"], 2),
-            "dynamic_cost": round(summary["dynamic"]["total_cost_mean"], 2),
-            "oracle_cost": round(summary["oracle"]["total_cost_mean"], 2),
+            "costs": {p: round(summary[p]["total_cost_mean"], 2) for p in _POLICIES},
             "dynamic_vs_ss_static_pct": round(
                 100.0 * (summary["ss_static"]["total_cost_mean"]
                          - summary["dynamic"]["total_cost_mean"])

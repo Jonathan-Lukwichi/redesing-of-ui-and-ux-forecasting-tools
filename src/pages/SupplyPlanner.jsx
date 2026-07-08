@@ -23,21 +23,32 @@ const STATUS = {
 const ABC = { A: '#dc2626', B: '#d97706', C: '#0d9488' };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-// Forecast-value demonstration: the four inventory policies, ordered by how
-// fully each consumes the demand forecast.
-const POLICY_ORDER = ['naive', 'ss_static', 'dynamic', 'oracle'];
+// Forecast-value demonstration: six inventory policies, ordered as a ladder
+// from "no forecast" to "perfect foresight" by how fully each consumes it.
+const POLICY_ORDER = ['naive', 's_q', 'r_s', 'ss_static', 'dynamic', 'oracle'];
 const POLICY_LABEL = {
   naive:     'Naive monthly bulk',
+  s_q:       '(s, Q) reorder / EOQ',
+  r_s:       '(R, S) periodic',
   ss_static: 'Static (s, S)',
   dynamic:   'Dynamic forecast base-stock',
   oracle:    'Oracle (perfect foresight)',
 };
+const POLICY_SHORT = {
+  naive: 'Naive', s_q: '(s,Q)', r_s: '(R,S)', ss_static: '(s,S)', dynamic: 'Dynamic', oracle: 'Oracle',
+};
 const POLICY_COLOR = {
   naive:     '#94a3b8',
+  s_q:       '#7c3aed',
+  r_s:       '#0ea5e9',
   ss_static: '#d97706',
   dynamic:   '#0d9488',
   oracle:    '#1e6091',
 };
+// Deployable arms only (oracle is a benchmark ceiling; naive is the status-quo
+// floor) — used to pick the "best for you" recommendation.
+const DEPLOYABLE = ['s_q', 'r_s', 'ss_static', 'dynamic'];
+const LEAD_TIME_CHOICES = [3, 5, 7, 10, 14, 21, 30];
 
 export default function SupplyPlanner() {
   const [data, setData] = useState(null);
@@ -48,6 +59,8 @@ export default function SupplyPlanner() {
   const [compare, setCompare] = useState(null);
   const [sweep, setSweep] = useState(null);
   const [policyErr, setPolicyErr] = useState(null);
+  const [cmpLead, setCmpLead] = useState(null);   // null = use mean of demo lead times
+  const [cmpBusy, setCmpBusy] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -60,13 +73,34 @@ export default function SupplyPlanner() {
   useEffect(() => {
     const ctrl = new AbortController();
     Promise.all([
-      api.supply.compareDemo(ctrl.signal),
+      api.supply.compareDemo({}, ctrl.signal),
       api.supply.sweepDemo(ctrl.signal),
     ])
       .then(([c, s]) => { setCompare(c); setSweep(s); })
       .catch((e) => { if (e.name !== 'AbortError') setPolicyErr(e.message || String(e)); });
     return () => ctrl.abort();
   }, []);
+
+  // Re-run the comparison at a user-chosen lead time (the decision-tool knob).
+  const runCompareAt = async (leadTime) => {
+    setCmpLead(leadTime); setCmpBusy(true); setPolicyErr(null);
+    try {
+      setCompare(await api.supply.compareDemo({ leadTime }));
+    } catch (e) {
+      setPolicyErr(e.message || String(e));
+    } finally {
+      setCmpBusy(false);
+    }
+  };
+
+  // Best DEPLOYABLE policy for the current comparison (lowest total cost).
+  const bestPolicy = compare
+    ? DEPLOYABLE.reduce((best, p) => {
+        const c = compare.policies[p]?.total_cost_mean;
+        if (c == null) return best;
+        return best == null || c < compare.policies[best].total_cost_mean ? p : best;
+      }, null)
+    : null;
 
   const openItem = async (id) => {
     setSelected(id); setDetail(null);
@@ -178,16 +212,27 @@ export default function SupplyPlanner() {
         </table>
       </div>
 
-      {/* Policy comparison — naive → static → forecast-driven → oracle -------- */}
+      {/* Policy comparison — 6-policy ladder, no-forecast → perfect foresight - */}
       <div className="card" style={{ marginTop: 16 }}>
         <div className="card-header">
           <div>
-            <div className="card-title">Policy comparison · naive → static → forecast-driven → oracle</div>
+            <div className="card-title">Which reorder policy is best for you? · 6-policy comparison</div>
             <div className="card-sub">
-              Where the demand forecast pays. Four reorder policies simulated over {compare?.sim_horizon_days ?? 60} days ×
-              {' '}{compare?.n_seeds ?? 3} seeds (common random numbers), at mean lead time{' '}
-              {compare?.lead_time_mean_days != null ? `${compare.lead_time_mean_days.toFixed(1)}d` : '—'}. Illustrative basket.
+              Six policies simulated over {compare?.sim_horizon_days ?? 60} days × {compare?.n_seeds ?? 3} seeds
+              (common random numbers) at mean lead time{' '}
+              {compare?.lead_time_mean_days != null ? `${compare.lead_time_mean_days.toFixed(1)}d` : '—'}.
+              {bestPolicy && <> Best deployable policy at this lead time: <b style={{ color: POLICY_COLOR[bestPolicy] }}>{POLICY_LABEL[bestPolicy]}</b>.</>}
             </div>
+          </div>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: 11, color: C.muted, marginRight: 4 }}>Lead time</span>
+            {LEAD_TIME_CHOICES.map((L) => (
+              <button key={L} className="btn btn-sm" disabled={cmpBusy}
+                onClick={() => runCompareAt(L)}
+                style={cmpLead === L ? { background: '#e8f1f8', color: C.navy, borderColor: C.navy } : {}}>
+                {L}d
+              </button>
+            ))}
           </div>
         </div>
         <div className="card-body">
@@ -204,16 +249,25 @@ export default function SupplyPlanner() {
               {POLICY_ORDER.map((p) => {
                 const s = compare.policies[p];
                 if (!s) return null;
-                const isWinner = p === 'dynamic';
+                const isWinner = p === bestPolicy;
+                const isBenchmark = p === 'oracle';
                 const delta = s.delta_vs_baseline_pct;
                 return (
                   <div key={p} style={{
                     border: `1px solid ${isWinner ? C.teal : '#e4e7eb'}`,
                     borderRadius: 8, padding: '14px 16px',
                     background: isWinner ? '#ecfeff' : 'white',
+                    opacity: cmpBusy ? 0.55 : 1, transition: 'opacity .15s',
+                    position: 'relative',
                   }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: POLICY_COLOR[p], textTransform: 'uppercase', letterSpacing: 1.2 }}>
-                      {POLICY_LABEL[p]}
+                    {isWinner && (
+                      <span style={{ position: 'absolute', top: 10, right: 10, fontSize: 9, fontWeight: 700,
+                        color: 'white', background: C.teal, borderRadius: 4, padding: '2px 6px', letterSpacing: 0.5 }}>
+                        BEST FOR YOU
+                      </span>
+                    )}
+                    <div style={{ fontSize: 10, fontWeight: 700, color: POLICY_COLOR[p], textTransform: 'uppercase', letterSpacing: 1.2, paddingRight: isWinner ? 70 : 0 }}>
+                      {POLICY_LABEL[p]}{isBenchmark && <span style={{ color: C.muted, fontWeight: 500 }}> · ceiling</span>}
                     </div>
                     <div style={{ fontSize: 24, fontWeight: 700, color: C.ink, marginTop: 8, fontVariantNumeric: 'tabular-nums' }}>
                       {zar(s.total_cost_mean)}
@@ -278,23 +332,27 @@ export default function SupplyPlanner() {
                   <thead>
                     <tr>
                       <th className="num">Lead time</th>
-                      <th className="num">Naive</th>
-                      <th className="num">Static (s, S)</th>
-                      <th className="num">Dynamic</th>
-                      <th className="num">Oracle</th>
-                      <th className="num">Dyn vs static</th>
+                      {POLICY_ORDER.map((p) => (
+                        <th key={p} className="num" style={{ color: POLICY_COLOR[p] }}>{POLICY_SHORT[p]}</th>
+                      ))}
+                      <th className="num">Dyn vs (s,S)</th>
                     </tr>
                   </thead>
                   <tbody>
                     {sweep.rows.map((row) => {
                       const positive = row.dynamic_vs_ss_static_pct >= 0;
+                      // Cheapest DEPLOYABLE policy in this row → bold it.
+                      const best = DEPLOYABLE.reduce((b, p) =>
+                        (row.costs[p] != null && (b == null || row.costs[p] < row.costs[b])) ? p : b, null);
                       return (
                         <tr key={row.lead_time_days}>
                           <td className="num" style={{ fontWeight: 600 }}>{row.lead_time_days}d</td>
-                          <td className="num">{zar(row.naive_cost)}</td>
-                          <td className="num">{zar(row.ss_static_cost)}</td>
-                          <td className="num" style={{ fontWeight: 600, color: C.teal }}>{zar(row.dynamic_cost)}</td>
-                          <td className="num" style={{ color: C.muted }}>{zar(row.oracle_cost)}</td>
+                          {POLICY_ORDER.map((p) => (
+                            <td key={p} className="num" style={{
+                              fontWeight: p === best ? 700 : 400,
+                              color: p === best ? C.teal : p === 'oracle' ? C.muted : undefined,
+                            }}>{zar(row.costs[p])}</td>
+                          ))}
                           <td className="num" style={{ fontWeight: 600, color: positive ? '#16a34a' : C.red }}>
                             {positive ? '+' : ''}{row.dynamic_vs_ss_static_pct.toFixed(1)}%
                           </td>
