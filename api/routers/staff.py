@@ -7,12 +7,13 @@ shifts are the SA public-hospital norm), so high violation counts and ~58h weeks
 are the literature-anchored reality, not a bug."""
 from __future__ import annotations
 import math
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 from fastapi import APIRouter, HTTPException
 
 from core import simulation_data
+from core.optimization_engine import compare_staff_strategies
 
 router = APIRouter(prefix="/api/staff", tags=["staff"])
 
@@ -138,3 +139,17 @@ async def overview() -> dict[str, Any]:
         "staff": staff_rows,
         "by_category": by_category,
     }
+
+
+# ─── Rostering strategy comparison (forecast-value demonstration) ──────────────
+
+@router.get("/strategy-compare-demo")
+async def staff_strategy_compare_demo(
+    mean_arrivals: Optional[float] = None,
+) -> dict[str, Any]:
+    """Compare six rostering strategies (peak / mean / forecast-lawful /
+    forecast-OT / forecast-stochastic / oracle) for the fixed 23-nurse pool.
+    `mean_arrivals` lets the UI explore lighter/heavier demand regimes."""
+    if mean_arrivals is not None and not (10 <= mean_arrivals <= 300):
+        raise HTTPException(400, "mean_arrivals must be between 10 and 300.")
+    return compare_staff_strategies(mean_arrivals=mean_arrivals)

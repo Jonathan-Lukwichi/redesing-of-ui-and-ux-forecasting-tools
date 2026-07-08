@@ -104,6 +104,11 @@ export const api = {
 
   staff: {
     overview: (signal) => request('/api/staff/overview', { signal }),
+    // Rostering strategy comparison (forecast-value demonstration card).
+    strategyCompareDemo: ({ meanArrivals } = {}, signal) => {
+      const q = meanArrivals != null ? `?mean_arrivals=${meanArrivals}` : '';
+      return request(`/api/staff/strategy-compare-demo${q}`, { signal });
+    },
   },
 
   optimization: {

@@ -18,10 +18,30 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const SHIFT = { Day: '#f59e0b', Evening: '#1e6091', Night: '#6366f1' };
 const CAT_SHORT = { 'Professional Nurse': 'PN', 'Enrolled Nurse': 'EN', 'Enrolled Nursing Auxiliary': 'ENA' };
 
+// Rostering strategy comparison — ordered by how each uses the demand forecast.
+const STRAT_ORDER = ['peak', 'mean', 'forecast_lawful', 'forecast_ot', 'forecast_stochastic', 'oracle'];
+const STRAT_LABEL = {
+  peak:                'Fixed peak roster',
+  mean:                'Historical-mean roster',
+  forecast_lawful:     'Forecast · lawful (45h)',
+  forecast_ot:         'Forecast · overtime',
+  forecast_stochastic: 'Forecast · safety-staffed',
+  oracle:              'Oracle (perfect foresight)',
+};
+const STRAT_COLOR = {
+  peak: '#94a3b8', mean: '#d97706', forecast_lawful: '#0d9488',
+  forecast_ot: '#7c3aed', forecast_stochastic: '#0ea5e9', oracle: '#1e6091',
+};
+const ARRIVAL_CHOICES = [50, 64, 78, 90];
+
 export default function StaffPlanner() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [catFilter, setCatFilter] = useState('All');
+  const [strat, setStrat] = useState(null);
+  const [stratErr, setStratErr] = useState(null);
+  const [arrivals, setArrivals] = useState(null);   // null = default (64/day)
+  const [stratBusy, setStratBusy] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -30,6 +50,34 @@ export default function StaffPlanner() {
       .catch((e) => { if (alive) setError(e.message); });
     return () => { alive = false; };
   }, []);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    api.staff.strategyCompareDemo({}, ctrl.signal)
+      .then(setStrat)
+      .catch((e) => { if (e.name !== 'AbortError') setStratErr(e.message || String(e)); });
+    return () => ctrl.abort();
+  }, []);
+
+  const runStratAt = async (meanArrivals) => {
+    setArrivals(meanArrivals); setStratBusy(true); setStratErr(null);
+    try {
+      setStrat(await api.staff.strategyCompareDemo({ meanArrivals }));
+    } catch (e) {
+      setStratErr(e.message || String(e));
+    } finally {
+      setStratBusy(false);
+    }
+  };
+
+  // Cheapest DEPLOYABLE strategy (excludes the oracle ceiling).
+  const cheapest = strat
+    ? STRAT_ORDER.filter((s) => s !== 'oracle').reduce((b, s) => {
+        const c = strat.strategies[s]?.annual_cost_zar;
+        if (c == null) return b;
+        return b == null || c < strat.strategies[b].annual_cost_zar ? s : b;
+      }, null)
+    : null;
 
   if (error) return (
     <div className="content"><PageHero kicker="Operations · Staff" title="Staff Planner" sub="Scheduling simulation" />
@@ -136,6 +184,86 @@ export default function StaffPlanner() {
         </div>
       )}
 
+      {/* Rostering strategy comparison ------------------------------------- */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-header">
+          <div>
+            <div className="card-title">Which rostering strategy is best? · 6-strategy comparison</div>
+            <div className="card-sub">
+              Six rostering strategies for the same {strat?.n_active ?? 23}-nurse pool at ~{strat?.mean_arrivals ?? 64} arrivals/day
+              ({strat?.sim_weeks ?? 12} weeks). "Best" is multi-objective — the recommended balance is the
+              {' '}<b style={{ color: STRAT_COLOR.forecast_lawful }}>forecast-driven lawful roster</b>
+              {cheapest && cheapest !== 'forecast_lawful' && <> (cheapest deployable here: <b style={{ color: STRAT_COLOR[cheapest] }}>{STRAT_LABEL[cheapest]}</b>)</>}.
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: 11, color: C.muted, marginRight: 4 }}>Arrivals/day</span>
+            {ARRIVAL_CHOICES.map((a) => (
+              <button key={a} className="btn btn-sm" disabled={stratBusy}
+                onClick={() => runStratAt(a)}
+                style={arrivals === a ? { background: '#e8f1f8', color: C.navy, borderColor: C.navy } : {}}>
+                {a}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="card-body">
+          {stratErr && (
+            <div style={{ padding: 12, background: '#fef2f2', color: C.red, borderRadius: 6, fontSize: 12 }}>
+              Backend error: {stratErr}. Is the API running on 127.0.0.1:8000?
+            </div>
+          )}
+          {!strat && !stratErr && <div style={{ color: C.muted, fontSize: 13 }}>Running six rostering strategies…</div>}
+          {strat && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12, opacity: stratBusy ? 0.55 : 1, transition: 'opacity .15s' }}>
+              {STRAT_ORDER.map((s) => {
+                const d = strat.strategies[s];
+                if (!d) return null;
+                const isRec = s === strat.recommended;
+                const isBench = s === 'oracle';
+                return (
+                  <div key={s} style={{
+                    border: `1px solid ${isRec ? C.teal : '#e4e7eb'}`, borderRadius: 8,
+                    padding: '14px 16px', background: isRec ? '#ecfeff' : 'white', position: 'relative',
+                  }}>
+                    {isRec && (
+                      <span style={{ position: 'absolute', top: 10, right: 10, fontSize: 9, fontWeight: 700,
+                        color: 'white', background: C.teal, borderRadius: 4, padding: '2px 6px', letterSpacing: 0.5 }}>
+                        RECOMMENDED
+                      </span>
+                    )}
+                    <div style={{ fontSize: 10, fontWeight: 700, color: STRAT_COLOR[s], textTransform: 'uppercase', letterSpacing: 1, paddingRight: isRec ? 84 : 0 }}>
+                      {STRAT_LABEL[s]}{isBench && <span style={{ color: C.muted, fontWeight: 500 }}> · ceiling</span>}
+                    </div>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: C.ink, marginTop: 8, fontVariantNumeric: 'tabular-nums' }}>
+                      {zarShort(d.annual_cost_zar)}<span style={{ fontSize: 11, color: C.muted, fontWeight: 400 }}> /yr</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 12, fontSize: 12 }}>
+                      <Row label="Lawful coverage" value={`${d.lawful_coverage_pct}%`} />
+                      <Row label="Mean weekly hrs" value={`${d.mean_weekly_hours}h`}
+                        valueColor={d.mean_weekly_hours > strat.lawful_weekly_cap_h ? C.red : '#16a34a'} />
+                      <Row label="BCEA breach wks" value={`${d.bcea_breach_weeks_pct}%`}
+                        valueColor={d.bcea_breach_weeks_pct > 0 ? C.amber : '#16a34a'} />
+                      <Row label="Overtime" value={zarShort(d.overtime_cost_zar)} />
+                      <Row label="Locum" value={zarShort(d.locum_cost_zar)} />
+                      <Row label="Shortfall" value={`${d.staffing_shortfall_nurses} nurses`} valueColor={C.muted} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {strat && (
+            <div style={{ marginTop: 14, padding: '10px 12px', background: '#fafbfc', border: '1px solid #eef0f3', borderRadius: 8, fontSize: 12, color: '#475569', lineHeight: 1.6 }}>
+              The <b>staffing shortfall is identical across every strategy</b> — it's set by demand, not by the roster.
+              No forecasting strategy closes it; that's a <b>hiring problem</b>. The forecast's value is doing the
+              coverage <i>lawfully and cheaply</i>: the recommended roster hits its coverage with the least overtime and
+              zero BCEA breaches, where the others buy marginal coverage with overwork or over-cost.
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Staff roster table */}
       <div className="card">
         <div className="card-header">
@@ -172,6 +300,15 @@ export default function StaffPlanner() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function Row({ label, value, valueColor }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+      <span style={{ color: '#94a3b8' }}>{label}</span>
+      <span style={{ fontWeight: 600, color: valueColor || '#0f172a', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
     </div>
   );
 }

@@ -955,3 +955,134 @@ def optimize_supply_lead_time_sweep(
                     f"{len(items)} SKUs. Dynamic base-stock beats static up to about "
                     f"{crossover_lead_time if crossover_lead_time else 'no'} days."),
     }
+
+
+# ─── Staff scheduling strategy comparison ─────────────────────────────────────
+#
+# The workforce analogue of the inventory policy ladder. Six rostering
+# strategies for the SAME fixed pool of 23 active nurses, ordered by how they
+# use the demand forecast, compared on the Chapter 7 KPIs (cost split, lawful
+# vs actual coverage, overwork, BCEA breaches, staffing shortfall):
+#
+#   1. peak       — staff every week to the historical PEAK demand (over-staff;
+#                   maximal, wasteful overtime — the "always cover" reflex)
+#   2. mean       — flat roster sized to average demand (no forecast; the Ch7
+#                   historical-mean baseline). Under-covers peaks → locum.
+#   3. forecast_lawful    — size to the forecast, capped at the lawful 45h/week.
+#                   The Ch7 headline strategy: lawful, honest shortfall.
+#   4. forecast_ot        — size to the forecast, allow overtime to 58h/week
+#                   (the observed propped-up coverage). Trades locum for OT.
+#   5. forecast_stochastic— forecast + z·σ safety-staffing buffer.
+#   6. oracle     — perfect foresight (ceiling; not deployable).
+#
+# Unlike inventory, "best" here is MULTI-OBJECTIVE: the cheapest roster (mean)
+# under-covers, and no roster closes the structural shortage (a hiring problem,
+# per Ch7). So we mark forecast_lawful as *recommended* rather than crowning a
+# single cost winner. Self-contained + calibrated to the Ch7 numbers (≈90%
+# lawful coverage, ~3-nurse shortfall, ~50h weeks) so it is always demonstrable.
+
+STAFF_N_ACTIVE = 23                 # active nurses in the pool (Ch7: 23 of 30 posts)
+STAFF_MEAN_ARRIVALS = 64.0          # daily ED arrivals (Steve Biko test block ≈ this)
+NURSE_HOURLY_ZAR = 180.0            # illustrative nurse hourly rate
+STAFF_OT_MULT = 1.5                 # overtime premium (hours above 45/week)
+STAFF_LOCUM_MULT = 1.8             # locum premium (Rispel 2015)
+STAFF_MAX_WEEKLY_H = 58.0           # observed overwork ceiling (Abrahams 2022)
+STAFF_SIM_WEEKS = 12
+STAFF_STRATEGIES = ("peak", "mean", "forecast_lawful", "forecast_ot",
+                    "forecast_stochastic", "oracle")
+
+
+def _required_nurse_hours(arrivals: float) -> float:
+    """Nurse-hours demanded by `arrivals` patients — three shifts (Ch5 shares)
+    at the NDoH nurse-to-patient ratios, 12h each. Linear in arrivals."""
+    return sum((SHIFT_SHARE[s] / NURSE_RATIO[s]) * arrivals * SHIFT_HOURS for s in SHIFTS)
+
+
+def compare_staff_strategies(
+    mean_arrivals: Optional[float] = None,
+    service_z: float = 1.282,
+) -> dict[str, Any]:
+    """Compare six rostering strategies for the fixed 23-nurse pool.
+
+    Returns per-strategy annualised cost split + coverage/overwork/breach KPIs.
+    Deterministic (seed 42). `mean_arrivals` lets the UI explore lighter/heavier
+    demand regimes.
+    """
+    rng = np.random.default_rng(42)
+    weeks = STAFF_SIM_WEEKS
+    days = weeks * 7
+    ma = float(mean_arrivals or STAFF_MEAN_ARRIVALS)
+
+    actual_arr = np.array([_negbin(ma, NB_DISPERSION, rng) for _ in range(days)], dtype=float)
+    forecast_arr = _synthesize_forecast(actual_arr, CHAPTER6_TEST_MAPE, 42)
+
+    def weekly(arr: np.ndarray) -> np.ndarray:
+        return np.array([_required_nurse_hours(float(arr[w * 7:(w + 1) * 7].sum()))
+                         for w in range(weeks)])
+
+    req_w = weekly(actual_arr)                 # actual weekly nurse-hours demanded
+    fc_w = weekly(forecast_arr)                # forecast of that demand
+    N = STAFF_N_ACTIVE
+    lawful_cap = N * LEGAL_WEEKLY_HOURS        # 23 × 45h
+    max_cap = N * STAFF_MAX_WEEKLY_H           # 23 × 58h
+    peak = float(req_w.max())
+    mean_req = float(req_w.mean())
+    annual = 52.0 / weeks
+    rate = NURSE_HOURLY_ZAR
+    ones = np.ones(weeks)
+
+    strategies = {}
+    for strat in STAFF_STRATEGIES:
+        if strat == "peak":
+            sched = np.minimum(peak, max_cap) * ones
+        elif strat == "mean":
+            sched = np.minimum(mean_req, max_cap) * ones
+        elif strat == "forecast_lawful":
+            sched = np.minimum(fc_w, lawful_cap)
+        elif strat == "forecast_ot":
+            sched = np.minimum(fc_w, max_cap)
+        elif strat == "forecast_stochastic":
+            sched = np.minimum(fc_w + service_z * (CHAPTER6_TEST_MAPE * fc_w), max_cap)
+        elif strat == "oracle":
+            sched = np.minimum(req_w, max_cap)
+        else:
+            raise ValueError(f"Unknown strategy: {strat}")
+
+        covered = np.minimum(sched, req_w)
+        gap = np.maximum(0.0, req_w - sched)                 # unmet → locum
+        ot = np.maximum(0.0, sched - lawful_cap)             # pool overtime hours
+        lawful_cov = np.minimum(np.minimum(sched, lawful_cap), req_w) / np.maximum(1.0, req_w)
+        actual_cov = (covered + gap) / np.maximum(1.0, req_w)  # locum backfills the gap
+
+        base_payroll = lawful_cap * rate * weeks             # fixed salary floor (all strategies)
+        ot_cost = float(ot.sum()) * rate * STAFF_OT_MULT
+        locum_cost = float(gap.sum()) * rate * STAFF_LOCUM_MULT
+        total = base_payroll + ot_cost + locum_cost
+
+        strategies[strat] = {
+            "annual_cost_zar": round(total * annual, 0),
+            "base_payroll_zar": round(base_payroll * annual, 0),
+            "overtime_cost_zar": round(ot_cost * annual, 0),
+            "locum_cost_zar": round(locum_cost * annual, 0),
+            "lawful_coverage_pct": round(float(lawful_cov.mean()) * 100, 1),
+            "actual_coverage_pct": round(float(actual_cov.mean()) * 100, 1),
+            "mean_weekly_hours": round(float(sched.mean()) / N, 1),
+            "overtime_hours": round(float(ot.sum()) * annual, 0),
+            "bcea_breach_weeks_pct": round(float(np.mean(sched / N > LEGAL_WEEKLY_HOURS)) * 100, 0),
+            "staffing_shortfall_nurses": round(
+                float(np.mean(np.maximum(0.0, np.ceil(req_w / LEGAL_WEEKLY_HOURS) - N))), 1),
+        }
+
+    return {
+        "success": True,
+        "n_active": N,
+        "mean_arrivals": ma,
+        "sim_weeks": weeks,
+        "lawful_weekly_cap_h": LEGAL_WEEKLY_HOURS,
+        "strategies": strategies,
+        "recommended": "forecast_lawful",
+        "message": (f"Compared six rostering strategies for {N} nurses at ~{ma:.0f} "
+                    f"arrivals/day. Best is multi-objective: forecast-driven lawful "
+                    f"rostering is the recommended balance; no roster closes the "
+                    f"structural shortage (a hiring problem)."),
+    }
