@@ -253,23 +253,74 @@ async def supply_sweep(req: SupplySweepRequest) -> dict[str, Any]:
         raise HTTPException(500, f"Supply sweep failed: {e}")
 
 
+_HOLDING_RATE = 0.22   # thesis annual holding-cost rate (Silver et al. 2017)
+
+
+async def _engine_items() -> tuple[list[dict], str]:
+    """Build engine item dicts from the REAL 30-item chapter-7 panel
+    (supply_items.csv). Falls back to the illustrative demo basket if the
+    simulation data isn't loaded. Returns (items, basket_label)."""
+    try:
+        df = await simulation_data.load("supply_items.csv")
+    except FileNotFoundError:
+        return DEMO_ITEMS, "illustrative 7-item basket (simulation data not loaded)"
+
+    out: list[dict] = []
+    for _, r in df.iterrows():
+        mean_daily = float(r.get("mean_daily_consumption") or 0)
+        if mean_daily <= 0:
+            continue
+        orders = float(r.get("total_orders_placed") or 0)
+        ordering_cost = (float(r.get("total_ordering_cost_zar") or 0) / orders) if orders > 0 else 350.0
+        out.append({
+            "sku": str(r["item_id"]),
+            "name": str(r.get("item_name") or r["item_id"]),
+            "category": str(r.get("category") or ""),
+            "unit_cost": float(r.get("unit_price_zar") or 0) or 1.0,
+            "ordering_cost": ordering_cost,
+            "holding_rate": _HOLDING_RATE,
+            "lead_time_days": int(round(float(r.get("lead_time_mean_days") or 5))),
+            "daily_demand_avg": mean_daily,
+            "daily_demand_std": float(r.get("sd_daily_consumption") or 0),
+            "on_hand": float(r.get("avg_stock_on_hand") or 0),
+        })
+    if not out:
+        return DEMO_ITEMS, "illustrative 7-item basket"
+    return out, f"real {len(out)}-item hospital panel (chapter-7 simulation)"
+
+
 @router.get("/compare-demo")
 async def supply_compare_demo(
     lead_time: Optional[float] = None,
     service_level: float = 0.95,
+    source: str = "real",
 ) -> dict[str, Any]:
-    """Demo multi-arm comparison. `lead_time` overrides the mean-of-demo lead
-    time so the UI can let the user see which policy wins for THEIR lead time."""
+    """Multi-arm policy comparison on the REAL 30-item panel by default
+    (`source=demo` uses the illustrative basket). `lead_time` overrides the
+    mean lead time so the UI can show which policy wins for THAT lead time."""
     if not (0.8 <= service_level <= 0.999):
         raise HTTPException(400, "service_level must be between 0.80 and 0.999.")
-    return optimize_supply_multi_arm(
-        DEMO_ITEMS, service_level=service_level, lead_time_mean=lead_time,
-    )
+    if source == "demo":
+        items, basket = DEMO_ITEMS, "illustrative 7-item basket"
+    else:
+        items, basket = await _engine_items()
+    res = optimize_supply_multi_arm(items, service_level=service_level, lead_time_mean=lead_time)
+    res["basket"] = basket
+    return res
 
 
 @router.get("/sweep-demo")
-async def supply_sweep_demo() -> dict[str, Any]:
-    """Demo lead-time sweep for the crossover chart."""
-    return optimize_supply_lead_time_sweep(
-        DEMO_ITEMS, service_level=0.95, lead_times=list(DEFAULT_LEAD_TIME_SWEEP),
+async def supply_sweep_demo(
+    service_level: float = 0.95,
+    source: str = "real",
+) -> dict[str, Any]:
+    """Lead-time sweep (crossover chart) on the REAL 30-item panel by default."""
+    if source == "demo":
+        items, basket = DEMO_ITEMS, "illustrative 7-item basket"
+    else:
+        items, basket = await _engine_items()
+    res = optimize_supply_lead_time_sweep(
+        items, service_level=service_level, lead_times=list(DEFAULT_LEAD_TIME_SWEEP),
     )
+    res["basket"] = basket
+    return res

@@ -220,7 +220,8 @@ export default function SupplyPlanner() {
             <div className="card-sub">
               Six policies simulated over {compare?.sim_horizon_days ?? 60} days × {compare?.n_seeds ?? 3} seeds
               (common random numbers) at mean lead time{' '}
-              {compare?.lead_time_mean_days != null ? `${compare.lead_time_mean_days.toFixed(1)}d` : '—'}.
+              {compare?.lead_time_mean_days != null ? `${compare.lead_time_mean_days.toFixed(1)}d` : '—'}
+              {compare?.basket ? ` · ${compare.basket}` : ''}.
               {bestPolicy && <> Best deployable policy at this lead time: <b style={{ color: POLICY_COLOR[bestPolicy] }}>{POLICY_LABEL[bestPolicy]}</b>.</>}
             </div>
           </div>
