@@ -128,15 +128,55 @@ class Metric:
 
 @dataclass
 class AnalysisContext:
-    """Everything the pipeline can see at run time."""
+    """Everything the pipeline can see at run time.
+
+    `time_range` is a hint the orchestrator applies upstream — groups handed
+    in are already sliced. The label is preserved so analyzers can put it in
+    their delta_label captions ("Last 90 days only", etc.).
+    """
     groups: dict[str, tuple[pd.DataFrame, GroupProfile]]
     raw_datasets: dict[str, pd.DataFrame]
+    time_range: str = "all_time"   # 'all_time' | 'this_year' | 'last_90d' | 'last_30d' | 'last_7d'
+    specialty: str | None = None   # filters category subset on G3/G4 analyzers
 
     def group(self, group_id: str) -> tuple[pd.DataFrame, GroupProfile] | None:
         return self.groups.get(group_id)
 
     def raw(self, dataset_id: str) -> pd.DataFrame | None:
         return self.raw_datasets.get(dataset_id)
+
+
+_RANGE_DAYS = {
+    "last_7d":  7,
+    "last_30d": 30,
+    "last_90d": 90,
+    "this_year": None,    # special: use current calendar year
+    "all_time":  None,
+}
+
+
+def slice_by_range(df: pd.DataFrame, time_range: str, date_col: str = "date") -> pd.DataFrame:
+    """Slice a DataFrame to the requested range. No-op for 'all_time'."""
+    if time_range in (None, "", "all_time"):
+        return df
+    if date_col not in df.columns:
+        return df
+    try:
+        dt = pd.to_datetime(df[date_col], errors="coerce")
+    except Exception:
+        return df
+    if not dt.notna().any():
+        return df
+    end = dt.max()
+    if time_range == "this_year":
+        start = pd.Timestamp(year=int(end.year), month=1, day=1)
+    else:
+        days = _RANGE_DAYS.get(time_range)
+        if days is None:
+            return df
+        start = end - pd.Timedelta(days=int(days))
+    mask = (dt >= start) & (dt <= end)
+    return df.loc[mask].copy()
 
 
 # -- analyzer ------------------------------------------------------------------

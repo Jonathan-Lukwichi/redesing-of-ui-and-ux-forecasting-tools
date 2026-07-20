@@ -10,7 +10,7 @@ from typing import Any
 from core import prepare_registry, registry
 from core.joins import GROUPS
 
-from .pipeline import AnalysisContext, FindingPipeline, MetricPipeline, recent_failures
+from .pipeline import AnalysisContext, FindingPipeline, MetricPipeline, recent_failures, slice_by_range
 from .profiles import profile_for
 from .analyzers import DEFAULT as DEFAULT_ANALYZERS
 from .metrics   import DEFAULT_FORECAST, DEFAULT_DATA_HEALTH, DEFAULT_METRICS
@@ -22,34 +22,37 @@ DATA_HEALTH_PIPELINE    = MetricPipeline(DEFAULT_DATA_HEALTH)
 ALL_METRICS_PIPELINE    = MetricPipeline(DEFAULT_METRICS)
 
 
-def _build_context() -> AnalysisContext:
+def _build_context(time_range: str = "all_time", specialty: str | None = None) -> AnalysisContext:
     groups = {}
     for g in GROUPS:
         df = prepare_registry.get_df(g.id)
         if df is None:
             continue
-        groups[g.id] = (df, profile_for(g.id, df))
+        sliced = slice_by_range(df, time_range, date_col="date")
+        groups[g.id] = (sliced, profile_for(g.id, sliced))
     raw = {}
     for d_id in registry.loaded_ids():
         df = registry.get_df(d_id)
         if df is not None:
             raw[d_id] = df
-    return AnalysisContext(groups=groups, raw_datasets=raw)
+    return AnalysisContext(groups=groups, raw_datasets=raw, time_range=time_range, specialty=specialty)
 
 
-def run_findings() -> dict[str, Any]:
-    ctx = _build_context()
+def run_findings(time_range: str = "all_time", specialty: str | None = None) -> dict[str, Any]:
+    ctx = _build_context(time_range=time_range, specialty=specialty)
     findings = PIPELINE.run(ctx)
     return {
         "findings": [f.to_dict() for f in findings],
         "count":    len(findings),
+        "time_range": time_range,
         "groups_seen": list(ctx.groups.keys()),
         "raw_datasets_seen": list(ctx.raw_datasets.keys()),
         "recent_failures": recent_failures(),
     }
 
 
-def run_metrics(section: str = "forecast") -> dict[str, Any]:
+def run_metrics(section: str = "forecast", time_range: str = "all_time",
+                 specialty: str | None = None) -> dict[str, Any]:
     """Pipeline-driven KPI strip. `section` selects which analyzer set:
        - 'forecast'     : forecaster-relevant signals (default — Headlines)
        - 'data_health'  : descriptive book-keeping (Data Health tab)
@@ -62,12 +65,13 @@ def run_metrics(section: str = "forecast") -> dict[str, Any]:
         pipeline = ALL_METRICS_PIPELINE
     else:
         pipeline = FORECAST_PIPELINE
-    ctx = _build_context()
+    ctx = _build_context(time_range=time_range, specialty=specialty)
     metrics = pipeline.run(ctx)
     return {
         "metrics": [m.to_dict() for m in metrics],
         "count":   len(metrics),
         "section": section,
+        "time_range": time_range,
         "groups_seen": list(ctx.groups.keys()),
     }
 

@@ -19,7 +19,11 @@ from core.explore import (
     layer2,
     impact_matrix as impact,
     findings as F,
+    sections,
 )
+from core.explore.pipeline import slice_by_range
+from core.explore.profiles import profile_for
+from core import prepare_registry
 
 
 router = APIRouter(prefix="/api/explore", tags=["explore"])
@@ -40,18 +44,103 @@ def _require_df(group_id: str):
 # ---- Findings pipeline (headline cards) -------------------------------------
 
 @router.get("/findings")
-async def findings_run() -> dict[str, Any]:
+async def findings_run(time_range: str = "all_time", specialty: str | None = None) -> dict[str, Any]:
     """Run the full finding pipeline against the currently loaded groups +
-    raw datasets and return the resulting headline cards."""
-    return F.run_findings()
+    raw datasets, optionally restricted to a time window."""
+    return F.run_findings(time_range=time_range, specialty=specialty)
 
 
 @router.get("/metrics")
-async def metrics_run(section: str = "forecast") -> dict[str, Any]:
+async def metrics_run(
+    section: str = "forecast", time_range: str = "all_time",
+    specialty: str | None = None,
+) -> dict[str, Any]:
     """Pipeline-driven KPI strip. ?section=forecast (default) returns
-    forecaster-relevant signals. ?section=data_health returns the descriptive
-    book-keeping cards. ?section=all returns everything."""
-    return F.run_metrics(section=section)
+    forecaster-relevant signals. ?section=data_health returns descriptive
+    book-keeping cards. ?section=all returns everything. ?time_range slices
+    every analyzer's input window."""
+    return F.run_metrics(section=section, time_range=time_range, specialty=specialty)
+
+
+# ---- Section builders (chart-specific data) --------------------------------
+# Each endpoint runs a single section-builder against the requested merged
+# group, optionally restricted to a time-range / specialty / horizon.
+
+def _section_context(group_id: str, time_range: str = "all_time"):
+    df = prepare_registry.get_df(group_id)
+    if df is None:
+        raise HTTPException(404, f"Group '{group_id}' not built")
+    sliced = slice_by_range(df, time_range, date_col="date")
+    profile = profile_for(group_id, sliced)
+    return sliced, profile
+
+
+@router.get("/sections/patient_arrivals_band")
+async def section_patient_arrivals_band(group: str = "g1", time_range: str = "all_time"):
+    df, profile = _section_context(group, time_range)
+    return {"group": group, "time_range": time_range, **sections.build_patient_arrivals_band(df, profile, None)}
+
+
+@router.get("/sections/yearly_trend")
+async def section_yearly_trend(group: str = "g1"):
+    # Yearly trend always uses the full series — the time-range filter would
+    # hide the very thing the chart is trying to show.
+    df, profile = _section_context(group, "all_time")
+    return {"group": group, **sections.build_yearly_trend(df, profile, None)}
+
+
+@router.get("/sections/day_of_week_pattern")
+async def section_dow_pattern(group: str = "g1", time_range: str = "all_time"):
+    df, profile = _section_context(group, time_range)
+    return {"group": group, "time_range": time_range, **sections.build_day_of_week_pattern(df, profile, None)}
+
+
+@router.get("/sections/weekday_vs_weekend_hourly")
+async def section_weekday_vs_weekend_hourly(group: str = "g2", time_range: str = "all_time"):
+    df, profile = _section_context(group, time_range)
+    return {"group": group, "time_range": time_range, **sections.build_weekday_vs_weekend_hourly(df, profile, None)}
+
+
+@router.get("/sections/calendar_effects_ranked")
+async def section_calendar_effects_ranked(group: str = "g1", time_range: str = "all_time"):
+    df, profile = _section_context(group, time_range)
+    return {"group": group, "time_range": time_range, **sections.build_calendar_effects_ranked(df, profile, None)}
+
+
+@router.get("/sections/temperature_by_category")
+async def section_temperature_by_category(group: str = "g3", time_range: str = "all_time"):
+    df, profile = _section_context(group, time_range)
+    return {"group": group, "time_range": time_range, **sections.build_temperature_by_category(df, profile, None)}
+
+
+@router.get("/sections/calendar_x_category")
+async def section_calendar_x_category(group: str = "g3", time_range: str = "all_time"):
+    df, profile = _section_context(group, time_range)
+    return {"group": group, "time_range": time_range, **sections.build_calendar_x_category(df, profile, None)}
+
+
+@router.get("/sections/hour_dow_banded")
+async def section_hour_dow_banded(group: str = "g2", time_range: str = "all_time"):
+    df, profile = _section_context(group, time_range)
+    return {"group": group, "time_range": time_range, **sections.build_hour_dow_banded(df, profile, None)}
+
+
+@router.get("/sections/category_volume_by_horizon")
+async def section_category_volume_by_horizon(
+    group: str = "g3", time_range: str = "all_time", horizon: str = "day",
+):
+    df, profile = _section_context(group, time_range)
+    return {"group": group, "time_range": time_range,
+            **sections.build_category_volume_by_horizon(df, profile, None, horizon=horizon)}
+
+
+@router.get("/sections/critical_events_by_horizon")
+async def section_critical_events_by_horizon(
+    group: str = "g3", time_range: str = "all_time", horizon: str = "week",
+):
+    df, profile = _section_context(group, time_range)
+    return {"group": group, "time_range": time_range,
+            **sections.build_critical_events_by_horizon(df, profile, None, horizon=horizon)}
 
 
 @router.get("/findings/index")

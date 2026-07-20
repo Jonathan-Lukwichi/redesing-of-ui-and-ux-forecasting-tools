@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Explore Data — Single-Page Dashboard</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" />
+<style>
+  :root { --ink:#0f172a; --muted:#64748b; --line:#eef0f3; --teal:#0d9488; --navy:#1e6091; --red:#dc2626; --amber:#d97706; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'Inter',system-ui,sans-serif; background:linear-gradient(180deg,#f6f8fb 0%,#eef1f6 100%); background-attachment:fixed; color:var(--ink); }
+  .wrap { max-width:1320px; margin:0 auto; padding:22px 26px 70px; }
+
+  /* control bar */
+  .bar { display:flex; align-items:center; gap:16px; margin-bottom:18px; flex-wrap:wrap; }
+  .bar h1 { font-size:20px; font-weight:700; margin:0; letter-spacing:-0.3px; }
+  .bar .sub { font-size:12px; color:var(--muted); margin-top:2px; }
+  .ranges { margin-left:auto; display:flex; gap:4px; background:#fff; border:1px solid #e4e7eb; border-radius:9px; padding:4px; }
+  .ranges button { border:0; background:transparent; font-family:inherit; font-size:12px; font-weight:600; color:var(--muted); padding:6px 12px; border-radius:6px; cursor:pointer; }
+  .ranges button.on { background:var(--teal); color:#fff; }
+  .filter { display:flex; align-items:center; gap:7px; background:#fff; border:1px solid #e4e7eb; border-radius:9px; padding:8px 13px; font-size:12px; font-weight:600; color:#334155; cursor:pointer; }
+
+  /* kpi tiles */
+  .kpis { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:14px; }
+  .kpi { background:#fff; border:1px solid #e9ecf1; border-radius:13px; padding:16px 16px 14px; position:relative; overflow:hidden; box-shadow:0 1px 2px rgba(15,23,41,.04); transition:box-shadow .16s, transform .16s; }
+  .kpi:hover { box-shadow:0 8px 22px rgba(15,23,41,.09); transform:translateY(-2px); }
+  .kpi .accent { position:absolute; top:0; left:0; right:0; height:3px; opacity:.9; }
+  .kpi .lab { font-size:10.5px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.8px; }
+  .kpi .val { font-size:30px; font-weight:800; letter-spacing:-1px; line-height:1.05; margin-top:6px; font-variant-numeric:tabular-nums; }
+  .kpi .val .u { font-size:15px; color:var(--muted); font-weight:700; }
+  .kpi .foot { display:flex; align-items:center; gap:6px; margin-top:7px; font-size:11px; color:var(--muted); }
+  .kpi .pill { font-weight:700; font-size:10.5px; padding:2px 6px; border-radius:5px; display:inline-flex; align-items:center; gap:3px; }
+  .kpi .spark { position:absolute; right:10px; bottom:10px; opacity:.9; }
+
+  /* cards + grid */
+  .grid { display:grid; gap:14px; }
+  .card { background:#fff; border:1px solid #e9ecf1; border-radius:12px; padding:16px 18px; display:flex; flex-direction:column; box-shadow:0 1px 2px rgba(15,23,41,.04); transition:box-shadow .16s, transform .16s; }
+  .card:hover { box-shadow:0 6px 20px rgba(15,23,41,.08); transform:translateY(-1px); }
+  .card.np { padding:0; }
+  .ct { font-size:15px; font-weight:700; letter-spacing:-0.2px; line-height:1.25; }
+  .cs { font-size:12px; color:var(--muted); margin-top:3px; line-height:1.4; }
+  .chead { margin-bottom:12px; display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .dots { color:#cbd5e1; font-size:16px; letter-spacing:1px; flex-shrink:0; }
+  .legend { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:10px; font-size:11px; color:#475569; }
+  .legend i { width:9px; height:9px; border-radius:2px; display:inline-block; margin-right:5px; }
+  .secrule { display:flex; align-items:center; gap:12px; margin:26px 0 4px; }
+  .secrule span { font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:1.4px; white-space:nowrap; }
+  .secrule:before, .secrule:after { content:''; height:1px; background:#e2e6ec; flex:1; }
+  .tbl { width:100%; border-collapse:collapse; font-size:13px; }
+  .tbl th { text-align:left; font-size:10.5px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.6px; padding:11px 16px; border-bottom:1px solid var(--line); }
+  .tbl td { padding:12px 16px; border-bottom:1px solid #f3f5f8; }
+  .tbl tr:last-child td { border-bottom:0; }
+  .tbl tbody tr { cursor:pointer; }
+  .tbl tbody tr:hover { background:#fafbfc; }
+  .chip { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:8px; }
+</style>
+</head>
+<body>
+<template id="__bundler_thumbnail" data-bg-color="#0c2f3a">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#0c2f3a"/>
+    <g transform="translate(360,250)">
+      <rect x="0" y="0" width="480" height="300" rx="24" fill="#0e3a45" stroke="#1c5560" stroke-width="3"/>
+      <!-- grid -->
+      <g stroke="#15454f" stroke-width="2">
+        <line x1="40" y1="80" x2="440" y2="80"/><line x1="40" y1="150" x2="440" y2="150"/><line x1="40" y1="220" x2="440" y2="220"/>
+      </g>
+      <!-- area line -->
+      <polyline points="40,200 110,150 180,180 250,110 320,150 390,90 440,120" fill="none" stroke="#5eead4" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+      <polygon points="40,260 40,200 110,150 180,180 250,110 320,150 390,90 440,120 440,260" fill="#5eead4" opacity="0.18"/>
+      <g fill="#5eead4">
+        <circle cx="110" cy="150" r="6"/><circle cx="250" cy="110" r="6"/><circle cx="390" cy="90" r="6"/>
+      </g>
+    </g>
+    <text x="600" y="640" text-anchor="middle" font-family="Inter,sans-serif" font-size="34" font-weight="700" fill="#5eead4">Exploratory Data Analysis</text>
+  </svg>
+</template>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel">
+const { useState } = React;
+const fmt0 = (v) => Math.round(v).toLocaleString();
+
+/* ---------- KPI tile (leadsnap style) ---------- */
+function Spark({ data, color }) {
+  const W = 70, H = 26, max = Math.max(...data), min = Math.min(...data);
+  const x = (i) => (i / (data.length - 1)) * W;
+  const y = (v) => H - ((v - min) / (max - min || 1)) * (H - 4) - 2;
+  const pts = data.map((v, i) => `${x(i)},${y(v)}`).join(' ');
+  return (
+    <svg className="spark" width={W} height={H}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.6" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function KPI({ lab, val, u, delta, deltaDir, foot, color, spark }) {
+  const up = deltaDir === 'up';
+  const pillBg = up ? '#dcfce7' : '#fee2e2', pillC = up ? '#16a34a' : '#dc2626';
+  return (
+    <div className="kpi">
+      <div className="accent" style={{ background: color }} />
+      <div className="lab">{lab}</div>
+      <div className="val" style={{ color }}>{val}{u && <span className="u">{u}</span>}</div>
+      <div className="foot">
+        {delta != null && <span className="pill" style={{ background: pillBg, color: pillC }}>{up ? '▲' : '▼'} {delta}%</span>}
+        <span>{foot}</span>
+      </div>
+      {spark && <Spark data={spark} color={color} />}
+    </div>
+  );
+}
+
+/* ---------- gridded area line chart (leadsnap hero) ---------- */
+function AreaLine({ series, xLabels, yTicks = 5, height = 230, fill = true }) {
+  const W = 980, H = height, pad = { l: 38, r: 14, t: 14, b: 26 };
+  const all = series.flatMap((s) => s.data);
+  const max = Math.max(...all) * 1.1, min = Math.min(0, ...all);
+  const n = series[0].data.length;
+  const X = (i) => pad.l + (i / (n - 1)) * (W - pad.l - pad.r);
+  const Y = (v) => pad.t + (1 - (v - min) / (max - min)) * (H - pad.t - pad.b);
+  const ticks = Array.from({ length: yTicks }, (_, i) => min + (i / (yTicks - 1)) * (max - min));
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+      <defs>
+        {series.map((s, si) => (
+          <linearGradient key={si} id={`g${si}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={s.color} stopOpacity="0.28" />
+            <stop offset="100%" stopColor={s.color} stopOpacity="0.02" />
+          </linearGradient>
+        ))}
+      </defs>
+      {/* horizontal grid */}
+      {ticks.map((t, i) => (
+        <g key={i}>
+          <line x1={pad.l} x2={W - pad.r} y1={Y(t)} y2={Y(t)} stroke="#eef1f5" />
+          <text x={pad.l - 8} y={Y(t) + 3} fontSize="10" fill="#94a3b8" textAnchor="end" fontFamily="JetBrains Mono">{Math.round(t)}</text>
+        </g>
+      ))}
+      {/* vertical grid */}
+      {xLabels.map((l, i) => {
+        const gx = pad.l + (i / (xLabels.length - 1)) * (W - pad.l - pad.r);
+        return <line key={i} x1={gx} x2={gx} y1={pad.t} y2={H - pad.b} stroke="#f4f6f9" />;
+      })}
+      {series.map((s, si) => {
+        const line = s.data.map((v, i) => `${X(i)},${Y(v)}`).join(' ');
+        const area = `${pad.l},${Y(min)} ${line} ${X(n - 1)},${Y(min)}`;
+        return (
+          <g key={si}>
+            {fill && <polygon points={area} fill={`url(#g${si})`} />}
+            <polyline points={line} fill="none" stroke={s.color} strokeWidth="2.4" strokeLinejoin="round" />
+            {s.data.map((v, i) => <circle key={i} cx={X(i)} cy={Y(v)} r="3.4" fill="#fff" stroke={s.color} strokeWidth="2" />)}
+          </g>
+        );
+      })}
+      {xLabels.map((l, i) => (
+        <text key={i} x={pad.l + (i / (xLabels.length - 1)) * (W - pad.l - pad.r)} y={H - 8} fontSize="10" fill="#94a3b8" textAnchor="middle" fontFamily="JetBrains Mono">{l}</text>
+      ))}
+    </svg>
+  );
+}
+
+/* ---------- bars / donut / ranked / heatmap / matrix ---------- */
+function Bars({ data, labels, color = '#1e6091', height = 200, fmt = fmt0 }) {
+  const W = 380, H = height, pad = { l: 26, r: 8, t: 16, b: 22 };
+  const max = Math.max(...data, 1), bw = (W - pad.l - pad.r) / data.length;
+  const Y = (v) => pad.t + (1 - v / max) * (H - pad.t - pad.b);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
+      {[0.25, 0.5, 0.75, 1].map((f, i) => <line key={i} x1={pad.l} x2={W - pad.r} y1={pad.t + f * (H - pad.t - pad.b)} y2={pad.t + f * (H - pad.t - pad.b)} stroke="#f1f4f7" />)}
+      {data.map((v, i) => (
+        <g key={i}>
+          <rect x={pad.l + i * bw + bw * 0.16} y={Y(v)} width={bw * 0.68} height={(H - pad.b) - Y(v)} rx="3" fill={color} />
+          <text x={pad.l + i * bw + bw / 2} y={Y(v) - 4} fontSize="9" fill="#64748b" textAnchor="middle">{fmt(v)}</text>
+          <text x={pad.l + i * bw + bw / 2} y={H - 7} fontSize="9" fill="#94a3b8" textAnchor="middle">{labels[i]}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+function Donut({ slices, head, sub, size = 168, th = 26 }) {
+  const r = (size - th) / 2, c = size / 2, circ = 2 * Math.PI * r;
+  const total = slices.reduce((s, x) => s + x.value, 0) || 1;
+  let off = 0;
+  return (
+    <svg viewBox={`0 0 ${size} ${size}`} style={{ width: size, height: size }}>
+      <g transform={`rotate(-90 ${c} ${c})`}>
+        {slices.map((s, i) => { const len = (s.value / total) * circ; const el = <circle key={i} cx={c} cy={c} r={r} fill="none" stroke={s.color} strokeWidth={th} strokeDasharray={`${len} ${circ - len}`} strokeDashoffset={-off} />; off += len; return el; })}
+      </g>
+      <text x={c} y={c - 1} textAnchor="middle" fontSize="25" fontWeight="800" fill="#0f172a" fontFamily="Inter">{head}</text>
+      <text x={c} y={c + 16} textAnchor="middle" fontSize="10" fill="#64748b">{sub}</text>
+    </svg>
+  );
+}
+function Legend({ items }) {
+  return <div className="legend">{items.map((it, i) => <span key={i}><i style={{ background: it.color }} />{it.label}{it.value ? ` · ${it.value}` : ''}</span>)}</div>;
+}
+function Ranked({ rows, height }) {
+  const W = 360, rowH = Math.max(34, (height || rows.length * 34) / rows.length), mid = W * 0.5, maxLen = W * 0.33;
+  const max = Math.max(...rows.map((r) => Math.abs(r.v)), 1), H = rowH * rows.length;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
+      <line x1={mid} x2={mid} y1="2" y2={H - 2} stroke="#cbd5e1" />
+      {rows.map((r, i) => {
+        const pos = r.v >= 0, len = (Math.abs(r.v) / max) * maxLen, color = pos ? '#0d9488' : '#dc2626';
+        const rowY = i * rowH, barY = rowY + rowH * 0.46, barH = rowH * 0.32;
+        return (
+          <g key={i}>
+            <text x={4} y={rowY + 13} fontSize="11" fontWeight="600" fill="#0f172a">{r.category}</text>
+            <rect x={pos ? mid : mid - len} y={barY} width={len} height={barH} rx="2" fill={color} />
+            <text x={pos ? mid + len + 5 : mid - len - 5} y={barY + barH / 2 + 3.5} fontSize="10" fontWeight="700" fill={color} textAnchor={pos ? 'start' : 'end'}>{pos ? '+' : ''}{r.v}%</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+function Matrix({ rows, cols, data }) {
+  return (
+    <table style={{ borderCollapse: 'collapse', fontSize: 10, width: '100%' }}>
+      <thead><tr><th></th>{cols.map((c) => <th key={c} style={{ padding: '3px 4px', color: '#64748b' }}>{c}</th>)}</tr></thead>
+      <tbody>
+        {data.map((row, ri) => (
+          <tr key={ri}>
+            <td style={{ padding: '3px 6px', color: '#475569', fontWeight: 600, whiteSpace: 'nowrap' }}>{rows[ri]}</td>
+            {row.map((v, ci) => { const m = Math.min(1, Math.abs(v)); const bg = v >= 0 ? `rgba(13,148,136,${m})` : `rgba(220,38,38,${m})`; return <td key={ci} style={{ padding: '6px 4px', textAlign: 'center', background: bg, color: m > 0.5 ? '#fff' : '#0f172a' }}>{v.toFixed(2)}</td>; })}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+/* ---------- heatmap (multi-colour + legend) ---------- */
+const HEAT_LEVELS = [
+  { c:'#e0f2fe', l:'Very quiet' },
+  { c:'#7dd3fc', l:'Quiet' },
+  { c:'#22b8a6', l:'Moderate' },
+  { c:'#f59e0b', l:'Busy' },
+  { c:'#dc2626', l:'Peak' },
+];
+function heatLevel(v, max) { const r = v / max; return r < 0.2 ? 0 : r < 0.4 ? 1 : r < 0.6 ? 2 : r < 0.8 ? 3 : 4; }
+function Heatmap({ matrix, rowLabels, colLabels }) {
+  const max = Math.max(...matrix.flat(), 1);
+  return (
+    <div>
+      {matrix.map((row, ri) => (
+        <div key={ri} style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3 }}>
+          <span style={{ width:28, fontSize:10, color:'#64748b', textAlign:'right' }}>{rowLabels[ri]}</span>
+          <div style={{ display:'flex', flex:1, height:17, borderRadius:4, overflow:'hidden', gap:1.5 }}>
+            {row.map((v, ci) => <div key={ci} title={`${v}/hr`} style={{ flex:1, background:HEAT_LEVELS[heatLevel(v, max)].c, borderRadius:1.5 }} />)}
+          </div>
+        </div>
+      ))}
+      <div style={{ display:'flex', gap:6, marginTop:5 }}>
+        <span style={{ width:28 }} />
+        <div style={{ display:'flex', flex:1, justifyContent:'space-between', fontSize:9, color:'#94a3b8' }}>{colLabels.map((c, i) => <span key={i}>{c}</span>)}</div>
+      </div>
+      <div style={{ display:'flex', gap:14, marginTop:11, flexWrap:'wrap' }}>
+        {HEAT_LEVELS.map((lv) => (
+          <span key={lv.l} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:10.5, color:'#475569' }}>
+            <i style={{ width:11, height:11, borderRadius:3, background:lv.c, display:'inline-block' }} />{lv.l}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- specialty independence bars ---------- */
+const INDEP = [
+  { name:'Medicine', v:0.18 }, { name:'Orthopaedics', v:0.18 }, { name:'Surgery', v:0.12 },
+  { name:'Paediatrics', v:0.14 }, { name:'Gynaecology', v:0.11 },
+];
+function IndepBars() {
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:11, marginTop:8 }}>
+      {INDEP.map((r) => (
+        <div key={r.name} style={{ display:'flex', alignItems:'center', gap:10, fontSize:12 }}>
+          <span style={{ width:88, color:'#0f172a', fontWeight:600 }}>{r.name}</span>
+          <div style={{ flex:1, position:'relative', height:8, background:'#eef0f3', borderRadius:4 }}>
+            <div style={{ position:'absolute', left:0, top:0, height:'100%', width:`${r.v * 100}%`, background:'#0d9488', borderRadius:4 }} />
+            <div style={{ position:'absolute', left:'50%', top:-4, height:16, borderLeft:'1px dashed #cbd5e1' }} />
+          </div>
+          <span style={{ width:32, textAlign:'right', fontWeight:700, color:'#0d9488', fontVariantNumeric:'tabular-nums' }}>{r.v.toFixed(2)}</span>
+        </div>
+      ))}
+      <div style={{ display:'flex', justifyContent:'space-between', fontSize:9.5, color:'#94a3b8', marginTop:3 }}>
+        <span>0 · independent</span><span>0.5 · linked</span><span>1 · move together</span>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- weather impact line ---------- */
+const TEMP_ARR = [51, 54, 58, 63, 67];
+const TEMP_X = ['<10°', '10–18°', '18–24°', '24–30°', '>30°'];
+function WeatherImpact() {
+  return <AreaLine series={[{ data: TEMP_ARR, color: '#d97706' }]} xLabels={TEMP_X} height={200} />;
+}
+
+/* ---------- specialty volume per day ---------- */
+const SPEC_VOL = [
+  { name:'Medicine', v:42.3, color:'#1e6091' }, { name:'Orthopaedics', v:9.9, color:'#0d9488' },
+  { name:'Surgery', v:1.7, color:'#d97706' }, { name:'Paediatrics', v:1.7, color:'#7c3aed' },
+  { name:'Gynaecology', v:1.5, color:'#dc2626' },
+];
+const PER_ABBR = { day: 'day', week: 'wk', month: 'mo', year: 'yr' };
+const PER_MULT = { day: 1, week: 7, month: 30.4, year: 365 };
+function SpecVolumeCard() {
+  const [per, setPer] = useState('day');
+  const mult = PER_MULT[per];
+  const max = Math.max(...SPEC_VOL.map((s) => s.v));
+  const fmtV = (v) => { const x = v * mult; return x >= 1000 ? (x / 1000).toFixed(1) + 'k' : x >= 100 ? Math.round(x).toLocaleString() : x.toFixed(1); };
+  const seg = (p) => ({
+    border: 0, fontFamily: 'inherit', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+    padding: '4px 10px', borderRadius: 6, textTransform: 'capitalize',
+    background: per === p ? '#1e6091' : 'transparent', color: per === p ? '#fff' : '#94a3b8',
+  });
+  return (
+    <Card title="Medicine dwarfs every other specialty by volume" sub={`Average patient arrivals per ${per}, by specialty.`}>
+      <div style={{ display:'flex', gap:2, background:'#f1f4f7', borderRadius:8, padding:3, alignSelf:'flex-start', marginBottom:10 }}>
+        {['day','week','month','year'].map((p) => <button key={p} style={seg(p)} onClick={() => setPer(p)}>{p}</button>)}
+      </div>
+      <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+        {SPEC_VOL.map((s) => (
+          <div key={s.name} style={{ display:'flex', alignItems:'center', gap:10, fontSize:12 }}>
+            <span style={{ width:88, color:'#0f172a', fontWeight:600 }}>{s.name}</span>
+            <div style={{ flex:1, height:14, background:'#f1f4f7', borderRadius:5, overflow:'hidden' }}>
+              <div style={{ width:`${(s.v / max) * 100}%`, height:'100%', background:s.color, borderRadius:5 }} />
+            </div>
+            <span style={{ width:64, textAlign:'right', fontWeight:700, color:'#0f172a', fontVariantNumeric:'tabular-nums' }}>{fmtV(s.v)}<span style={{ color:'#94a3b8', fontWeight:500 }}>/{PER_ABBR[per]}</span></span>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function Card({ title, sub, children, style }) {
+  return (
+    <div className="card" style={style}>
+      <div className="chead"><div><div className="ct">{title}</div>{sub && <div className="cs">{sub}</div>}</div><span className="dots">⋯</span></div>
+      {children}
+    </div>
+  );
+}
+
+/* ---------- mock data ---------- */
+const DAILY = [54,49,58,61,52,46,44,57,63,59,55,62,68,60,53,58,66,71,64,57,61,69,72,66,59,63,70,74,68,62];
+const DAILY_X = ['1','','5','','10','','15','','20','','25','','30'];
+const WEEKLY = [395,410,388,402,420,408,431,415,440,452,438,460,448,470];
+const WEEKLY_X = ['W1','','W3','','W5','','W7','','W9','','W11','','W13',''];
+const MONTHLY12 = [1680,1820,2050,2010,2180,2240,2260,2210,2120,2150,2080,1560];
+const REGIME = [{label:'Pre-COVID',value:302,color:'#94a3b8'},{label:'During',value:724,color:'#dc2626'},{label:'Post-COVID',value:1414,color:'#0d9488'}];
+const YEARLY = [16800, 18200, 20500, 22100, 23800, 25400];
+const YEARLY_L = ['2020','2021','2022','2023','2024','2025'];
+const MIX = [{label:'Medicine',value:101000,color:'#1e6091'},{label:'Orthopaedics',value:23500,color:'#0d9488'},{label:'Surgery',value:4100,color:'#d97706'},{label:'Paediatrics',value:4100,color:'#7c3aed'},{label:'Gynaecology',value:3900,color:'#dc2626'}];
+const SHIFTS = [{label:'Day',value:41,color:'#0d9488'},{label:'Evening',value:41,color:'#1e6091'},{label:'Night',value:18,color:'#0f1729'}];
+const DOW = [62,61,55,57,58,52,48];
+const HOUR_WD = [0.8,0.6,0.5,0.4,0.5,0.9,1.6,2.4,3.1,3.6,4.1,4.3,4.2,4.0,3.6,3.2,2.9,2.6,2.3,2.0,1.7,1.4,1.1,0.9];
+const HOUR_WE = [1.0,0.8,0.7,0.5,0.5,0.7,1.0,1.4,1.9,2.4,2.9,3.2,3.3,3.2,3.0,2.8,2.6,2.4,2.2,2.0,1.8,1.6,1.4,1.2];
+const WEEKEND = [{category:'Surgery',v:18},{category:'Medicine',v:-12},{category:'Orthopaedics',v:-9},{category:'Paediatrics',v:-15},{category:'Gynaecology',v:-11}];
+const MONTH = [84,98,104,103,106,108,109,107,104,103,101,73];
+const MONTH_L = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const CAL = [{category:'Public holiday',v:-22},{category:'Festive season',v:-19},{category:'Long weekend',v:-16},{category:'Weekend',v:-11},{category:'Month-end',v:4}];
+const WEATHER = [[-0.06,-0.02,0.03,0.08],[0.05,0.02,-0.03,-0.07],[0.04,0.01,-0.02,-0.05]];
+const CRITICAL = [14,10,8,6,4];
+const CRITICAL_L = ['Trauma','Gunshot','Stab','Domestic','Sexual'];
+const CORR = [[1,0.18,0.12,0.09,0.07],[0.18,1,0.10,0.14,0.06],[0.12,0.10,1,0.08,0.05],[0.09,0.14,0.08,1,0.11],[0.07,0.06,0.05,0.11,1]];
+const CORR_L = ['Medicine','Ortho','Surgery','Paeds','Gynae'];
+const HEAT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((_, r) => Array.from({length:24},(_,h)=>{const b=(h>=9&&h<=16)?3.5:h<6?0.5:1.8;return +(b*(r<5?1:0.8)*(0.85+0.3*Math.sin(h/3))).toFixed(1);}));
+const FINDINGS = [
+  { f:'Average day is 58 patients; a busy day is 80 or more', src:'Demand', color:'#1e6091' },
+  { f:'Day and Evening absorb 41% each; Night absorbs 18%', src:'Within the day', color:'#0d9488' },
+  { f:'12 calendar events shift daily volume materially', src:'Drivers', color:'#d97706' },
+  { f:'Surgery rises on weekends; every other specialty falls', src:'Departments', color:'#dc2626' },
+  { f:'2025 brings 18% more arrivals than 2022–2024', src:'Data health', color:'#7c3aed' },
+];
+const RANGES = ['All time','This year','Last 90 days','Last 30 days','Last 7 days'];
+
+function CriticalCard() {
+  const [per, setPer] = useState('week');
+  const mult = { day: 1 / 7, week: 1, month: 4.3 }[per];
+  const data = CRITICAL.map((v) => per === 'day' ? +(v * mult).toFixed(1) : Math.round(v * mult));
+  const seg = (p) => ({
+    border: 0, fontFamily: 'inherit', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+    padding: '4px 11px', borderRadius: 6, textTransform: 'capitalize',
+    background: per === p ? '#dc2626' : 'transparent', color: per === p ? '#fff' : '#94a3b8',
+  });
+  return (
+    <Card title="Trauma and assault top the critical-event load" sub={`Average cases per ${per}, by event type.`}>
+      <div style={{ display:'flex', gap:2, background:'#f1f4f7', borderRadius:8, padding:3, alignSelf:'flex-start', marginBottom:8 }}>
+        {['day','week','month'].map((p) => <button key={p} style={seg(p)} onClick={() => setPer(p)}>{p}</button>)}
+      </div>
+      <Bars data={data} labels={CRITICAL_L} color="#dc2626" height={190} fmt={(v) => v} />
+    </Card>
+  );
+}
+
+/* ---------- temperature & calendar impact by specialty ---------- */
+const TEMP_X5 = ['<10°', '10–18°', '18–24°', '24–30°', '>30°'];
+const TEMP_SPEC = [
+  { name:'Trauma & assault', color:'#dc2626', data:[-8,-3,0,7,14] },
+  { name:'Medicine', color:'#1e6091', data:[-6,-2,0,5,9] },
+  { name:'Orthopaedics', color:'#0d9488', data:[-3,-1,0,3,5] },
+];
+const CAL_EVENTS = ['Public holiday', 'Long weekend', 'Weekend', 'Festive season'];
+const CAL_COLS = ['Medicine', 'Orthopaedics', 'Surgery', 'Trauma'];
+const CAL_IMPACT = [
+  [-20, -15, 12, -10],
+  [-16, -12, 8, -6],
+  [-12, -9, 18, -4],
+  [-19, -14, 10, 5],
+];
+function ImpactMatrix({ rows, cols, data, scale = 22 }) {
+  return (
+    <table style={{ borderCollapse:'collapse', fontSize:10.5, width:'100%' }}>
+      <thead><tr><th></th>{cols.map((c) => <th key={c} style={{ padding:'5px 4px', color:'#64748b', fontWeight:600 }}>{c}</th>)}</tr></thead>
+      <tbody>
+        {data.map((row, ri) => (
+          <tr key={ri}>
+            <td style={{ padding:'6px 8px', color:'#475569', fontWeight:600, whiteSpace:'nowrap' }}>{rows[ri]}</td>
+            {row.map((v, ci) => { const m = Math.min(1, Math.abs(v) / scale); const bg = v >= 0 ? `rgba(13,148,136,${m})` : `rgba(220,38,38,${m})`; return <td key={ci} style={{ padding:'9px 5px', textAlign:'center', background:bg, color:m > 0.5 ? '#fff' : '#0f172a', fontWeight:600, fontVariantNumeric:'tabular-nums' }}>{v > 0 ? '+' : ''}{v}%</td>; })}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function Dashboard({ onRerun }) {
+  const [range, setRange] = useState('Last 30 days');
+  const [gran, setGran] = useState('Daily');
+  const mixTotal = MIX.reduce((s,x)=>s+x.value,0);
+  return (
+    <div className="wrap">
+      {/* control bar */}
+      <div className="bar">
+        <div>
+          <h1>Exploratory Data Analysis</h1>
+          <div className="sub">2,440 days · 138,000 records · five categories · one continuous series</div>
+        </div>
+        <div className="ranges">
+          {RANGES.map((r)=><button key={r} className={r===range?'on':''} onClick={()=>setRange(r)}>{r}</button>)}
+        </div>
+        <div className="filter">▦ All specialties ▾</div>
+        <button className="filter" onClick={onRerun} style={{ borderColor:'#0d9488', color:'#0d9488' }}>↻ Re-run</button>
+      </div>
+
+      {/* KPI hero row */}
+      <div className="kpis">
+        <KPI lab="Total arrivals" val="138,000" foot="full record" color="#0d9488" delta={18} deltaDir="up" spark={[48,50,52,55,58,61,64,69]} />
+        <KPI lab="Avg / day" val="58" foot="post-COVID" color="#1e6091" delta={6} deltaDir="up" spark={DOW} />
+        <KPI lab="Daily swing" val="±14" foot="volume variability" color="#d97706" />
+        <KPI lab="Specialties" val="5" foot="material specialties" color="#7c3aed" />
+        <KPI lab="Completeness" val="99.79" u="%" foot="of expected days" color="#0d9488" />
+        <KPI lab="2025 shift" val="+18.3" u="%" foot="vs 2022–2024" color="#dc2626" spark={[58,60,62,65,67,69,70,69]} />
+      </div>
+
+      {/* hero gridded area line */}
+      <Card title="Patient arrivals" sub={GRAN[gran].sub}>
+        <Toggle opts={['Daily','Weekly','Monthly','Yearly','Hourly','By specialty']} val={gran} onChange={setGran} />
+        <AreaLine series={GRAN[gran].series} xLabels={GRAN[gran].x} height={250} fill={GRAN[gran].fill} />
+        {GRAN[gran].legend && <Legend items={GRAN[gran].legend} />}
+      </Card>
+
+      {/* row: 3 composition cards */}
+      <div className="grid" style={{ gridTemplateColumns:'1fr 1fr 1fr', marginTop:14 }}>
+        <Card title="Arrivals climb steadily year on year" sub="Total patient arrivals per year — analysed as one continuous series.">
+          <Bars data={YEARLY} labels={YEARLY_L} color="#0d9488" height={210} fmt={(v) => (v / 1000).toFixed(1) + 'k'} />
+        </Card>
+        <Card title="Medicine drives ~¾ of all arrivals" sub="Medicine 73%, Orthopaedics 17%; three small specialties make up 8%.">
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
+            <Donut slices={MIX} head="73%" sub="Medicine" />
+            <Legend items={MIX.map(s=>({label:s.label,color:s.color,value:`${Math.round(s.value/mixTotal*100)||'<1'}%`}))} />
+          </div>
+        </Card>
+        <Card title="Day & Evening carry 41% each; Night 18%" sub="The split barely changes across the week — solid ground for a roster.">
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
+            <Donut slices={SHIFTS} head="41/41/18" sub="Day / Eve / Night" />
+            <Legend items={SHIFTS.map(s=>({label:s.label,color:s.color,value:`${s.value}%`}))} />
+          </div>
+        </Card>
+      </div>
+
+      {/* row: weekday / hourly / weekend */}
+      <div className="grid" style={{ gridTemplateColumns:'1fr 1.3fr 1fr', marginTop:14 }}>
+        <Card title="Mon & Tue run ~12% above Wednesday" sub="Sundays are the quietest day of the week.">
+          <Bars data={DOW} labels={['Mon','Tue','Wed','Thu','Fri','Sat','Sun']} height={210} />
+        </Card>
+        <Card title="Arrivals peak between 10:00 and 14:00" sub="Quietest in the small hours; weekday peak is sharper than weekend.">
+          <AreaLine series={[{ data: HOUR_WD, color: '#1e6091' }, { data: HOUR_WE, color: '#dc2626' }]} xLabels={['0h','4h','8h','12h','16h','20h','23h']} height={210} fill={false} />
+          <Legend items={[{label:'Weekday',color:'#1e6091'},{label:'Weekend',color:'#dc2626'}]} />
+        </Card>
+        <Card title="Surgery rises on weekends — all others fall" sub="The one counter-intuitive department pattern.">
+          <Ranked rows={WEEKEND} height={210} />
+        </Card>
+      </div>
+
+      {/* row: seasonality + overall calendar */}
+      <div className="grid" style={{ gridTemplateColumns:'1fr 1fr', marginTop:14 }}>
+        <Card title="Year-end is the quietest stretch" sub="December runs ~27% below the annual average; mid-year runs highest.">
+          <Bars data={MONTH} labels={MONTH_L} color="#1e6091" height={210} />
+        </Card>
+        <Card title="Holidays & festive season cut total arrivals most" sub="How each calendar flag shifts the overall daily average.">
+          <Ranked rows={CAL} height={210} />
+        </Card>
+      </div>
+
+      {/* row (large): temperature-by-specialty + calendar-by-specialty */}
+      <div className="grid" style={{ gridTemplateColumns:'1.5fr 1fr', marginTop:14 }}>
+        <Card title="Hot days lift trauma most, medicine moderately" sub="Change in arrivals by temperature band, per specialty (% vs the mild-day baseline).">
+          <AreaLine series={TEMP_SPEC.map((s) => ({ data: s.data, color: s.color }))} xLabels={TEMP_X5} height={260} fill={false} />
+          <Legend items={TEMP_SPEC.map((s) => ({ label: s.name, color: s.color }))} />
+        </Card>
+        <Card title="How the calendar moves each specialty & trauma" sub="% change vs a normal day — Surgery rises while Medicine, Orthopaedics and Trauma fall.">
+          <div style={{ marginTop:10 }}><ImpactMatrix rows={CAL_EVENTS} cols={CAL_COLS} data={CAL_IMPACT} /></div>
+          <div style={{ display:'flex', gap:14, marginTop:12, fontSize:10.5, color:'#475569' }}>
+            <span style={{ display:'inline-flex', alignItems:'center', gap:5 }}><i style={{ width:11, height:11, borderRadius:3, background:'#0d9488', display:'inline-block' }} />More than normal</span>
+            <span style={{ display:'inline-flex', alignItems:'center', gap:5 }}><i style={{ width:11, height:11, borderRadius:3, background:'#dc2626', display:'inline-block' }} />Fewer than normal</span>
+          </div>
+        </Card>
+      </div>
+
+      {/* row: heatmap / critical / correlation */}
+      <div className="grid" style={{ gridTemplateColumns:'1.4fr 1fr 1fr', marginTop:14 }}>
+        <Card title="The busy band is the same every weekday" sub="Mean arrivals per hour, per day — darker means busier.">
+          <div style={{ marginTop:6 }}><Heatmap matrix={HEAT} rowLabels={['Mon','Tue','Wed','Thu','Fri','Sat','Sun']} colLabels={['0h','6h','12h','18h','23h']} /></div>
+        </Card>
+        <CriticalCard />
+        <SpecVolumeCard />
+      </div>
+
+      {/* findings table */}
+      <div className="card np" style={{ marginTop:14 }}>
+        <div className="chead" style={{ padding:'16px 18px 0' }}><div><div className="ct">Five validated findings</div><div className="cs">Every finding traces to a section of the EDA.</div></div></div>
+        <table className="tbl" style={{ marginTop:12 }}>
+          <thead><tr><th style={{ width:'68%' }}>Finding</th><th>Source</th></tr></thead>
+          <tbody>
+            {FINDINGS.map((r,i)=>(
+              <tr key={i}>
+                <td style={{ fontWeight:600 }}><span className="chip" style={{ background:r.color }} />{r.f}</td>
+                <td><span style={{ color:'#1e6091', fontWeight:600 }}>{r.src} →</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- reusable segmented toggle ---------- */
+function Toggle({ opts, val, onChange, color = '#0d9488' }) {
+  return (
+    <div style={{ display:'flex', gap:2, background:'#f1f4f7', borderRadius:8, padding:3, alignSelf:'flex-start', marginBottom:10 }}>
+      {opts.map((o) => (
+        <button key={o} onClick={() => onChange(o)} style={{ border:0, fontFamily:'inherit', fontSize:11, fontWeight:600, cursor:'pointer', padding:'4px 11px', borderRadius:6, background:val === o ? color : 'transparent', color:val === o ? '#fff' : '#94a3b8' }}>{o}</button>
+      ))}
+    </div>
+  );
+}
+
+const HOUR_X = ['0h','4h','8h','12h','16h','20h','23h'];
+const MED_D = DAILY.map((v) => Math.round(v * 0.73));
+const ORTHO_D = DAILY.map((v) => Math.round(v * 0.17));
+const TRAUMA_D = DAILY.map((v) => Math.max(1, Math.round(v * 0.05)));
+const GRAN = {
+  Daily:   { series:[{data:DAILY,color:'#0d9488'}],     x:DAILY_X,  fill:true,  sub:'Mean arrivals per day across the selected window · 95% of days fall inside the band.' },
+  Weekly:  { series:[{data:WEEKLY,color:'#0d9488'}],    x:WEEKLY_X, fill:true,  sub:'Total patient arrivals per week.' },
+  Monthly: { series:[{data:MONTHLY12,color:'#0d9488'}], x:MONTH_L,  fill:true,  sub:'Total patient arrivals per month.' },
+  Yearly:  { series:[{data:YEARLY,color:'#0d9488'}],    x:YEARLY_L, fill:true,  sub:'Total patient arrivals per year.' },
+  Hourly:  { series:[{data:HOUR_WD,color:'#1e6091'}],   x:HOUR_X,   fill:true,  sub:'Mean arrivals per hour of the day — peak 10:00–14:00.' },
+  'By specialty': { series:[{data:MED_D,color:'#1e6091'},{data:ORTHO_D,color:'#0d9488'},{data:TRAUMA_D,color:'#dc2626'}], x:DAILY_X, fill:false, legend:[{label:'Medicine',color:'#1e6091'},{label:'Orthopaedics',color:'#0d9488'},{label:'Trauma',color:'#dc2626'}], sub:'Daily arrivals split by specialty across the window.' },
+};
+
+/* ---------- pipeline gate (start analysis) ---------- */
+function PipelineGate({ onDone }) {
+  const STEPS = ['Ingest 7 source datasets', 'Clean & validate records', 'Merge analysis groups G1–G4', 'Run EDA analyzers', 'Compile validated findings'];
+  const [running, setRunning] = useState(false);
+  const [step, setStep] = useState(-1);
+  const start = () => {
+    setRunning(true); let i = 0;
+    const tick = () => { setStep(i); i++; if (i < STEPS.length) setTimeout(tick, 650); else setTimeout(onDone, 850); };
+    setTimeout(tick, 350);
+  };
+  return (
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
+      <div style={{ width:'min(620px,100%)', background:'linear-gradient(160deg,#0b1f33,#0c2f3a)', borderRadius:20, padding:'40px 44px', color:'#e6f6f4', boxShadow:'0 30px 80px rgba(8,30,40,.42)', position:'relative', overflow:'hidden' }}>
+        <div style={{ position:'absolute', top:-70, right:-70, width:220, height:220, background:'radial-gradient(circle,rgba(45,212,191,.35),transparent 70%)' }} />
+        <div style={{ position:'absolute', bottom:-80, left:-50, width:200, height:200, background:'radial-gradient(circle,rgba(30,96,145,.4),transparent 70%)' }} />
+        <div style={{ position:'relative' }}>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:2, color:'#5eead4', textTransform:'uppercase' }}>HealthForecast · EDA Engine</div>
+          <h1 style={{ fontSize:28, fontWeight:800, margin:'10px 0 8px', letterSpacing:-0.5 }}>Exploratory data analysis</h1>
+          <p style={{ fontSize:14, color:'#9fc7c4', lineHeight:1.55, margin:0 }}>Run the analysis pipeline to ingest the source data, merge external calendar and weather signals, and surface the validated findings.</p>
+          <div style={{ margin:'26px 0', display:'flex', flexDirection:'column', gap:11 }}>
+            {STEPS.map((s, i) => {
+              const st = step > i ? 'done' : step === i ? 'active' : 'idle';
+              return (
+                <div key={i} style={{ display:'flex', alignItems:'center', gap:12, opacity: running ? 1 : 0.55, transition:'opacity .3s' }}>
+                  <span style={{ width:22, height:22, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700,
+                    background: st === 'done' ? '#0d9488' : st === 'active' ? 'rgba(94,234,212,.18)' : 'rgba(255,255,255,.06)',
+                    color: st === 'done' ? '#fff' : '#5eead4', border: st === 'active' ? '1px solid #5eead4' : '1px solid transparent' }}>
+                    {st === 'done' ? '✓' : st === 'active' ? '•' : i + 1}</span>
+                  <span style={{ fontSize:13.5, color: st === 'idle' ? '#6b8f8c' : '#e6f6f4', fontWeight: st === 'active' ? 600 : 400 }}>{s}</span>
+                </div>
+              );
+            })}
+          </div>
+          {!running ? (
+            <button onClick={start} style={{ width:'100%', border:0, cursor:'pointer', fontFamily:'inherit', fontSize:15, fontWeight:700, color:'#06231f', padding:'14px', borderRadius:12, background:'linear-gradient(135deg,#5eead4,#0d9488)', boxShadow:'0 8px 24px rgba(13,148,136,.45)' }}>▶&nbsp;&nbsp;Start the analysis</button>
+          ) : (
+            <div style={{ height:6, background:'rgba(255,255,255,.08)', borderRadius:3, overflow:'hidden' }}>
+              <div style={{ height:'100%', width:`${((step + 1) / STEPS.length) * 100}%`, background:'linear-gradient(90deg,#5eead4,#0d9488)', transition:'width .5s' }} />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [ready, setReady] = useState(false);
+  return ready ? <Dashboard onRerun={() => setReady(false)} /> : <PipelineGate onDone={() => setReady(true)} />;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

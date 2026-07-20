@@ -18,14 +18,17 @@ by section so the right strip lights up on the right page.
 from __future__ import annotations
 
 # --- Forecasting-relevant metrics (Headlines strip) -------------------------
-from .training_window  import TrainingWindowMetric
-from .recent_trend     import RecentTrendMetric
-from .weekly_pattern   import WeeklyPatternMetric
-from .daily_volatility import DailyVolatilityMetric
-from .weather_lift     import WeatherLiftMetric
-from .calendar_drivers import CalendarDriversMetric
-from .stationarity     import StationarityMetric
-from .dominant_cycle   import DominantCycleMetric
+from .training_window      import TrainingWindowMetric
+from .recent_trend         import RecentTrendMetric
+from .weekly_pattern       import WeeklyPatternMetric
+from .daily_volatility     import DailyVolatilityMetric
+from .daily_swing          import DailySwingMetric
+from .weather_lift         import WeatherLiftMetric
+from .calendar_drivers     import CalendarDriversMetric
+from .stationarity         import StationarityMetric
+from .dominant_cycle       import DominantCycleMetric
+from .completeness         import CompletenessMetric
+from .year_over_year_shift import YearOverYearShiftMetric
 
 # --- Data-health metrics (deep-dive tab) ------------------------------------
 from .total_arrivals    import TotalArrivalsMetric
@@ -38,14 +41,18 @@ from .date_span         import DateSpanMetric
 
 
 DEFAULT_FORECAST = [
-    TrainingWindowMetric(),
-    RecentTrendMetric(),
-    WeeklyPatternMetric(),
-    DailyVolatilityMetric(),
-    WeatherLiftMetric(),
-    CalendarDriversMetric(),
-    StationarityMetric(),
-    DominantCycleMetric(),
+    # Ordered to match the design's KPI strip (left to right).
+    TrainingWindowMetric(),       # DATA SPAN
+    RecentTrendMetric(),          # RECENT DEMAND
+    DailySwingMetric(),           # DAILY SWING  (new)
+    CompletenessMetric(),         # COMPLETENESS (new)
+    YearOverYearShiftMetric(),    # LATEST YEAR SHIFT (new)
+    WeeklyPatternMetric(),        # WEEKLY RHYTHM
+    DailyVolatilityMetric(),      # DAY-TO-DAY SWING (% CV)
+    WeatherLiftMetric(),          # WARM-DAY LIFT
+    CalendarDriversMetric(),      # CALENDAR EFFECTS
+    StationarityMetric(),         # DEMAND STABILITY
+    DominantCycleMetric(),        # DOMINANT CYCLE
 ]
 
 DEFAULT_DATA_HEALTH = [
