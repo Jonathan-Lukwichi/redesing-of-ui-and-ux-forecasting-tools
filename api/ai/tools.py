@@ -85,7 +85,7 @@ def execute(name: str, inp: dict[str, Any]) -> dict[str, Any]:
                     "date": max(days, key=lambda x: x["predicted"])["date"],
                     "predicted": round(max(days, key=lambda x: x["predicted"])["predicted"])},
                 "days": [{"date": x["date"], "predicted": round(x["predicted"]),
-                          "range": [round(x["lower"]), round(x["upper"])]} for x in days[:14]],
+                          "range": [round(x["lower"]), round(x["upper"])]} for x in days],
             }
         if name == "get_supply_status":
             d = _get("/api/supply/overview")
