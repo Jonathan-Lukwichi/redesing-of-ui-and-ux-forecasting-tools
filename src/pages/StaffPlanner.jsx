@@ -210,7 +210,7 @@ export default function StaffPlanner() {
         <div className="card-body">
           {stratErr && (
             <div style={{ padding: 12, background: '#fef2f2', color: C.red, borderRadius: 6, fontSize: 12 }}>
-              Backend error: {stratErr}. Is the API running on 127.0.0.1:8000?
+              Backend error: {stratErr}. The server may be busy or starting up — try again shortly.
             </div>
           )}
           {!strat && !stratErr && <div style={{ color: C.muted, fontSize: 13 }}>Running six rostering strategies…</div>}

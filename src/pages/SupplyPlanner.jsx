@@ -239,7 +239,7 @@ export default function SupplyPlanner() {
         <div className="card-body">
           {policyErr && (
             <div style={{ padding: 12, background: '#fef2f2', color: C.red, borderRadius: 6, fontSize: 12 }}>
-              Backend error: {policyErr}. Is the API running on 127.0.0.1:8000?
+              Backend error: {policyErr}. The server may be busy or starting up — try again shortly.
             </div>
           )}
           {!compare && !policyErr && (
