@@ -538,7 +538,7 @@ function PreviewPanel({ item, preview }) {
         {!metadata.schema_valid && <SchemaDetails metadata={metadata} />}
 
         <div style={{ border: '1px solid #e4e7eb', borderRadius: 6, overflow: 'auto', maxHeight: 360 }}>
-          <table className="tbl">
+          <div className="table-scroll" role="region" tabIndex={0} aria-label="Data table (scrolls sideways on small screens)"><table className="tbl">
             <thead>
               <tr>{cols.map((c) => <th key={c}>{c}</th>)}</tr>
             </thead>
@@ -553,7 +553,7 @@ function PreviewPanel({ item, preview }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
 
         <div className="grid-kpi" style={{ marginTop: 16 }}>

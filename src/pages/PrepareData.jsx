@@ -435,7 +435,7 @@ function SchemaPreview({ preview }) {
           <div className="card-sub">{preview.columns.length} columns total · non-null counts from the 20-row preview slice</div>
         </div>
       </div>
-      <table className="tbl">
+      <div className="table-scroll" role="region" tabIndex={0} aria-label="Data table (scrolls sideways on small screens)"><table className="tbl">
         <thead>
           <tr>
             <th>Column</th>
@@ -456,7 +456,7 @@ function SchemaPreview({ preview }) {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </div>
   );
 }

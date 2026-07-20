@@ -1,0 +1,36 @@
+/* =============================================================================
+   DESIGN TOKENS — fluid type & space scales (Utopia-style).
+   Generated for viewport 320px (20rem) -> 1240px (77.5rem).
+   Every preferred value combines a rem term with a vw term so user font-size
+   preferences and browser zoom keep working.
+   ============================================================================= */
+
+:root {
+  /* ---- Fluid type scale ---------------------------------------------------
+     step 0 = body copy 16px -> 18px; ratio ~1.125 below, ~1.125-1.2 above. */
+  --step--2: clamp(0.75rem,   0.73rem + 0.09vw, 0.8rem);     /* 12   -> 12.8px */
+  --step--1: clamp(0.875rem,  0.85rem + 0.11vw, 0.9375rem);  /* 14   -> 15px   */
+  --step-0:  clamp(1rem,      0.96rem + 0.22vw, 1.125rem);   /* 16   -> 18px   */
+  --step-1:  clamp(1.125rem,  1.08rem + 0.24vw, 1.27rem);    /* 18   -> 20.3px */
+  --step-2:  clamp(1.27rem,   1.21rem + 0.27vw, 1.42rem);    /* 20.3 -> 22.8px */
+  --step-3:  clamp(1.42rem,   1.36rem + 0.31vw, 1.6rem);     /* 22.8 -> 25.6px */
+  --step-4:  clamp(1.6rem,    1.53rem + 0.35vw, 1.8rem);     /* 25.6 -> 28.8px */
+  --step-5:  clamp(1.8rem,    1.72rem + 0.39vw, 2.03rem);    /* 28.8 -> 32.4px */
+  --text-body: var(--step-0);
+
+  /* ---- Fluid space scale (same construction) ---------------------------- */
+  --space-3xs: clamp(0.25rem, 0.23rem + 0.11vw, 0.3125rem);  /* 4  -> 5px   */
+  --space-2xs: clamp(0.5rem,  0.48rem + 0.11vw, 0.5625rem);  /* 8  -> 9px   */
+  --space-xs:  clamp(0.75rem, 0.72rem + 0.16vw, 0.84rem);    /* 12 -> 13.5px */
+  --space-s:   clamp(1rem,    0.96rem + 0.22vw, 1.125rem);   /* 16 -> 18px  */
+  --space-m:   clamp(1.5rem,  1.43rem + 0.33vw, 1.69rem);    /* 24 -> 27px  */
+  --space-l:   clamp(2rem,    1.91rem + 0.43vw, 2.25rem);    /* 32 -> 36px  */
+  --space-xl:  clamp(3rem,    2.87rem + 0.65vw, 3.375rem);   /* 48 -> 54px  */
+  --space-2xl: clamp(4rem,    3.83rem + 0.87vw, 4.5rem);     /* 64 -> 72px  */
+  --space-3xl: clamp(6rem,    5.74rem + 1.3vw,  6.75rem);    /* 96 -> 108px */
+
+  /* ---- Layout tokens ----------------------------------------------------- */
+  --measure:       65ch;     /* max comfortable line length for prose */
+  --container-max: 1240px;
+  --gutter:        var(--space-m);
+}

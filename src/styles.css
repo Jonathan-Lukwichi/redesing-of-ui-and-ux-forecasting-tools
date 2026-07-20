@@ -44,15 +44,16 @@
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
 
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-10: 40px;
-  --space-12: 48px;
+  /* Legacy spacing names now resolve to the fluid token scale (tokens.css). */
+  --space-1: var(--space-3xs);
+  --space-2: var(--space-2xs);
+  --space-3: var(--space-xs);
+  --space-4: var(--space-s);
+  --space-5: clamp(1.25rem, 1.2rem + 0.27vw, 1.41rem);
+  --space-6: var(--space-m);
+  --space-8: var(--space-l);
+  --space-10: clamp(2.5rem, 2.39rem + 0.54vw, 2.81rem);
+  --space-12: var(--space-xl);
 
   --r-sm: 4px;
   --r-md: 6px;
@@ -71,16 +72,25 @@
   --sidebar-border: rgba(255,255,255,0.08);
 }
 
-* { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
 
 html, body, #root {
   height: 100%;
   margin: 0;
 }
 
+/* Media can never force horizontal overflow. (SVG keeps its height attribute:
+   the app's charts stretch to a fixed px height by design.) */
+img, video, canvas { max-width: 100%; height: auto; }
+svg { max-width: 100%; }
+table { max-width: 100%; }
+
+/* Last-resort guard only — the primary fixes are the layout rules below. */
+body { overflow-x: clip; }
+
 body {
   font-family: var(--font-sans);
-  font-size: 16px;
+  font-size: var(--text-body);
   line-height: 1.6;
   color: var(--text);
   background: var(--bg);
@@ -483,7 +493,7 @@ body {
 }
 
 .page-head-title {
-  font-size: 22px;
+  font-size: var(--step-2);
   font-weight: 600;
   color: var(--text);
   letter-spacing: -0.3px;
@@ -692,6 +702,17 @@ body {
    TABLE
    ============================================================================= */
 
+/* Accessible sideways-scroll region for wide tables (never page-level scroll). */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+.table-scroll:focus-visible {
+  outline: 2px solid var(--brand-2);
+  outline-offset: 2px;
+}
+
 .tbl {
   width: 100%;
   border-collapse: collapse;
@@ -813,8 +834,71 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
    ============================================================================= */
 
 .row { display: flex; gap: 16px; align-items: stretch; }
+.row > * { min-width: 0; } /* flex min-width:auto overflow trap */
 .col { display: flex; flex-direction: column; gap: 16px; }
 .grow { flex: 1; min-width: 0; }
+
+/* =============================================================================
+   LAYOUT PRIMITIVES — mobile-first, breakpoint-free where possible.
+   ============================================================================= */
+
+/* Vertical rhythm without per-element margins. */
+.stack > * { margin-block: 0; }
+.stack > * + * { margin-block-start: var(--space-m); }
+.stack-s > * + * { margin-block-start: var(--space-s); }
+
+/* Centered page column. */
+.container {
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* Cards reflow from N columns to 1 with no media query. */
+.grid-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: var(--space-m);
+}
+
+/* Row that flips to a column when space runs out (container-driven, not
+   viewport-driven): items below ~30rem available width go full-width. */
+.switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-s);
+}
+.switcher > * {
+  flex-grow: 1;
+  flex-basis: calc((30rem - 100%) * 999);
+  min-width: 0;
+}
+
+/* Long-form text stays readable. */
+.prose { max-width: var(--measure); }
+
+/* =============================================================================
+   CONTAINER QUERIES — components respond to their own width, not the viewport.
+   ============================================================================= */
+
+.card, .exp-card { container-type: inline-size; }
+
+/* Two-up layout inside a card: single column until the CARD is >= 30rem wide. */
+.cq-2col {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-s);
+}
+@container (min-width: 30rem) {
+  .cq-2col { grid-template-columns: 1fr 1fr; }
+}
+/* Fallback for browsers without container queries: approximate by viewport. */
+@supports not (container-type: inline-size) {
+  @media (min-width: 640px) {
+    .cq-2col { grid-template-columns: 1fr 1fr; }
+  }
+}
 .divider-h { height: 1px; background: var(--border); }
 .muted { color: var(--text-3); }
 .mono { font-family: var(--font-mono); }
@@ -1017,6 +1101,17 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
   #root div[style*="repeat(7, 1fr"] {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
+}
+
+/* Touch devices: interactive targets reach the 44px minimum */
+@media (pointer: coarse) {
+  .btn, .btn-sm, .topbar-signout, .topbar-menu-btn,
+  .input, .select, .tab, .sidebar-item, .sidebar-footer-btn,
+  .exp-ranges button, .exp-filter {
+    min-height: 44px;
+  }
+  .tabs { align-items: stretch; }
+  .tab { display: inline-flex; align-items: center; }
 }
 
 /* Small phones: single-column KPI strips breathe better */

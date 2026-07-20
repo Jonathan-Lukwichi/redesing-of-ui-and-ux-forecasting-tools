@@ -1,5 +1,30 @@
 // ---- Storytelling primitives ----------------------------------------------
-import { useId } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+
+// ---- Responsive sizing ------------------------------------------------------
+// Axis charts draw on a logical canvas equal to their real rendered width
+// (measured with ResizeObserver), so text renders 1:1 instead of being
+// squashed on narrow screens. `thinStride` drops ticks when space runs short.
+function useMeasuredWidth(fallback = 720) {
+  const ref = useRef(null);
+  const [w, setW] = useState(fallback);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver((entries) => {
+      const cw = entries[0]?.contentRect?.width;
+      if (cw) setW(Math.max(220, Math.round(cw)));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, w];
+}
+
+function thinStride(count, availPx, pxPerLabel = 60) {
+  const maxLabels = Math.max(2, Math.floor(availPx / pxPerLabel));
+  return count > maxLabels ? Math.ceil(count / maxLabels) : 1;
+}
 
 const CATEGORY_TOKEN = {
   risk:   { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', label: 'Risk' },
@@ -213,7 +238,8 @@ export function RankedBars({ rows, valueKey = 'pct_deviation', labelKey = 'categ
   // The zero line stays well inside the bar area so positive labels never
   // collide with negative ones, and the leftmost row label sits in its own
   // gutter that the bars never overlap.
-  const w = 760, h = height;
+  const [svgRef, w] = useMeasuredWidth(760);
+  const h = height;
   const labelGutter = 160;
   const valueGutter = 60;          // reserved on each side for "+45%" tags
   const pad = { l: labelGutter, r: valueGutter, t: 12, b: 12 };
@@ -224,7 +250,7 @@ export function RankedBars({ rows, valueKey = 'pct_deviation', labelKey = 'categ
   const rowH = (h - pad.t - pad.b) / rows.length;
   const bh = Math.max(10, rowH - 8);
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+    <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       <line x1={xZero} x2={xZero} y1={pad.t} y2={h - pad.b} stroke="#cbd5e1" />
       {rows.map((r, i) => {
         const v = Number(r[valueKey]) || 0;
@@ -257,7 +283,8 @@ export function RankedBars({ rows, valueKey = 'pct_deviation', labelKey = 'categ
 }
 
 export function MonthlyIndexBars({ rows, baselineLabel = 'Annual mean', height = 240 }) {
-  const w = 720, h = height, pad = { l: 48, r: 16, t: 26, b: 30 };
+  const [svgRef, w] = useMeasuredWidth(720);
+  const h = height, pad = { l: 48, r: 16, t: 26, b: 30 };
   const innerW = w - pad.l - pad.r;
   const innerH = h - pad.t - pad.b;
   const values = rows.map((r) => r.index ?? 100);
@@ -266,7 +293,7 @@ export function MonthlyIndexBars({ rows, baselineLabel = 'Annual mean', height =
   const y = (v) => pad.t + innerH - ((v - min) / (max - min)) * innerH;
   const bw = (innerW / rows.length) * 0.68;
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+    <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {[60, 80, 100, 110].map((v) => (
         <g key={v}>
           <line x1={pad.l} x2={w - pad.r} y1={y(v)} y2={y(v)} stroke={v === 100 ? '#cbd5e1' : '#eef0f3'} strokeDasharray={v === 100 ? '4 4' : '0'} />
@@ -313,8 +340,8 @@ export function DonutWithCenter({ slices, size = 200, thickness = 30, centerHead
   const total = slices.reduce((s, x) => s + (x.value || 0), 0);
   let a = -Math.PI / 2;
   return (
-    <div style={{ position: 'relative', width: size, height: size, margin: '0 auto' }}>
-      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}>
+    <div style={{ position: 'relative', width: '100%', maxWidth: size, aspectRatio: '1 / 1', margin: '0 auto' }}>
+      <svg viewBox={`0 0 ${size} ${size}`} width="100%" height="100%">
         {slices.map((s, i) => {
           const frac = (s.value || 0) / total;
           const a2 = a + frac * Math.PI * 2;
@@ -374,7 +401,8 @@ export function Sparkline({ data, color = '#1e6091', width = 80, height = 28, fi
 
 export function LineChart({ series, height = 220, xLabels, showGrid = true, fillArea = true }) {
   const uid = useId().replace(/[:]/g, '');
-  const w = 720, h = height, pad = { l: 44, r: 18, t: 14, b: 28 };
+  const [svgRef, w] = useMeasuredWidth(720);
+  const h = height, pad = { l: 44, r: 18, t: 14, b: 28 };
   const allVals = series.flatMap((s) => s.data.filter((v) => v != null && v !== 0));
   const max = (allVals.length ? Math.max(...allVals) : 1) * 1.1;
   const min = Math.min(0, allVals.length ? Math.min(...allVals) : 0);
@@ -385,11 +413,13 @@ export function LineChart({ series, height = 220, xLabels, showGrid = true, fill
 
   const yTicks = 4;
   const tickVals = Array.from({ length: yTicks + 1 }, (_, i) => min + (i / yTicks) * (max - min));
-  const xIdx = xLabels && xLabels.length > 1
-    ? xLabels.map((_, i) => i * Math.floor((n - 1) / (xLabels.length - 1))) : [];
+  const lblStride = xLabels ? thinStride(xLabels.length, w - pad.l - pad.r, 90) : 1;
+  const shownLabels = xLabels ? xLabels.filter((_, i) => i % lblStride === 0) : xLabels;
+  const xIdx = shownLabels && shownLabels.length > 1
+    ? shownLabels.map((_, i) => i * Math.floor((n - 1) / (shownLabels.length - 1))) : [];
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+    <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       <defs>
         {series.map((s, si) => (
           <linearGradient key={si} id={`${uid}-g${si}`} x1="0" y1="0" x2="0" y2="1">
@@ -413,7 +443,7 @@ export function LineChart({ series, height = 220, xLabels, showGrid = true, fill
       {/* baseline */}
       <line x1={pad.l} x2={w - pad.r} y1={y(min)} y2={y(min)} stroke="#e2e8f0" strokeWidth="1.25" />
 
-      {xLabels && xLabels.map((lbl, i) => (
+      {shownLabels && shownLabels.map((lbl, i) => (
         <text key={i} x={x(xIdx[i])} y={h - 6} textAnchor="middle" fontSize="11" fill="#94a3b8" fontFamily="inherit">{lbl}</text>
       ))}
 
@@ -453,13 +483,16 @@ export function BarChart({ data, height = 200, color = '#1e6091', labels, valueF
   // Auto-rotate x-axis labels when there are many labels OR any label is long.
   const longestLabel = Math.max(0, ...(labels || []).map((l) => String(l || '').length));
   const shouldRotate = rotateLabels ?? (data.length > 6 || longestLabel > 8);
-  const w = 720, h = height;
+  const [svgRef, w] = useMeasuredWidth(720);
+  const h = height;
   const pad = { l: 48, r: 16, t: 16, b: shouldRotate ? 56 : 30 };
   const max = Math.max(...data) * 1.15;
   const innerW = w - pad.l - pad.r, innerH = h - pad.t - pad.b;
   const bw = (innerW / data.length) * 0.6;
+  const lblStride = thinStride(data.length, innerW, shouldRotate ? 34 : 56);
+  const showValues = bw >= 24;
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+    <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {[0, 0.25, 0.5, 0.75, 1].map((t, i) => (
         <line key={i} x1={pad.l} x2={w - pad.r} y1={pad.t + innerH * (1 - t)} y2={pad.t + innerH * (1 - t)} stroke="#eef0f3" />
       ))}
@@ -471,11 +504,11 @@ export function BarChart({ data, height = 200, color = '#1e6091', labels, valueF
         return (
           <g key={i}>
             <rect x={cx - bw / 2} y={baseY} width={bw} height={bh} fill={color} rx="3" />
-            {shouldRotate
+            {i % lblStride === 0 && (shouldRotate
               ? <text x={cx} y={pad.t + innerH + 14} textAnchor="end" fontSize="11" fill="#475569"
                   transform={`rotate(-35 ${cx} ${pad.t + innerH + 14})`}>{label}</text>
-              : <text x={cx} y={h - 6} textAnchor="middle" fontSize="12" fill="#94a3b8">{label}</text>}
-            <text x={cx} y={baseY - 6} textAnchor="middle" fontSize="11" fill="#334155" fontWeight="600">{valueFmt(v)}</text>
+              : <text x={cx} y={h - 6} textAnchor="middle" fontSize="12" fill="#94a3b8">{label}</text>)}
+            {showValues && <text x={cx} y={baseY - 6} textAnchor="middle" fontSize="11" fill="#334155" fontWeight="600">{valueFmt(v)}</text>}
           </g>
         );
       })}
@@ -488,7 +521,8 @@ export function Donut({ data, size = 180, thickness = 28 }) {
   const total = data.reduce((s, d) => s + d.value, 0);
   let a = -Math.PI / 2;
   return (
-    <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}>
+    <svg viewBox={`0 0 ${size} ${size}`}
+      style={{ width: '100%', maxWidth: size, height: 'auto', aspectRatio: '1 / 1', display: 'block', margin: '0 auto' }}>
       {data.map((d, i) => {
         const frac = d.value / total;
         const a2 = a + frac * Math.PI * 2;
@@ -506,14 +540,15 @@ export function Donut({ data, size = 180, thickness = 28 }) {
 }
 
 export function StemPlot({ data, height = 200, color = '#1e6091', confidenceBand, labels }) {
-  const w = 720, h = height, pad = { l: 48, r: 16, t: 16, b: 30 };
+  const [svgRef, w] = useMeasuredWidth(720);
+  const h = height, pad = { l: 48, r: 16, t: 16, b: 30 };
   const max = Math.max(1, ...data.map((v) => Math.abs(v)));
   const innerW = w - pad.l - pad.r, innerH = h - pad.t - pad.b;
   const x = (i) => pad.l + (i / Math.max(1, data.length - 1)) * innerW;
   const y = (v) => pad.t + innerH / 2 - (v / max) * (innerH / 2 - 6);
   const yZero = pad.t + innerH / 2;
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+    <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {confidenceBand != null && (
         <g>
           <rect x={pad.l} y={y(confidenceBand)} width={innerW} height={Math.max(0, y(-confidenceBand) - y(confidenceBand))} fill="#1e6091" opacity="0.08" />
@@ -529,6 +564,7 @@ export function StemPlot({ data, height = 200, color = '#1e6091', confidenceBand
         </g>
       ))}
       {labels && labels.map((lbl, i) => (
+        i % thinStride(labels.length, innerW, 70) !== 0 ? null :
         <text key={i} x={x(Math.round((i / (labels.length - 1)) * (data.length - 1)))} y={h - 6} textAnchor="middle" fontSize="11" fill="#94a3b8">{lbl}</text>
       ))}
     </svg>
@@ -537,7 +573,8 @@ export function StemPlot({ data, height = 200, color = '#1e6091', confidenceBand
 
 export function BoxPlot({ data, labels, height = 220, color = '#1e6091' }) {
   // data: [{ min, q1, median, q3, max, whisker_low?, whisker_high?, mean? }, ...]
-  const w = 720, h = height, pad = { l: 48, r: 16, t: 16, b: 30 };
+  const [svgRef, w] = useMeasuredWidth(720);
+  const h = height, pad = { l: 48, r: 16, t: 16, b: 30 };
   const allMin = Math.min(...data.map((d) => d.whisker_low ?? d.min ?? 0));
   const allMax = Math.max(...data.map((d) => d.whisker_high ?? d.max ?? 1));
   const span = (allMax - allMin) * 1.1 || 1;
@@ -548,7 +585,7 @@ export function BoxPlot({ data, labels, height = 220, color = '#1e6091' }) {
   const cw = (innerW / data.length) * 0.5;
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+    <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {[0, 0.25, 0.5, 0.75, 1].map((t, i) => {
         const yv = yMin + t * (yMax - yMin);
         return (
@@ -583,7 +620,8 @@ export function StackedArea({ series, dates, colors, height = 220 }) {
   const labels = Object.keys(series);
   const n = dates.length;
   if (!labels.length || !n) return null;
-  const w = 760, h = height, pad = { l: 48, r: 16, t: 12, b: 30 };
+  const [svgRef, w] = useMeasuredWidth(760);
+  const h = height, pad = { l: 48, r: 16, t: 12, b: 30 };
   const innerW = w - pad.l - pad.r, innerH = h - pad.t - pad.b;
   const stack = labels.map((l) => series[l]);
   const totals = Array.from({ length: n }, (_, i) => stack.reduce((s, arr) => s + (arr[i] || 0), 0));
@@ -602,7 +640,7 @@ export function StackedArea({ series, dates, colors, height = 220 }) {
   });
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+    <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {paths.map((p) => <path key={p.label} d={p.path} fill={p.color} opacity="0.8" />)}
       <line x1={pad.l} x2={w - pad.r} y1={pad.t + innerH} y2={pad.t + innerH} stroke="#cbd5e1" />
       {[0, 0.5, 1].map((t, i) => (
@@ -618,7 +656,8 @@ const COLOR_CYCLE = ['#1e6091', '#0d9488', '#d97706', '#7c3aed', '#dc2626', '#16
 
 export function ScatterPlot({ points, height = 240, xLabels = [], colorMap = {} }) {
   // points: [{ x: index, y: number, category, regime }] OR [{ date, value, category }]
-  const w = 760, h = height, pad = { l: 48, r: 16, t: 12, b: 30 };
+  const [svgRef, w] = useMeasuredWidth(760);
+  const h = height, pad = { l: 48, r: 16, t: 12, b: 30 };
   const ys = points.map((p) => p.y ?? p.value).filter((v) => v != null);
   if (!ys.length) return null;
   const yMin = 0;
@@ -630,7 +669,7 @@ export function ScatterPlot({ points, height = 240, xLabels = [], colorMap = {} 
     normal: '#1e6091', high: '#d97706', peak: '#dc2626', zero: '#94a3b8', missing: '#e4e7eb',
   };
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+    <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {[0, 0.25, 0.5, 0.75, 1].map((t, i) => (
         <line key={i} x1={pad.l} x2={w - pad.r} y1={pad.t + innerH * (1 - t)} y2={pad.t + innerH * (1 - t)} stroke="#eef0f3" />
       ))}
@@ -642,6 +681,7 @@ export function ScatterPlot({ points, height = 240, xLabels = [], colorMap = {} 
         return <circle key={i} cx={x(i)} cy={y(v)} r={cat === 'peak' ? 3 : 1.6} fill={color} opacity={cat === 'normal' ? 0.45 : 0.9} />;
       })}
       {xLabels.length > 1 && xLabels.map((lbl, i) => (
+        i % thinStride(xLabels.length, innerW, 80) !== 0 ? null :
         <text key={i} x={pad.l + (i / (xLabels.length - 1)) * innerW} y={h - 6} textAnchor="middle" fontSize="11" fill="#94a3b8">{lbl}</text>
       ))}
     </svg>
@@ -650,17 +690,19 @@ export function ScatterPlot({ points, height = 240, xLabels = [], colorMap = {} 
 
 export function DivergingMatrix({ rows, columns, data, height = 280, max: maxOverride }) {
   // data: 2D array of numbers (rows × columns), centred at 0
-  const w = 760, h = height, pad = { l: 140, r: 12, t: 12, b: 80 };
+  const [svgRef, w] = useMeasuredWidth(760);
+  const h = height, pad = { l: 140, r: 12, t: 12, b: 80 };
   const cellW = (w - pad.l - pad.r) / columns.length;
   const cellH = (h - pad.t - pad.b) / Math.max(1, rows.length);
   const flat = data.flat().filter((v) => v != null && Number.isFinite(v));
   const m = maxOverride || Math.max(1, ...flat.map(Math.abs));
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+    <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {rows.map((rl, ri) => (
         <text key={'r' + ri} x={pad.l - 8} y={pad.t + (ri + 0.65) * cellH} textAnchor="end" fontSize="11" fill="#475569">{rl}</text>
       ))}
       {columns.map((cl, ci) => (
+        ci % thinStride(columns.length, w - pad.l - pad.r, 40) !== 0 ? null :
         <text key={'c' + ci} x={pad.l + (ci + 0.5) * cellW} y={h - pad.b + 14} textAnchor="end" fontSize="11" fill="#475569"
           transform={`rotate(-40 ${pad.l + (ci + 0.5) * cellW} ${h - pad.b + 14})`}>{cl}</text>
       ))}
@@ -695,16 +737,18 @@ export function DivergingMatrix({ rows, columns, data, height = 280, max: maxOve
 }
 
 export function Heatmap({ data, rows, cols, height = 200, max: maxProp }) {
-  const w = 720, h = height, pad = { l: 68, r: 16, t: 12, b: 30 };
+  const [svgRef, w] = useMeasuredWidth(720);
+  const h = height, pad = { l: 68, r: 16, t: 12, b: 30 };
   const cellW = (w - pad.l - pad.r) / cols.length;
   const cellH = (h - pad.t - pad.b) / rows.length;
   const m = maxProp || Math.max(...data.flat());
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+    <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {rows.map((rl, ri) => (
         <text key={'r' + ri} x={pad.l - 8} y={pad.t + (ri + 0.65) * cellH} textAnchor="end" fontSize="12" fill="#64748b">{rl}</text>
       ))}
       {cols.map((cl, ci) => (
+        ci % thinStride(cols.length, w - pad.l - pad.r, 34) !== 0 ? null :
         <text key={'c' + ci} x={pad.l + (ci + 0.5) * cellW} y={h - 6} textAnchor="middle" fontSize="12" fill="#64748b">{cl}</text>
       ))}
       {data.map((row, ri) =>

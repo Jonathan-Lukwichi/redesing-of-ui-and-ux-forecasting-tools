@@ -87,7 +87,7 @@ function AdminContent() {
           <div className="card-title">Model performance · governance view</div>
           <div className="card-sub">Real model identities & validation accuracy — kept out of the public app to avoid biasing front-line users.</div>
         </div></div>
-        <table className="tbl">
+        <div className="table-scroll" role="region" tabIndex={0} aria-label="Data table (scrolls sideways on small screens)"><table className="tbl">
           <thead><tr><th>Public label</th><th>Actual model</th><th className="num">Validation accuracy</th><th className="num">Typical miss</th></tr></thead>
           <tbody>
             {!engines && <tr><td colSpan={4} style={{ color: C.muted, padding: 16 }}>Loading… (build G1 if empty)</td></tr>}
@@ -102,7 +102,7 @@ function AdminContent() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       {/* ── AI USAGE ───────────────────────────────────── */}
@@ -119,7 +119,7 @@ function AdminContent() {
           <div className="card-title">AI audit trail · most recent</div>
           <div className="card-sub">Durable, append-only log of every AI interaction · {audit?.stats?.log_file || ''}</div>
         </div></div>
-        <table className="tbl">
+        <div className="table-scroll" role="region" tabIndex={0} aria-label="Data table (scrolls sideways on small screens)"><table className="tbl">
           <thead><tr><th>When (UTC)</th><th>Surface</th><th>Model</th><th>Request</th><th>Response (scrubbed)</th><th className="num">Tokens</th><th className="num">Cost</th></tr></thead>
           <tbody>
             {err && <tr><td colSpan={7} style={{ color: C.red, padding: 16 }}>{err}</td></tr>}
@@ -137,7 +137,7 @@ function AdminContent() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       <div style={{ fontSize: 11, color: C.muted, margin: '14px 0 24px', lineHeight: 1.6, maxWidth: 760 }}>

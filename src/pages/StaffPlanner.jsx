@@ -277,7 +277,7 @@ export default function StaffPlanner() {
             ))}
           </div>
         </div>
-        <table className="tbl">
+        <div className="table-scroll" role="region" tabIndex={0} aria-label="Data table (scrolls sideways on small screens)"><table className="tbl">
           <thead>
             <tr><th>Staff</th><th>Role</th><th className="num">Skill</th><th className="num">Days worked</th><th className="num">Reg hrs</th><th className="num">OT hrs</th><th className="num">Avg wk hrs</th><th className="num">Sick</th><th className="num">Payroll</th><th className="num">BCEA</th></tr>
           </thead>
@@ -298,7 +298,7 @@ export default function StaffPlanner() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   );

@@ -189,7 +189,7 @@ export default function SupplyPlanner() {
             ))}
           </div>
         </div>
-        <table className="tbl">
+        <div className="table-scroll" role="region" tabIndex={0} aria-label="Data table (scrolls sideways on small screens)"><table className="tbl">
           <thead>
             <tr><th>Item</th><th>Category</th><th>ABC</th><th className="num">Use/day</th><th className="num">Days cover</th><th className="num">Service</th><th className="num">Stockouts</th><th className="num">Cost</th><th>Status</th></tr>
           </thead>
@@ -209,7 +209,7 @@ export default function SupplyPlanner() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       {/* Policy comparison — 6-policy ladder, no-forecast → perfect foresight - */}
@@ -329,7 +329,7 @@ export default function SupplyPlanner() {
                 ))}
               </div>
               <div style={{ marginTop: 16, borderTop: '1px solid #eef0f3', paddingTop: 12, overflowX: 'auto' }}>
-                <table className="tbl">
+                <div className="table-scroll" role="region" tabIndex={0} aria-label="Data table (scrolls sideways on small screens)"><table className="tbl">
                   <thead>
                     <tr>
                       <th className="num">Lead time</th>
@@ -361,7 +361,7 @@ export default function SupplyPlanner() {
                       );
                     })}
                   </tbody>
-                </table>
+                </table></div>
               </div>
             </>
           )}

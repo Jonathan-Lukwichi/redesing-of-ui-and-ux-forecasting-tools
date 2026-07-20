@@ -277,7 +277,7 @@ export default function Optimization({ onNavigate }) {
 
           <div className="card" style={{ marginBottom: 24 }}>
             <div className="card-header"><div className="card-title">Optimized roster · {st.roster.filter((r) => r.n_shifts > 0).length} nurses scheduled</div></div>
-            <table className="tbl">
+            <div className="table-scroll" role="region" tabIndex={0} aria-label="Data table (scrolls sideways on small screens)"><table className="tbl">
               <thead>
                 <tr><th>Nurse</th><th>Role</th><th>Assigned shifts</th><th className="num">Shifts</th><th className="num">Weekly hrs</th><th className="num">Cost</th></tr>
               </thead>
@@ -298,7 +298,7 @@ export default function Optimization({ onNavigate }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </>
       )}
@@ -328,7 +328,7 @@ export default function Optimization({ onNavigate }) {
               {sup.cost_breakdown && (
                 <div style={{ marginTop: 14 }}>
                   <div style={{ fontSize: 11.5, color: C.muted, marginBottom: 6 }}>Where the cost sits — annual, by component (ordering K · holding h · stockout p · wastage w):</div>
-                  <table className="tbl" style={{ maxWidth: 560 }}>
+                  <div className="table-scroll" role="region" tabIndex={0} aria-label="Data table (scrolls sideways on small screens)"><table className="tbl" style={{ maxWidth: 560 }}>
                     <thead><tr><th>Component</th><th className="num">Before</th><th className="num">After</th><th className="num">Change</th></tr></thead>
                     <tbody>
                       {['stockout', 'ordering', 'holding', 'wastage'].map((k) => {
@@ -343,7 +343,7 @@ export default function Optimization({ onNavigate }) {
                         );
                       })}
                     </tbody>
-                  </table>
+                  </table></div>
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
                     Optimization adds forecast-driven safety stock — holding goes up a little, but it slashes the dominant stockout penalty. That trade-off is the whole point.
                   </div>
@@ -360,7 +360,7 @@ export default function Optimization({ onNavigate }) {
             <div className="card-title">Recommended orders</div>
             <div className="card-sub">Reorder point s = d·L + Z·σ·√L · order up to S · at {Math.round((sup.service_level) * 100)}% service level</div>
           </div></div>
-          <table className="tbl">
+          <div className="table-scroll" role="region" tabIndex={0} aria-label="Data table (scrolls sideways on small screens)"><table className="tbl">
             <thead>
               <tr><th>Item</th><th>ABC</th><th className="num">On hand</th><th className="num">Proj/day</th><th className="num">Reorder pt</th><th className="num">Order up to</th><th className="num">Order qty</th><th className="num">Cost</th><th>Status</th></tr>
             </thead>
@@ -383,7 +383,7 @@ export default function Optimization({ onNavigate }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
 
@@ -425,7 +425,7 @@ function ForecastComparison({ cmp, onUse }) {
           {' '}{Math.round(c.staff_locum_diff_hours)} fewer agency-locum hours and {zarShort(c.supply_after_diff_zar)} less tied up in safety stock.
           A sharper forecast makes the whole plan leaner.
         </div>
-        <table className="tbl" style={{ maxWidth: 620 }}>
+        <div className="table-scroll" role="region" tabIndex={0} aria-label="Data table (scrolls sideways on small screens)"><table className="tbl" style={{ maxWidth: 620 }}>
           <thead><tr><th></th><th className="num">{a.label}</th><th className="num">{b.label}</th></tr></thead>
           <tbody>
             <Row label="Staff cost after (per week)" fmt={zarShort} sa={a.staff.after_zar} ml={b.staff.after_zar} />
@@ -433,7 +433,7 @@ function ForecastComparison({ cmp, onUse }) {
             <Row label="Supply cost after (per year)" fmt={zarShort} sa={a.supply.after_zar} ml={b.supply.after_zar} />
             <Row label="Total saving (per year)" fmt={zarShort} sa={a.total_saving_annual_zar} ml={b.total_saving_annual_zar} lowerBetter={false} />
           </tbody>
-        </table>
+        </table></div>
         <div style={{ marginTop: 12 }}>
           <button className="btn btn-sm btn-primary" onClick={() => onUse(best)}>Use {bestLabel} →</button>
           <span style={{ fontSize: 11.5, color: C.muted, marginLeft: 10 }}>then run each optimization below with this forecast</span>
