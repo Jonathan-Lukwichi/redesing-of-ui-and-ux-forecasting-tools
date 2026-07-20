@@ -14,12 +14,12 @@ _BASE = (os.getenv("SELF_BASE_URL") or "http://127.0.0.1:8000").rstrip("/")
 TOOL_SCHEMAS = [
     {
         "name": "get_forecast",
-        "description": "Get the live patient-arrivals forecast for the whole ED. Returns predicted patients per day with confidence ranges and accuracy. Use for questions about how busy upcoming days/weeks will be.",
+        "description": "Get the patient-arrivals forecast. Returns the LAST forecast the user ran in the app — the exact same numbers, model and horizon currently shown on the Forecast page — or runs a fresh one only if the user hasn't run any yet. Always tell the user which model produced it (the 'model' field) and, for specialty runs, which specialty. Use for questions about predicted arrivals on any day in the forecast window.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "horizon": {"type": "integer", "enum": [1, 7, 30], "description": "Days ahead (1, 7, or 30)."},
-                "model": {"type": "string", "enum": ["statistical", "ml"], "description": "Engine; default ml (most accurate)."},
+                "horizon": {"type": "integer", "enum": [1, 7, 30], "description": "Only used for the fresh-run fallback. Days ahead (1, 7, or 30)."},
+                "model": {"type": "string", "enum": ["statistical", "ml"], "description": "Only used for the fresh-run fallback; default ml."},
             },
         },
     },
@@ -68,16 +68,32 @@ def execute(name: str, inp: dict[str, Any]) -> dict[str, Any]:
     """Run a tool, return a compact result dict (or an error explaining the fix)."""
     try:
         if name == "get_forecast":
-            d = _post("/api/forecast/run", {
-                "model": inp.get("model", "ml"),
-                "horizon": int(inp.get("horizon", 7)),
-            })
-            if d.get("error") or d.get("detail"):
-                return {"error": "Forecast not available — G1 (Daily demand) may not be merged. Build it on the Prepare page."}
+            # The engines are not perfectly deterministic, so a fresh run would
+            # not match the page. Read the run the user is looking at; only fall
+            # back to a fresh run when nothing has been run in the app yet.
+            last = _get("/api/forecast/last")
+            d, source = None, None
+            if last.get("available") and (last.get("result") or {}).get("forecast"):
+                d = last["result"]
+                source = "the forecast run currently shown on the Forecast page"
+            if d is None:
+                d = _post("/api/forecast/run", {
+                    "model": inp.get("model", "ml"),
+                    "horizon": int(inp.get("horizon", 7)),
+                })
+                if d.get("error") or d.get("detail"):
+                    return {"error": "Forecast not available — G1 (Daily demand) may not be merged. Build it on the Prepare page."}
+                source = "a fresh run (the user has not run a forecast in the app yet)"
             days = d.get("forecast", [])
+            model_label = {"ml": "best ML model", "statistical": "best statistical model"}.get(
+                d.get("requested_model"), d.get("requested_model") or "unknown")
             return {
                 # NOTE: accuracy/error figures are deliberately omitted — the public
                 # assistant must not quote accuracy numbers (see chat prompt).
+                "source": source,
+                "model": model_label,
+                "specialty": d.get("requested_specialty"),
+                "is_backtest": d.get("is_backtest", False),
                 "horizon_days": len(days),
                 "forecast_start": d.get("forecast_start"),
                 "total": round(sum(x["predicted"] for x in days)),
@@ -85,7 +101,9 @@ def execute(name: str, inp: dict[str, Any]) -> dict[str, Any]:
                     "date": max(days, key=lambda x: x["predicted"])["date"],
                     "predicted": round(max(days, key=lambda x: x["predicted"])["predicted"])},
                 "days": [{"date": x["date"], "predicted": round(x["predicted"]),
-                          "range": [round(x["lower"]), round(x["upper"])]} for x in days],
+                          "range": [round(x["lower"]), round(x["upper"])],
+                          **({"actual": round(x["actual"])} if x.get("actual") is not None else {})}
+                         for x in days],
             }
         if name == "get_supply_status":
             d = _get("/api/supply/overview")

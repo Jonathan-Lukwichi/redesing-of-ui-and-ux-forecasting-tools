@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, HTTPException, Body
 from typing import List, Dict, Any, Optional, Literal
 from pydantic import BaseModel
@@ -218,6 +220,29 @@ def _forecast_from_series(
     return result
 
 
+# The most recent forecast run from either Forecast page. The engines are not
+# perfectly deterministic run-to-run, so the Ask assistant must read THIS result
+# — the numbers the user is actually looking at — rather than trigger its own.
+_LAST_RUN: Optional[Dict[str, Any]] = None
+
+
+def _remember_run(kind: str, result: Dict[str, Any]) -> None:
+    global _LAST_RUN
+    _LAST_RUN = {
+        "kind":   kind,  # "total" | "specialty"
+        "ran_at": datetime.now().isoformat(timespec="seconds"),
+        "result": result,
+    }
+
+
+@router.get("/last")
+async def last_run() -> Dict[str, Any]:
+    """The last forecast the user ran (exactly what the Forecast page shows)."""
+    if _LAST_RUN is None:
+        return {"available": False}
+    return {"available": True, **_LAST_RUN}
+
+
 @router.post("/run")
 async def run_from_pipeline(req: RunRequest) -> Dict[str, Any]:
     # Forecast pulls history from G1 in-memory; frontend only sends model + horizon.
@@ -251,6 +276,7 @@ async def run_from_pipeline(req: RunRequest) -> Dict[str, Any]:
     result["requested_model"]   = req.model
     result["requested_alias"]   = req.alias
     result["requested_horizon"] = req.horizon
+    _remember_run("total", result)
     return result
 
 
@@ -314,6 +340,7 @@ async def run_specialty_forecast(req: SpecialtyForecastRequest) -> Dict[str, Any
     result["requested_horizon"]   = req.horizon
     result["requested_specialty"] = req.specialty
     result["resolution"]          = req.resolution
+    _remember_run("specialty", result)
     return result
 
 
