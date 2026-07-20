@@ -11,11 +11,16 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 _ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+_ENV_MTIME: float | None = None  # reload .env only when the file changes
 
 
 def _env(name: str, default: str = "") -> str:
+    global _ENV_MTIME
     if _ENV_PATH.exists():
-        load_dotenv(_ENV_PATH, override=True)
+        mtime = _ENV_PATH.stat().st_mtime
+        if mtime != _ENV_MTIME:  # first read, or the user edited api/.env
+            load_dotenv(_ENV_PATH, override=True)
+            _ENV_MTIME = mtime
     return (os.getenv(name) or default).strip()
 
 

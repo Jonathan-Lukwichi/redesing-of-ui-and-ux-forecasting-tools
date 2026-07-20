@@ -1,10 +1,13 @@
-"""In-memory token/cost log for the AI assistant (per-process ring buffer).
+"""Token/cost telemetry for the AI assistant.
 
-Powers the admin usage tile and the daily budget cap. Resets on restart.
+The daily budget cap is enforced from the DURABLE audit log (ai/audit.py), so a
+server restart can no longer reset today's spend to zero. The in-memory ring
+buffer remains only as a fast "recent calls" feed for the admin tile.
+Day boundaries are UTC, matching the audit timestamps.
 """
 from __future__ import annotations
 from collections import deque
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from typing import Any
 
 from ai import config
@@ -12,10 +15,14 @@ from ai import config
 _LOG: deque[dict] = deque(maxlen=500)
 
 
+def _utc_day() -> str:
+    return datetime.now(timezone.utc).date().isoformat()
+
+
 def record(surface: str, model: str, in_tokens: int, out_tokens: int) -> dict:
     entry = {
         "ts":         datetime.now(timezone.utc).isoformat(),
-        "day":        date.today().isoformat(),
+        "day":        _utc_day(),
         "surface":    surface,
         "model":      model,
         "in_tokens":  int(in_tokens),
@@ -27,8 +34,9 @@ def record(surface: str, model: str, in_tokens: int, out_tokens: int) -> dict:
 
 
 def spent_today_usd() -> float:
-    today = date.today().isoformat()
-    return round(sum(e["cost_usd"] for e in _LOG if e["day"] == today), 6)
+    """Durable: read from the audit JSONL, not the restartable ring buffer."""
+    from ai import audit
+    return audit.day_cost_usd(_utc_day())
 
 
 def remaining_budget_usd() -> float:
@@ -40,10 +48,12 @@ def over_budget() -> bool:
 
 
 def summary() -> dict[str, Any]:
+    from ai import audit
+    today = _utc_day()
     return {
-        "spent_today_usd":     spent_today_usd(),
-        "daily_budget_usd":    config.daily_budget_usd(),
-        "remaining_usd":       remaining_budget_usd(),
-        "calls_today":         sum(1 for e in _LOG if e["day"] == date.today().isoformat()),
-        "recent":             list(_LOG)[-10:][::-1],
+        "spent_today_usd":  spent_today_usd(),
+        "daily_budget_usd": config.daily_budget_usd(),
+        "remaining_usd":    remaining_budget_usd(),
+        "calls_today":      audit.day_calls(today),
+        "recent":           list(_LOG)[-10:][::-1],
     }

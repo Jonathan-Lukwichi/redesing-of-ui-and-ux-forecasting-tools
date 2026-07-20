@@ -16,6 +16,15 @@ from ai import config, client as ai_client, context, prompts, telemetry, chat as
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
+# Starlette's signature is JSONResponse(content, status_code=...) — always go
+# through this helper so a guard can never crash with swapped arguments again.
+def _err(status: int, error: str, message: str) -> JSONResponse:
+    return JSONResponse(content={"error": error, "message": message}, status_code=status)
+
+
+# Streaming responses must not be buffered by proxies (nginx) or cached.
+_STREAM_HEADERS = {"X-Accel-Buffering": "no", "Cache-Control": "no-cache"}
+
 
 @router.get("/health")
 async def health() -> dict[str, Any]:
@@ -88,17 +97,17 @@ class ExplainRequest(BaseModel):
 
 def _explain(surface: str, data: dict[str, Any]):
     if not config.configured():
-        return JSONResponse(503, {"error": "ai_not_configured",
-                                  "message": "Set ANTHROPIC_API_KEY in api/.env to enable the assistant."})
+        return _err(503, "ai_not_configured",
+                    "Set ANTHROPIC_API_KEY in api/.env to enable the assistant.")
     if telemetry.over_budget():
-        return JSONResponse(429, {"error": "budget_exhausted",
-                                  "message": "The assistant's daily budget cap is reached. It will resume tomorrow."})
+        return _err(429, "budget_exhausted",
+                    "The assistant's daily budget cap is reached. It will resume tomorrow.")
     builder = _EXPLAIN.get(surface)
     if builder is None:
-        return JSONResponse(400, {"error": "unknown_surface", "message": f"No explainer for '{surface}'."})
+        return _err(400, "unknown_surface", f"No explainer for '{surface}'.")
     system_fn, ctx_fn = builder
     return StreamingResponse(_stream(f"explain_{surface}", system_fn(), ctx_fn(data)),
-                             media_type="text/plain; charset=utf-8")
+                             media_type="text/plain; charset=utf-8", headers=_STREAM_HEADERS)
 
 
 @router.post("/explain")
@@ -113,14 +122,14 @@ class BriefingRequest(BaseModel):
 @router.post("/briefing")
 async def briefing(req: BriefingRequest):
     if not config.configured():
-        return JSONResponse(503, {"error": "ai_not_configured",
-                                  "message": "Set ANTHROPIC_API_KEY in api/.env to enable the assistant."})
+        return _err(503, "ai_not_configured",
+                    "Set ANTHROPIC_API_KEY in api/.env to enable the assistant.")
     if telemetry.over_budget():
-        return JSONResponse(429, {"error": "budget_exhausted", "message": "Daily budget reached."})
+        return _err(429, "budget_exhausted", "Daily budget reached.")
     system = prompts.dashboard_briefing()
     content = context.build_forecast_context(req.context)
     return StreamingResponse(_stream("briefing", system, content),
-                             media_type="text/plain; charset=utf-8")
+                             media_type="text/plain; charset=utf-8", headers=_STREAM_HEADERS)
 
 
 class ChatMessage(BaseModel):
@@ -135,10 +144,10 @@ class ChatRequest(BaseModel):
 @router.post("/chat")
 async def chat(req: ChatRequest):
     if not config.configured():
-        return JSONResponse(503, {"error": "ai_not_configured",
-                                  "message": "Set ANTHROPIC_API_KEY in api/.env to enable the assistant."})
+        return _err(503, "ai_not_configured",
+                    "Set ANTHROPIC_API_KEY in api/.env to enable the assistant.")
     if telemetry.over_budget():
-        return JSONResponse(429, {"error": "budget_exhausted", "message": "Daily budget reached."})
+        return _err(429, "budget_exhausted", "Daily budget reached.")
 
     msgs = [{"role": m.role, "content": m.content} for m in req.messages]
     last_user = next((m["content"] for m in reversed(msgs) if m["role"] == "user"), "")
@@ -162,21 +171,21 @@ async def chat(req: ChatRequest):
                 telemetry.record("chat", config.model_reasoning(), in_tok, out_tok)
             audit.log_event("chat", config.model_reasoning(), last_user, "".join(parts), in_tok, out_tok)
 
-    return StreamingResponse(gen(), media_type="text/plain; charset=utf-8")
+    return StreamingResponse(gen(), media_type="text/plain; charset=utf-8", headers=_STREAM_HEADERS)
 
 
 @router.get("/actions")
 async def actions():
     if not config.configured():
-        return JSONResponse(503, {"error": "ai_not_configured",
-                                  "message": "Set ANTHROPIC_API_KEY in api/.env to enable the assistant."})
+        return _err(503, "ai_not_configured",
+                    "Set ANTHROPIC_API_KEY in api/.env to enable the assistant.")
     if telemetry.over_budget():
-        return JSONResponse(429, {"error": "budget_exhausted", "message": "Daily budget reached."})
+        return _err(429, "budget_exhausted", "Daily budget reached.")
     try:
         # Runs in a threadpool so its self-calls don't deadlock the event loop.
         out = await run_in_threadpool(ai_actions.generate)
     except ai_client.AIError as e:
-        return JSONResponse(503, {"error": "ai_error", "message": str(e)})
+        return _err(503, "ai_error", str(e))
     u = out.pop("usage", None)
     in_t = (u or {}).get("in", 0)
     out_t = (u or {}).get("out", 0)

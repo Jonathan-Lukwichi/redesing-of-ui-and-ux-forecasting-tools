@@ -28,7 +28,7 @@ CARDS: dict[str, dict] = {
     },
     "sarimax": {
         "title": "The best statistical model",
-        "keywords": "statistical model best stat classical time series baseline trend seasonality rhythm",
+        "keywords": "statistical model best stat classical time series baseline trend seasonality rhythm forecast forecasting sarimax",
         "source": "classical time-series methods (Industrial Statistics)",
         "body": (
             "The statistical model is a classic time-series approach. It reads three things from "
@@ -41,7 +41,7 @@ CARDS: dict[str, dict] = {
     },
     "gradient_boosting": {
         "title": "The best ML model",
-        "keywords": "machine learning ml model best engine accurate patterns features lags weather calendar smart",
+        "keywords": "machine learning ml model best engine accurate patterns features lags weather calendar smart forecast forecasting predict",
         "source": "ED machine-learning forecasting literature (the project's reading folder)",
         "body": (
             "The ML model learns from many examples at once. It builds lots of small pattern-"
@@ -175,18 +175,26 @@ _STOP = {"the", "a", "an", "is", "of", "to", "and", "how", "what", "why", "do", 
          "in", "on", "for", "this", "that", "it", "me", "explain", "tell", "about"}
 
 
+# Short domain terms that must survive the length filter ("ml forecast", "ed").
+_SHORT_OK = {"ml", "ed", "ss"}
+
+
 def search(query: str, k: int = 2) -> list[dict]:
     """Return up to k knowledge cards best matching the query (keyword overlap)."""
     words = [w for w in "".join(c if c.isalnum() else " " for c in (query or "").lower()).split()
-             if w not in _STOP and len(w) > 2]
+             if w not in _STOP and (len(w) > 2 or w in _SHORT_OK)]
     if not words:
         return []
     scored = []
     for cid, card in CARDS.items():
         hay = (card["title"] + " " + card["keywords"]).lower()
-        score = sum(hay.count(w) for w in words)
+        score: float = sum(hay.count(w) for w in words)
         # light boost if a query word appears in the title
         score += 2 * sum(1 for w in words if w in card["title"].lower())
+        # body text at half weight — recall for queries phrased in the card's
+        # own words, without letting long bodies outrank curated keywords
+        body = card["body"].lower()
+        score += 0.5 * sum(body.count(w) for w in words)
         if score > 0:
             scored.append((score, cid, card))
     scored.sort(key=lambda x: -x[0])

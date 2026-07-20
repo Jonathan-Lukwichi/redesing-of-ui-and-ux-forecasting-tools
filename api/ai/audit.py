@@ -54,18 +54,39 @@ def log_event(surface: str, model: str, request: str, response: str,
     return entry
 
 
+# Parsed-rows cache keyed on (mtime, size) so repeated reads (budget checks on
+# every AI request) don't re-parse an unchanged file.
+_CACHE: dict[str, Any] = {"key": None, "rows": []}
+
+
 def _read() -> list[dict[str, Any]]:
     if not _FILE.exists():
         return []
     with _LOCK:
+        st = _FILE.stat()
+        key = (st.st_mtime_ns, st.st_size)
+        if _CACHE["key"] == key:
+            return _CACHE["rows"]
         lines = _FILE.read_text(encoding="utf-8").splitlines()
-    out = []
-    for line in lines:
-        try:
-            out.append(json.loads(line))
-        except Exception:
-            continue
-    return out
+        out = []
+        for line in lines:
+            try:
+                out.append(json.loads(line))
+            except Exception:
+                continue
+        _CACHE["key"], _CACHE["rows"] = key, out
+        return out
+
+
+def day_cost_usd(day: str) -> float:
+    """Total recorded AI spend for a UTC day ('YYYY-MM-DD'). Durable — survives
+    restarts, unlike the in-memory telemetry buffer."""
+    return round(sum(float(r.get("cost_usd") or 0) for r in _read()
+                     if (r.get("ts") or "").startswith(day)), 6)
+
+
+def day_calls(day: str) -> int:
+    return sum(1 for r in _read() if (r.get("ts") or "").startswith(day))
 
 
 def recent(n: int = 50) -> list[dict[str, Any]]:

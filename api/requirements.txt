@@ -11,5 +11,5 @@ python-dotenv>=1.0
 scipy>=1.14.1
 truststore>=0.10  # use OS cert store for httpx on corporate Windows networks
 certifi>=2024.7  # explicit fallback bundle when truststore is unavailable
-anthropic>=0.40  # AI assistant (Claude) — see api/ai/
+anthropic>=0.100  # AI assistant (Claude) — needs structured outputs + prompt caching; see api/ai/
 pulp>=2.7  # CBC integer-programming solver for the forecast-driven staff optimization

@@ -1,9 +1,20 @@
-"""Ask-chat: a read-only, tool-using assistant over the live app data.
+"""Ask-chat: a read-only, RAG-style tool-using assistant over the live app data.
 
-Runs a manual tool loop on the reasoning-tier model (Sonnet), then yields the
-final answer. Read-only by design — it can look things up but never act.
+Runs a manual tool loop on the reasoning-tier model (Sonnet): the model
+retrieves grounding first (knowledge cards via lookup_knowledge, live numbers
+via the data tools), then answers from what it retrieved. Read-only by design —
+it can look things up but never act.
+
+Loop mechanics (per Anthropic's building-effective-agents guidance):
+- every round is STREAMED, so the user sees text the moment it is generated;
+- the static prefix (tool schemas + system prompt) carries a prompt-cache
+  breakpoint, so rounds 2+ and later turns pay ~0.1x for it;
+- failed tool fetches are marked is_error so the model knows retrieval failed;
+- when the round cap is hit, one last call is forced with tool_choice "none"
+  so the user always gets an answer grounded in whatever was retrieved.
 """
 from __future__ import annotations
+import json
 from typing import Iterator
 
 from ai import config, prompts, tools, redact
@@ -114,40 +125,68 @@ CHAT_SYSTEM = (
 )
 
 
+# Prompt-cache breakpoint on the system block. Tools render before system in
+# the prompt, so this single marker caches TOOL_SCHEMAS + CHAT_SYSTEM together
+# (well above Sonnet's 2048-token cacheable minimum). Verify hits via
+# usage.cache_read_input_tokens.
+_SYSTEM_BLOCKS = [{"type": "text", "text": CHAT_SYSTEM,
+                   "cache_control": {"type": "ephemeral"}}]
+
+_MAX_TOOL_ROUNDS = 4  # retrieval rounds before the answer is forced
+
+
 def stream_chat(messages: list[dict]) -> Iterator[tuple[str, object]]:
     """messages: [{role:'user'|'assistant', content:str}]. Yields ('delta', text)
     chunks then ('usage', {in,out})."""
     client = _client()
     model = config.model_reasoning()
-    convo: list[dict] = [{"role": m["role"], "content": m["content"]} for m in messages]
-    in_tok = out_tok = 0
+    usage = {"in": 0, "out": 0}
 
-    for _round in range(4):  # cap tool rounds
-        resp = client.messages.create(
-            model=model, max_tokens=1100, system=CHAT_SYSTEM,
-            tools=tools.TOOL_SCHEMAS, messages=convo,
-        )
-        in_tok += resp.usage.input_tokens
-        out_tok += resp.usage.output_tokens
+    def _run() -> Iterator[str]:
+        convo: list[dict] = [{"role": m["role"], "content": m["content"]} for m in messages]
+        for round_no in range(_MAX_TOOL_ROUNDS + 1):
+            # Past the cap, force an answer from what was already retrieved —
+            # the user must never get an empty reply.
+            forced = round_no == _MAX_TOOL_ROUNDS
+            kwargs: dict = dict(
+                model=model, max_tokens=1100, system=_SYSTEM_BLOCKS,
+                tools=tools.TOOL_SCHEMAS, messages=convo,
+            )
+            if forced:
+                kwargs["tool_choice"] = {"type": "none"}
+            with client.messages.stream(**kwargs) as stream:
+                emitted = False
+                for text in stream.text_stream:
+                    if text:
+                        emitted = True
+                        yield text
+                resp = stream.get_final_message()
+            usage["in"] += resp.usage.input_tokens
+            usage["out"] += resp.usage.output_tokens
 
-        if resp.stop_reason == "tool_use":
-            convo.append({"role": "assistant", "content": resp.content})
-            results = []
-            for block in resp.content:
-                if block.type == "tool_use":
-                    out = tools.execute(block.name, block.input or {})
-                    results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": __import__("json").dumps(out, default=str),
-                    })
-            convo.append({"role": "user", "content": results})
-            continue
+            if resp.stop_reason == "tool_use" and not forced:
+                convo.append({"role": "assistant", "content": resp.content})
+                results = []
+                for block in resp.content:
+                    if block.type == "tool_use":
+                        out = tools.execute(block.name, block.input or {})
+                        results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": json.dumps(out, default=str),
+                            "is_error": bool(isinstance(out, dict) and out.get("error")),
+                        })
+                convo.append({"role": "user", "content": results})
+                if emitted:
+                    yield "\n"  # keep any spoken preamble apart from the answer
+                continue
 
-        # Final answer — emit its text (scrubbed of any hospital identifier).
-        for block in resp.content:
-            if block.type == "text" and block.text:
-                yield ("delta", redact.scrub(block.text))
-        break
+            if resp.stop_reason == "max_tokens":
+                yield "\n[Answer cut short — ask a follow-up for the rest.]"
+            return
 
-    yield ("usage", {"in": in_tok, "out": out_tok})
+    # One scrubber over the whole stream: an identifier split across chunks can
+    # never slip through (see redact.scrub_stream).
+    for chunk in redact.scrub_stream(_run()):
+        yield ("delta", chunk)
+    yield ("usage", usage)
