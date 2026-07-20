@@ -9,6 +9,8 @@ from typing import Any
 
 import pandas as pd
 
+from core.registry import slim_numeric
+
 
 @dataclass
 class GroupEntry:
@@ -22,7 +24,7 @@ _entries: dict[str, GroupEntry] = {}
 
 def put(group_id: str, df: pd.DataFrame, metadata: dict[str, Any]) -> None:
     with _lock:
-        _entries[group_id] = GroupEntry(df=df, metadata=metadata)
+        _entries[group_id] = GroupEntry(df=slim_numeric(df), metadata=metadata)
 
 
 def get(group_id: str) -> GroupEntry | None:

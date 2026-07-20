@@ -1,12 +1,21 @@
+import gc
 from pathlib import Path
 
+import orjson
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, ORJSONResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
+class NumpyJSONResponse(ORJSONResponse):
+    """orjson with native numpy support — float32/int32 registry dtypes
+    serialize everywhere without per-endpoint casting."""
+    def render(self, content) -> bytes:
+        return orjson.dumps(content, option=orjson.OPT_SERIALIZE_NUMPY | orjson.OPT_NON_STR_KEYS)
 
 # In production (Docker) the built frontend is copied to api/static and served
 # by this same process — one service, same origin, no CORS. In dev the folder
@@ -20,7 +29,24 @@ app = FastAPI(
     title="HealthForecast AI — Backend API",
     description="Forecasting, staff scheduling, and supply optimization for hospital operations.",
     version="1.0.0",
+    default_response_class=NumpyJSONResponse,
 )
+
+
+# Heavy endpoints train models / run Monte-Carlo sims that allocate large
+# temporaries; collect right after so the 512MB instance stays under its cap.
+_HEAVY_PREFIXES = (
+    "/api/forecast", "/api/optimization", "/api/supply/compare",
+    "/api/supply/sweep", "/api/staff/strategy", "/api/task1", "/api/task2",
+)
+
+
+@app.middleware("http")
+async def _trim_after_heavy(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith(_HEAVY_PREFIXES):
+        gc.collect()
+    return response
 
 app.add_middleware(
     CORSMiddleware,

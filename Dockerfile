@@ -31,5 +31,7 @@ RUN if [ ! -f external/msc-modelling/artefacts/handover_to_webapp/task1_daily_ar
 COPY --from=frontend /build/dist ./static
 
 ENV PORT=8000
+# Limit glibc malloc arenas — cuts memory fragmentation on small instances.
+ENV MALLOC_ARENA_MAX=2
 EXPOSE 8000
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]

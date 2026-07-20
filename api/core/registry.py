@@ -12,6 +12,20 @@ from typing import Any
 import pandas as pd
 
 
+def slim_numeric(df: pd.DataFrame) -> pd.DataFrame:
+    """Halve the memory of numeric columns (float64->float32, int64->int32).
+    The data is counts, temperatures and flags — float32's 7 significant
+    digits are far more precision than the domain carries. JSON responses
+    are numpy-safe via the orjson encoder in main.py."""
+    for col in df.columns:
+        dt = str(df[col].dtype)
+        if dt == "float64":
+            df[col] = df[col].astype("float32")
+        elif dt == "int64":
+            df[col] = df[col].astype("int32")
+    return df
+
+
 @dataclass
 class DatasetEntry:
     """One uploaded dataset, indexed by schema id."""
@@ -25,7 +39,7 @@ _entries: dict[str, DatasetEntry] = {}
 
 def put(dataset_id: str, df: pd.DataFrame, metadata: dict[str, Any]) -> None:
     with _lock:
-        _entries[dataset_id] = DatasetEntry(df=df, metadata=metadata)
+        _entries[dataset_id] = DatasetEntry(df=slim_numeric(df), metadata=metadata)
 
 
 def get(dataset_id: str) -> DatasetEntry | None:
