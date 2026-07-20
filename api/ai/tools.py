@@ -30,7 +30,7 @@ TOOL_SCHEMAS = [
     },
     {
         "name": "get_staff_status",
-        "description": "Get current nurse staffing status: coverage, payroll, overtime, unfilled shifts, BCEA compliance, and per-shift breakdown. Use for questions about rosters, coverage, or staffing cost.",
+        "description": "Get the CURRENT nurse staffing state: coverage, nurse shortfall, and the per-shift breakdown. Use ONLY for questions about the situation as it stands today. NOT for 'best roster', 'how many nurses do we need', or planning questions — use get_optimization for those (it holds the demand-matched roster).",
         "input_schema": {"type": "object", "properties": {}},
     },
     {
@@ -50,6 +50,21 @@ TOOL_SCHEMAS = [
         },
     },
 ]
+
+
+def _window_note(days: list[dict]) -> str | None:
+    """Flag when the whole forecast window lies in the past, so the assistant
+    tells the user it is a historical run/backtest — not the week ahead."""
+    try:
+        from datetime import date
+        last = max(str(d.get("date") or "") for d in days) if days else ""
+        if last and last < date.today().isoformat():
+            return ("NOTE: this forecast window ends in the past — it is a historical "
+                    "run/backtest the user made, not the week ahead. Say so in one "
+                    "short clause when presenting it.")
+    except Exception:
+        pass
+    return None
 
 
 def _get(path: str) -> dict:
@@ -87,9 +102,11 @@ def execute(name: str, inp: dict[str, Any]) -> dict[str, Any]:
             days = d.get("forecast", [])
             model_label = {"ml": "best ML model", "statistical": "best statistical model"}.get(
                 d.get("requested_model"), d.get("requested_model") or "unknown")
+            note = _window_note(days)
             return {
                 # NOTE: accuracy/error figures are deliberately omitted — the public
                 # assistant must not quote accuracy numbers (see chat prompt).
+                **({"window_note": note} if note else {}),
                 "source": source,
                 "model": model_label,
                 "specialty": d.get("requested_specialty"),
@@ -120,7 +137,20 @@ def execute(name: str, inp: dict[str, Any]) -> dict[str, Any]:
             d = _get("/api/staff/overview")
             if d.get("error") or d.get("detail"):
                 return {"error": "Staffing data not available — the simulation files may not be loaded."}
-            return {"kpis": d.get("kpis"), "shifts": d.get("shifts")}
+            k = d.get("kpis") or {}
+            # Decision numbers ONLY. Payroll, weekly-hours averages and BCEA
+            # breach counts are deliberately omitted from the chat payload —
+            # they belong to the Staffing page explainer, not conversational
+            # answers (the model cannot recite what it never sees).
+            return {
+                "note": ("Current state only. For the demand-matched BEST roster use "
+                         "get_optimization; if that plan is unavailable, tell the user to "
+                         "run the staff optimization on the Optimization page."),
+                "kpis": {key: k.get(key) for key in (
+                    "lawful_coverage_pct", "coverage_pct", "staffing_shortfall",
+                    "nurses_needed_legal", "n_active_staff", "n_posts")},
+                "shifts": d.get("shifts"),
+            }
         if name == "lookup_knowledge":
             from ai import knowledge
             cards = knowledge.search(inp.get("query", ""), k=2)
@@ -133,7 +163,10 @@ def execute(name: str, inp: dict[str, Any]) -> dict[str, Any]:
             if not d or not d.get("staff"):
                 d = _post("/api/optimization/run", {"model": "ml"})
             if d.get("error") or d.get("detail") or not d.get("staff"):
-                return {"error": "Optimization plan not available — run it on the Optimization page."}
+                return {"error": ("No optimization plan is available yet. Tell the user: press "
+                                  "'Run staff optimization' and 'Run supply optimization' on the "
+                                  "Optimization page to get the best demand-matched roster and "
+                                  "reorder recommendations.")}
             staff = d.get("staff") or {}; supply = d.get("supply") or {}
             sk = staff.get("kpis") or {}; sc = staff.get("cost") or {}
             uk = supply.get("kpis") or {}; uc = supply.get("cost") or {}

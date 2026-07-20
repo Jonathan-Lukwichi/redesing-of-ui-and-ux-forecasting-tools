@@ -111,6 +111,35 @@ def test_accuracy_card_never_contains_numbers():
 
 
 # ---------------------------------------------------------------------------
+# 2b. Decision-first policies — the prompt and tool layer must enforce them
+# ---------------------------------------------------------------------------
+
+def test_forecast_window_note_flags_past_runs():
+    from ai import tools
+    past = [{"date": "2026-02-01"}, {"date": "2026-02-07"}]
+    note = tools._window_note(past)
+    assert note and "past" in note
+    assert tools._window_note([{"date": "2999-01-01"}]) is None
+    assert tools._window_note([]) is None
+
+
+def test_staff_tool_schema_routes_roster_questions_to_optimization():
+    from ai import tools
+    staff = next(t for t in tools.TOOL_SCHEMAS if t["name"] == "get_staff_status")
+    assert "get_optimization" in staff["description"]  # roster questions rerouted
+
+
+def test_chat_prompt_contains_decision_first_policies():
+    from ai.chat import CHAT_SYSTEM
+    s = CHAT_SYSTEM
+    assert "NO RAW DIAGNOSTICS" in s          # payroll/hours/BCEA never volunteered
+    assert "payroll" in s and "BCEA" in s
+    assert "most critical risk" in s          # urgent-first ordering
+    assert "window_note" in s                 # historical-run disclosure
+    assert "Run staff optimization" in s      # fallback when no plan exists
+
+
+# ---------------------------------------------------------------------------
 # 3. Tool loop mechanics — offline, with a fake Anthropic client
 # ---------------------------------------------------------------------------
 
