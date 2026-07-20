@@ -1,0 +1,15 @@
+# Render blueprint — creates the service preconfigured when you pick
+# "New +" -> "Blueprint" and select this repo.
+services:
+  - type: web
+    name: healthforecast
+    runtime: docker
+    plan: starter          # 512 MB RAM / 0.5 CPU — upgrade if forecasts hit memory limits
+    healthCheckPath: /docs
+    envVars:
+      - key: DATA_REPO
+        sync: false        # sync:false = Render asks you to paste the value in the dashboard
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
