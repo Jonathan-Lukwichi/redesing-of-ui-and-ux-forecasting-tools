@@ -28,8 +28,18 @@ const PAGES = {
   admin:                Admin,
 };
 
+// Deep-linking: /#dashboard, /#staff, ... open that page directly.
+function readHash() {
+  const h = typeof window !== 'undefined' ? window.location.hash.slice(1) : '';
+  return h && (PAGES[h] || h === 'landing' || h === 'welcome') ? h : 'landing';
+}
+
 export default function App() {
-  const [page, setPage] = useState('landing');
+  const [page, setPageState] = useState(readHash);
+  const setPage = (p) => {
+    setPageState(p);
+    try { window.location.hash = p; } catch { /* ignore */ }
+  };
 
   if (page === 'landing') return <Landing onNavigate={setPage} />;
   if (page === 'welcome') return <Welcome onNavigate={setPage} />;
