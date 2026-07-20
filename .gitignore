@@ -9,3 +9,4 @@ _backup_before_reset/
 
 # AI audit trail (runtime, not committed)
 api/data/ai_audit.jsonl
+api/static/

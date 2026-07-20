@@ -1,4 +1,7 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+// Dev: Vite on :5173 talks to the API on :8000. Production: the API serves the
+// built frontend itself, so requests are same-origin (empty base).
+const API_BASE = import.meta.env.VITE_API_BASE_URL
+  || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '');
 
 async function request(path, { method = 'GET', body, signal } = {}) {
   const opts = { method, signal };

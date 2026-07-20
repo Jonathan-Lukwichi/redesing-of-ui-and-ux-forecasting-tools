@@ -7,7 +7,8 @@ from typing import Any
 
 import httpx
 
-_BASE = (os.getenv("SELF_BASE_URL") or "http://127.0.0.1:8000").rstrip("/")
+_BASE = (os.getenv("SELF_BASE_URL")
+         or f"http://127.0.0.1:{os.getenv('PORT', '8000')}").rstrip("/")
 
 
 # Anthropic tool schemas (read-only).

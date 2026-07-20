@@ -1,8 +1,18 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# In production (Docker) the built frontend is copied to api/static and served
+# by this same process — one service, same origin, no CORS. In dev the folder
+# doesn't exist and Vite serves the frontend on :5173 as before.
+_STATIC_DIR = Path(__file__).resolve().parent / "static"
+_SERVE_FRONTEND = _STATIC_DIR.is_dir()
 
 from routers import forecast, staff, supply, kpis, upload, actions, datasets, prepare, explore, task1, task2, ai, optimization
 
@@ -45,6 +55,8 @@ async def _bootstrap_groups() -> None:
 
 @app.get("/")
 def root():
+    if _SERVE_FRONTEND:
+        return FileResponse(_STATIC_DIR / "index.html")
     return {
         "status": "running",
         "docs":   "/docs",
@@ -77,6 +89,18 @@ def root():
             "POST /api/upload/inventory",
         ],
     }
+
+
+# Static assets + SPA fallback — registered LAST so /api/* routes always win.
+if _SERVE_FRONTEND:
+    app.mount("/assets", StaticFiles(directory=_STATIC_DIR / "assets"), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def spa_fallback(full_path: str):
+        candidate = _STATIC_DIR / full_path
+        if full_path and ".." not in full_path and candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(_STATIC_DIR / "index.html")
 
 
 if __name__ == "__main__":

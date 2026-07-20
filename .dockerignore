@@ -1,0 +1,20 @@
+# Secrets — never bake into the image; set as env vars on the host instead.
+**/.env
+
+# Local/dev artifacts
+node_modules
+dist
+api/.venv
+**/__pycache__
+*.pyc
+
+# Not needed at runtime
+.git
+.claude
+docs
+project
+scripts
+explore-redesign
+to_push_to_data_repo
+*.bat
+README.md
