@@ -1,6 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Icon from './Icon';
 import AskChat from './AskChat';
+
+const MOBILE_QUERY = '(max-width: 820px)';
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => {
+    try { return window.matchMedia(MOBILE_QUERY).matches; } catch { return false; }
+  });
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_QUERY);
+    const onChange = (e) => setIsMobile(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return isMobile;
+}
 
 const NAV_ITEMS = [
   { section: 'Overview', items: [
@@ -54,9 +69,9 @@ function ToggleBtn({ collapsed, onToggle }) {
   );
 }
 
-function Sidebar({ active, onNavigate, collapsed, onToggle }) {
+function Sidebar({ active, onNavigate, collapsed, onToggle, mobileOpen }) {
   return (
-    <aside className="sidebar">
+    <aside className={'sidebar' + (mobileOpen ? ' mobile-open' : '')}>
       <div className="sidebar-brand" style={collapsed
         ? { padding: '18px 0', justifyContent: 'center' }
         : { justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
@@ -122,9 +137,12 @@ function Sidebar({ active, onNavigate, collapsed, onToggle }) {
   );
 }
 
-function Topbar({ crumbs = [], onNavigate }) {
+function Topbar({ crumbs = [], onNavigate, onMenu }) {
   return (
     <div className="topbar">
+      <button className="topbar-menu-btn" onClick={onMenu} aria-label="Open menu" title="Menu">
+        <Icon name="menu" size={18} />
+      </button>
       <div className="topbar-crumbs">
         {crumbs.map((c, i) => (
           <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -148,6 +166,8 @@ function Topbar({ crumbs = [], onNavigate }) {
 
 export default function AppShell({ active = 'dashboard', onNavigate, children }) {
   const crumbs = CRUMB_MAP[active] || ['Dashboard'];
+  const isMobile = useIsMobile();
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem('hf_sidebar_collapsed') === '1'; } catch { return false; }
   });
@@ -156,14 +176,27 @@ export default function AppShell({ active = 'dashboard', onNavigate, children })
     try { localStorage.setItem('hf_sidebar_collapsed', next ? '1' : '0'); } catch { /* ignore */ }
     return next;
   });
+  const navigate = (id) => {
+    setMobileOpen(false);
+    onNavigate(id);
+  };
   return (
-    <div className="app" style={{
+    <div className="app" style={isMobile ? undefined : {
       gridTemplateColumns: collapsed ? '72px 1fr' : 'minmax(220px, 280px) 1fr',
       transition: 'grid-template-columns .18s ease',
     }}>
-      <Sidebar active={active} onNavigate={onNavigate} collapsed={collapsed} onToggle={toggle} />
+      <Sidebar
+        active={active}
+        onNavigate={navigate}
+        collapsed={isMobile ? false : collapsed}
+        onToggle={isMobile ? () => setMobileOpen(false) : toggle}
+        mobileOpen={mobileOpen}
+      />
+      {isMobile && mobileOpen && (
+        <div className="sidebar-backdrop" onClick={() => setMobileOpen(false)} />
+      )}
       <div className="main">
-        <Topbar crumbs={crumbs} onNavigate={onNavigate} />
+        <Topbar crumbs={crumbs} onNavigate={navigate} onMenu={() => setMobileOpen(true)} />
         {children}
       </div>
       <AskChat />

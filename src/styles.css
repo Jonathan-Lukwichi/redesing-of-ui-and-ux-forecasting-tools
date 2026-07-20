@@ -921,6 +921,111 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
 }
 
 /* =============================================================================
+   RESPONSIVE — phones & tablets (≤ 820px).
+   The sidebar becomes an off-canvas drawer opened by the hamburger in the
+   topbar; fixed multi-column grids that pages declare inline collapse to one
+   or two columns; tables scroll sideways instead of squishing.
+   ============================================================================= */
+
+/* Mobile browsers: 100vh includes the URL bar; 100dvh is the real viewport. */
+@supports (height: 100dvh) {
+  .app { height: 100dvh; }
+}
+
+.topbar-menu-btn { display: none; }
+
+@media (max-width: 820px) {
+  .app {
+    display: flex !important;
+    flex-direction: column;
+  }
+
+  /* Hamburger */
+  .topbar-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border: 1px solid var(--border-2);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+  }
+
+  /* Sidebar becomes a slide-in drawer */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(300px, 85vw);
+    transform: translateX(-105%);
+    transition: transform 0.2s ease;
+    z-index: 120;
+    box-shadow: 0 0 40px rgba(15, 23, 42, 0.35);
+  }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    background: rgba(15, 23, 42, 0.45);
+  }
+
+  .main { flex: 1; min-height: 0; }
+  .content { padding: 14px 14px 48px; gap: 14px; }
+
+  .topbar { padding: 0 12px; }
+  .topbar-crumbs { overflow: hidden; }
+  .topbar-crumbs span { overflow: hidden; text-overflow: ellipsis; }
+
+  .page-head { flex-direction: column; align-items: stretch; gap: 10px; }
+  .page-head-actions { flex-wrap: wrap; }
+
+  /* Tables scroll sideways inside their card instead of crushing columns */
+  .card-body,
+  .exp-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tbl { min-width: 520px; }
+  .exp-tbl { min-width: 480px; }
+
+  /* iOS auto-zooms into inputs under 16px — keep them at 16px on touch */
+  .input, .select, .topbar-search { font-size: 16px; }
+
+  .tabs { overflow-x: auto; }
+  .tab { white-space: nowrap; }
+
+  /* --- Collapse fixed inline grids declared in page JSX --- */
+  /* Two/three asymmetric columns -> single column */
+  #root div[style*="grid-template-columns: 1fr 1"],
+  #root div[style*="grid-template-columns: 1.1fr"],
+  #root div[style*="grid-template-columns: 1.4fr"],
+  #root div[style*="grid-template-columns: 1.5fr"],
+  #root div[style*="repeat(2,minmax(0,1fr))"],
+  #root div[style*="minmax(0,1fr) auto"] {
+    grid-template-columns: 1fr !important;
+  }
+  /* Wide stat rows (3-7 fixed columns) -> two columns */
+  #root div[style*="repeat(3, 1fr"],
+  #root div[style*="repeat(3,1fr"],
+  #root div[style*="repeat(4, 1fr"],
+  #root div[style*="repeat(4,1fr"],
+  #root div[style*="repeat(4, auto"],
+  #root div[style*="repeat(5, 1fr"],
+  #root div[style*="repeat(7, 1fr"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Small phones: single-column KPI strips breathe better */
+@media (max-width: 420px) {
+  .exp-kpis { grid-template-columns: repeat(2, 1fr); }
+  .content { padding: 12px 10px 44px; }
+}
+
+/* =============================================================================
    PRINT — clean A4 layout for "Download PDF" via window.print().
    Hides the AppShell chrome and all interactive controls, then forces card-
    grid rows to stay together across page breaks. Charts are SVG so they print

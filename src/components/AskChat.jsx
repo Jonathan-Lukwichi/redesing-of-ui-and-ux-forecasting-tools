@@ -60,8 +60,9 @@ export default function AskChat() {
 
       {open && (
         <div style={{
-          position: 'fixed', right: 22, bottom: 88, zIndex: 1000,
-          width: 380, maxWidth: 'calc(100vw - 44px)', height: 520, maxHeight: 'calc(100vh - 130px)',
+          position: 'fixed', right: 'min(22px, 3vw)', bottom: 88, zIndex: 1000,
+          width: 380, maxWidth: 'calc(100vw - 16px)', height: 520,
+          maxHeight: 'calc(100dvh - 110px)',
           background: '#fff', border: '1px solid #ddd6fe', borderRadius: 16,
           boxShadow: '0 20px 50px rgba(15,23,41,0.25)', display: 'flex', flexDirection: 'column',
           overflow: 'hidden',

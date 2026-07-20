@@ -1,5 +1,6 @@
 const ICONS = {
   home: "M3 12l9-9 9 9M5 10v10h14V10",
+  menu: "M4 6h16M4 12h16M4 18h16",
   dashboard: "M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z",
   upload: "M12 3v12m-5-5l5-5 5 5M4 17v3h16v-3",
   table: "M3 6h18M3 12h18M3 18h18M9 6v12M15 6v12",
