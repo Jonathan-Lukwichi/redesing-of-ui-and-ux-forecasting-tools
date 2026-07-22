@@ -363,6 +363,99 @@ CARDS: dict[str, dict] = {
             "from expensive last-minute pull to well-informed push."
         ),
     },
+    # --- Machine-learning foundation cards (Python Machine Learning tutorial,
+    # distilled and tied to this app's ML engine). ----------------------------
+    "ml_learning": {
+        "title": "What machine learning actually is — learning from examples",
+        "keywords": "machine learning what is ml how learn train supervised unsupervised examples pattern algorithm teach data driven",
+        "source": "Python Machine Learning tutorial (supervised learning)",
+        "body": (
+            "Machine learning replaces hand-written rules with learned ones: show an algorithm "
+            "thousands of examples of 'situation -> outcome' and it finds the mapping itself. "
+            "SUPERVISED learning (what this app uses) learns from labelled history — two years "
+            "of 'this calendar day, this weather, these recent arrivals -> this many patients'. "
+            "UNSUPERVISED learning finds structure without labels (e.g. clustering similar days "
+            "together) — a useful future lens, but not what drives the forecasts here. The "
+            "practical consequence: the model is only as wise as the history it saw, which is "
+            "why regime changes (like COVID) matter so much."
+        ),
+    },
+    "overfitting": {
+        "title": "Overfitting — when a model memorises instead of learning",
+        "keywords": "overfitting underfitting memorise generalise train test split holdout too complex fits noise validation unseen",
+        "source": "Python Machine Learning tutorial (model evaluation)",
+        "body": (
+            "A model can score perfectly on the data it trained on by memorising its noise — "
+            "and then fail on tomorrow. That is OVERFITTING. The defence is discipline, not "
+            "cleverness: judge the model only on data it never saw (a held-out slice of "
+            "history; in this app, honest backtests), and keep the model no more complex than "
+            "the data justifies. UNDERFITTING is the opposite failure — a model too simple to "
+            "capture the real pattern (e.g. ignoring the weekly rhythm). Every accuracy figure "
+            "in this app comes from held-out data, never from training fit — that is the only "
+            "score that predicts real-world behaviour."
+        ),
+    },
+    "features": {
+        "title": "Features — the clues a model is allowed to see",
+        "keywords": "features feature engineering inputs variables clues lags rolling calendar signals what model sees domain knowledge",
+        "source": "Python Machine Learning tutorial (feature extraction)",
+        "body": (
+            "A model cannot use what it is not shown. FEATURES are its senses, and feature "
+            "engineering — choosing and shaping them — is where domain knowledge enters the "
+            "mathematics. This app's ML engine sees ten clues per day: which weekday and month "
+            "it is, whether it's a weekend, arrivals 1/2/3/7 days ago (momentum and weekly "
+            "rhythm), and rolling averages and spread (the local level and volatility). Good "
+            "features beat fancy algorithms: most of a model's skill is decided before "
+            "training starts, by what it is allowed to look at — and every feature must be "
+            "knowable BEFORE the day being predicted, or you have leakage."
+        ),
+    },
+    "preprocessing": {
+        "title": "Preprocessing — why clean data beats clever models",
+        "keywords": "preprocessing cleaning missing values outliers garbage in quality prepare raw data transform scale strange wrong odd broken suspect weird looks off",
+        "source": "Python Machine Learning tutorial (data preprocessing)",
+        "body": (
+            "Real data arrives dirty: missing days, duplicated rows, impossible zeros, "
+            "outliers that are really data-entry errors. Feeding that to any algorithm gives "
+            "confident nonsense — garbage in, garbage out. Preprocessing fixes it once, "
+            "centrally, and honestly (flagging what was changed): this app's Prepare step "
+            "drops empty columns, audits duplicate dates, flags zero-arrival days and labels "
+            "COVID regimes before any model trains. When a forecast looks strange, a data "
+            "problem upstream is ALWAYS the first suspect — check the Data Health view before "
+            "doubting the model."
+        ),
+    },
+    "bias_variance": {
+        "title": "The bias-variance trade-off — why bigger isn't better",
+        "keywords": "bias variance trade off complexity deeper trees simple complex model size tune why not bigger deep learning",
+        "source": "Python Machine Learning tutorial (model selection)",
+        "body": (
+            "Model complexity is a dial, not a virtue. Too simple = BIAS: the model can't "
+            "express the real pattern. Too complex = VARIANCE: it bends to every accident of "
+            "the training sample and won't generalise. The sweet spot depends on how much "
+            "data you have — with roughly two years of daily history, moderate models (this "
+            "app uses boosted trees of depth 4) beat both a straight line and a deep neural "
+            "network, which would need far more data to earn its complexity. This is also why "
+            "'why not use deep learning / AI like ChatGPT to forecast?' has a principled "
+            "answer: at this data size, it would overfit — proven by backtest, not opinion."
+        ),
+    },
+    "ensembles": {
+        "title": "Ensembles — many weak learners, one strong forecast",
+        "keywords": "ensemble boosting bagging trees weak learners combine why many small models sequential errors correct",
+        "source": "Python Machine Learning tutorial (ensemble methods)",
+        "body": (
+            "Ask one expert and you get their blind spots; ask two hundred and average, and "
+            "the blind spots cancel. Ensembles apply this to models. BAGGING trains many "
+            "models on shuffled samples and averages them (random forests). BOOSTING — what "
+            "this app's ML engine uses — trains small trees in sequence, each one focusing on "
+            "the errors the previous ones still make, so the ensemble improves where it is "
+            "weakest. Each tree alone is a mediocre forecaster; two hundred of them, each "
+            "correcting the last, is what makes the ML engine usually the most accurate "
+            "choice on the forecast pages."
+        ),
+    },
+
     "value_of_information": {
         "title": "The value of information — what accuracy is worth in Rand",
         "keywords": "value information accuracy worth money rand savings better forecast pays sharing information why invest",
