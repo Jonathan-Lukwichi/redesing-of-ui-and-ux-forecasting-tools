@@ -14,3 +14,4 @@ certifi>=2024.7  # explicit fallback bundle when truststore is unavailable
 anthropic>=0.100  # AI assistant (Claude) — needs structured outputs + prompt caching; see api/ai/
 pulp>=2.7  # CBC integer-programming solver for the forecast-driven staff optimization
 orjson>=3.9  # numpy-native JSON responses (memory diet: float32 registry dtypes)
+holidays>=0.40  # deterministic SA public-holiday features for the ML forecaster

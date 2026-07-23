@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Body
@@ -6,8 +7,8 @@ from pydantic import BaseModel
 import numpy as np
 import pandas as pd
 
-from core.forecasting import auto_forecast, run_arima_forecast, run_ml_forecast
-from core import prepare_registry
+from core.forecasting import auto_forecast, run_arima_forecast, run_ml_forecast, WEATHER_FEATURES
+from core import prepare_registry, weather as live_weather
 
 router = APIRouter(prefix="/api/forecast", tags=["forecast"])
 
@@ -119,12 +120,44 @@ def _attach_confidence(result: dict, hist_mean: float) -> None:
     result["avg_actual"] = round(float(hist_mean), 1)
 
 
+# Weather covariates only help when the forecast window is short enough for a
+# real weather forecast to exist at decision time.
+_WEATHER_MAX_HORIZON = 14
+
+# Backtested Jul 2026 over 8 cutoffs, horizon 7: calendar features improved
+# MAE 12.55 -> 11.52; adding weather (recorded, i.e. its best case) moved it to
+# 11.92 — worse than calendar-only. Weather plumbing is kept but opt-in until
+# a validated gain exists: set FORECAST_WEATHER=on to enable.
+_WEATHER_ENABLED = (os.getenv("FORECAST_WEATHER") or "off").strip().lower() == "on"
+
+
+def _weather_frame(weather_df, dates, horizon: int):
+    """Assemble recorded history + window weather for the ML engine.
+    Returns (frame, source_label) or (None, None). Window rows come from the
+    recorded data when available (backtest / historical replay), otherwise
+    from the live Open-Meteo APIs."""
+    if weather_df is None or not len(dates):
+        return None, None
+    last = pd.to_datetime(dates[-1])
+    win = [last + pd.Timedelta(days=i + 1) for i in range(horizon)]
+    w = weather_df.copy()
+    w["date"] = pd.to_datetime(w["date"]).dt.normalize()
+    have = set(w["date"])
+    if all(d.normalize() in have for d in win):
+        return w, "recorded (replay)"
+    fetched = live_weather.daily_for_dates(win)
+    if fetched is not None:
+        return pd.concat([w, fetched], ignore_index=True), "open-meteo"
+    return None, None
+
+
 def _forecast_from_series(
     s: "pd.Series",
     model: str,
     horizon: int,
     weekly: bool = False,
     start_date: Optional[str] = None,
+    weather_df: "Optional[pd.DataFrame]" = None,
 ) -> Dict[str, Any]:
     """Core forecast routine shared by Task 1 (total) and Task 2 (specialty).
 
@@ -156,7 +189,11 @@ def _forecast_from_series(
         if model == "statistical":
             result = run_arima_forecast(history, dates, horizon)
         else:
-            result = run_ml_forecast(history, dates, horizon)
+            wframe, wsource = (None, None)
+            if _WEATHER_ENABLED and not weekly and horizon <= _WEATHER_MAX_HORIZON:
+                wframe, wsource = _weather_frame(weather_df, dates, horizon)
+            result = run_ml_forecast(history, dates, horizon, weather=wframe)
+            result["weather_source"] = wsource if result.get("weather_used") else None
     except Exception as e:
         raise HTTPException(500, f"Forecast failed: {e}")
 
@@ -270,8 +307,11 @@ async def run_from_pipeline(req: RunRequest) -> Dict[str, Any]:
         index=pd.to_datetime(df["date"], errors="coerce"),
     ).dropna().sort_index()
 
+    weather_df = (df[["date"] + WEATHER_FEATURES].copy()
+                  if all(c in df.columns for c in WEATHER_FEATURES) else None)
     result = _forecast_from_series(
         s, req.model, req.horizon, weekly=False, start_date=req.start_date,
+        weather_df=weather_df,
     )
     result["requested_model"]   = req.model
     result["requested_alias"]   = req.alias
@@ -330,10 +370,13 @@ async def run_specialty_forecast(req: SpecialtyForecastRequest) -> Dict[str, Any
         index=pd.to_datetime(df["date"], errors="coerce"),
     ).dropna().sort_index()
 
+    weather_df = (df[["date"] + WEATHER_FEATURES].copy()
+                  if all(c in df.columns for c in WEATHER_FEATURES) else None)
     result = _forecast_from_series(
         s, req.model, req.horizon,
         weekly=(req.resolution == "weekly"),
         start_date=req.start_date,
+        weather_df=weather_df,
     )
     result["requested_model"]     = req.model
     result["requested_alias"]     = req.alias

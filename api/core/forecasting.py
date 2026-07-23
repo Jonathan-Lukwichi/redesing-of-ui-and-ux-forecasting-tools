@@ -27,11 +27,46 @@ def _label(v: float, values: List[float]) -> str:
     return "low"
 
 
+# South African public holidays — deterministic for any date, so they are
+# always legitimate forecast features (known at decision time, any horizon).
+try:
+    import holidays as _holidays_lib
+    _ZA_HOLIDAYS = _holidays_lib.country_holidays("ZA", years=range(2015, 2041))
+except Exception:  # pragma: no cover — package missing: features become zeros
+    _ZA_HOLIDAYS = {}
+
+
+def _is_holiday(ts: pd.Timestamp) -> int:
+    try:
+        return int(ts.date() in _ZA_HOLIDAYS)
+    except Exception:
+        return 0
+
+
+# Weather covariate columns (must match the weather_daily dataset and
+# core/weather.py). Used only when a weather frame covering both the training
+# history and the forecast window is supplied.
+WEATHER_FEATURES = ["temp_max_C", "temp_min_C", "precipitation_mm"]
+
+
+def _calendar_extras(ts: pd.Timestamp) -> dict:
+    return {
+        "is_holiday":         _is_holiday(ts),
+        "day_before_holiday": _is_holiday(ts + timedelta(days=1)),
+        "day_after_holiday":  _is_holiday(ts - timedelta(days=1)),
+        "day_of_month":       ts.day,
+    }
+
+
 def _build_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy().sort_values("date")
     df["dow"] = df["date"].dt.dayofweek
     df["month"] = df["date"].dt.month
     df["is_weekend"] = (df["dow"] >= 5).astype(int)
+    df["is_holiday"] = df["date"].map(_is_holiday)
+    df["day_before_holiday"] = (df["date"] + pd.Timedelta(days=1)).map(_is_holiday)
+    df["day_after_holiday"]  = (df["date"] - pd.Timedelta(days=1)).map(_is_holiday)
+    df["day_of_month"] = df["date"].dt.day
     for lag in [1, 2, 3, 7]:
         df[f"lag_{lag}"] = df["arrivals"].shift(lag)
     df["roll7_mean"] = df["arrivals"].shift(1).rolling(7).mean()
@@ -160,7 +195,14 @@ def run_ml_forecast(
     history: List[float],
     dates: List[str],
     horizon: int = 7,
+    weather: "pd.DataFrame | None" = None,
+    calendar_extras: bool = True,
 ) -> Dict[str, Any]:
+    """`weather` (optional): DataFrame with columns date + WEATHER_FEATURES
+    covering BOTH the training dates and the forecast window. History rows use
+    recorded weather; forecast rows use a real weather forecast (or recorded
+    weather in backtest/replay). If coverage is incomplete the model silently
+    runs without weather — never with invented values."""
     from sklearn.ensemble import GradientBoostingRegressor
 
     df = pd.DataFrame({"date": pd.to_datetime(dates), "arrivals": history})
@@ -168,6 +210,27 @@ def run_ml_forecast(
 
     feature_cols = ["dow", "month", "is_weekend", "lag_1", "lag_2", "lag_3", "lag_7",
                     "roll7_mean", "roll7_std", "roll14_mean"]
+    if calendar_extras:
+        feature_cols += ["is_holiday", "day_before_holiday", "day_after_holiday",
+                         "day_of_month"]
+
+    # Attach weather covariates when the frame covers enough of the history
+    # and every day of the forecast window.
+    last_date_ts = pd.to_datetime(dates[-1])
+    horizon_dates = [last_date_ts + timedelta(days=i + 1) for i in range(horizon)]
+    weather_lookup: dict = {}
+    use_weather = False
+    if weather is not None and len(weather):
+        w = weather.copy()
+        w["date"] = pd.to_datetime(w["date"]).dt.normalize()
+        w = w.dropna(subset=WEATHER_FEATURES).drop_duplicates("date")
+        weather_lookup = {d: r for d, r in zip(w["date"], w[WEATHER_FEATURES].to_dict("records"))}
+        hist_cover = df["date"].dt.normalize().isin(w["date"]).mean()
+        fut_cover = all(d.normalize() in weather_lookup for d in horizon_dates)
+        if hist_cover >= 0.95 and fut_cover:
+            df = df.merge(w[["date"] + WEATHER_FEATURES], on="date", how="inner")
+            feature_cols += WEATHER_FEATURES
+            use_weather = True
 
     # Train/val split (last 15%)
     split = max(7, int(len(df) * 0.85))
@@ -208,7 +271,11 @@ def run_ml_forecast(
             "roll7_std":  np.std(all_hist[-7:]),
             "roll14_mean":np.mean(all_hist[-14:]) if len(all_hist) >= 14 else np.mean(all_hist),
         }
-        pred = float(model.predict(pd.DataFrame([row]))[0])
+        if calendar_extras:
+            row.update(_calendar_extras(pd.Timestamp(next_date)))
+        if use_weather:
+            row.update(weather_lookup[pd.Timestamp(next_date).normalize()])
+        pred = float(model.predict(pd.DataFrame([row])[feature_cols])[0])
         pred = max(0, pred)
         forecasted.append(pred)
         all_hist.append(pred)
@@ -259,6 +326,8 @@ def run_ml_forecast(
         "forecast":   forecast_days,
         "history":    hist_out,
         "interval_method": "empirical",  # middle 95% of the model's own past errors
+        "weather_used": use_weather,
+        "n_features":  len(feature_cols),
         "message":    f"Trained on {len(df)} feature-engineered samples",
     }
 
