@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import PageHero from '../components/PageHero';
 import Icon from '../components/Icon';
 import { BarChart, Heatmap } from '../components/Charts';
+import Card, { CardGrid } from '../components/ui/Card';
 import { api } from '../api/client';
 
 const GROUP_ICON = { g1: 'chart', g2: 'forecast', g3: 'flask', g4: 'cpu' };
@@ -123,7 +124,7 @@ export default function PrepareData({ onNavigate }) {
             sub="Each group merges one hospital dataset with calendar + weather on the indicated key. Cleaning runs as part of every merge."
           />
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+          <CardGrid columns={4} minItemWidth={240}>
             {groups?.items.map((item) => (
               <GroupCard
                 key={item.spec.id}
@@ -135,7 +136,7 @@ export default function PrepareData({ onNavigate }) {
                 onSelect={() => onSelect(item.spec.id)}
               />
             ))}
-          </div>
+          </CardGrid>
 
           {selectedItem && selectedItem.built && (
             <DetailPanel
@@ -169,49 +170,35 @@ function GroupCard({ item, buildState, selected, onBuild, onClear, onSelect }) {
   const background = isError ? '#fef5f5' : selected ? '#f8fafc' : built ? 'white' : '#fafbfc';
 
   return (
-    <div
-      className="card"
+    <Card
       onClick={built ? onSelect : undefined}
       style={{
         ...borderStyle, background,
-        padding: 16, cursor: built ? 'pointer' : 'default',
-        display: 'flex', flexDirection: 'column', gap: 10, minHeight: 260,
+        padding: 16, cursor: built ? 'pointer' : 'default', minHeight: 260,
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div style={{
-          width: 32, height: 32, borderRadius: 6,
-          background: built ? 'var(--accent-soft, #e0f2f1)' : '#eef2f6',
-          color: built ? 'var(--accent, #0d9488)' : '#94a3b8',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Icon name={GROUP_ICON[spec.id] || 'chart'} size={16} />
-        </div>
-        <GroupStatusBadge status={status} can_build={can_build} />
+      <Card.Header
+        icon={<Icon name={GROUP_ICON[spec.id] || 'chart'} size={16} />}
+        chip={<GroupStatusBadge status={status} can_build={can_build} />}
+      />
+
+      <div style={{ minWidth: 0 }}>
+        <Card.Title style={{ fontSize: 14, color: built ? undefined : '#475569' }}>{spec.label}</Card.Title>
+        <Card.Description style={{ fontSize: 11, marginTop: 2, lineHeight: 1.4 }}>{spec.description}</Card.Description>
       </div>
 
-      <div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: built ? '#0f172a' : '#475569' }}>{spec.label}</div>
-        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2, lineHeight: 1.4 }}>{spec.description}</div>
-      </div>
-
-      <div>
+      <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 }}>
           Sources · key {spec.key_columns.join(' + ')}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {sources.items.map((s) => (
-            <div key={s.id} style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              fontSize: 11, padding: '4px 6px', borderRadius: 4,
-              background: s.loaded ? '#ecfdf5' : '#fef2f2',
-              color: s.loaded ? '#065f46' : '#991b1b',
-            }}>
-              <span className="mono" style={{ fontSize: 10 }}>{s.id}</span>
-              <span style={{ fontWeight: 600 }}>
-                {s.loaded ? `✓ ${s.rows?.toLocaleString() || '—'}` : '✗ not loaded'}
-              </span>
-            </div>
+            <Card.SourceRow
+              key={s.id}
+              name={s.id}
+              ok={s.loaded}
+              extra={s.loaded ? (s.rows?.toLocaleString() || '—') : undefined}
+            />
           ))}
         </div>
       </div>
@@ -220,28 +207,17 @@ function GroupCard({ item, buildState, selected, onBuild, onClear, onSelect }) {
 
       {built && metadata && (
         <div style={{
-          paddingTop: 10, borderTop: '1px solid #eef0f3', fontSize: 11, color: '#475569',
+          paddingTop: 10, borderTop: '1px solid #eef0f3',
           display: 'flex', flexDirection: 'column', gap: 2,
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Rows</span>
-            <span className="mono tnum" style={{ color: '#0f172a', fontWeight: 600 }}>
-              {metadata.rows.toLocaleString()}
-            </span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Columns</span>
-            <span className="mono tnum" style={{ color: '#0f172a', fontWeight: 600 }}>
-              {metadata.n_columns}
-            </span>
-          </div>
+          <Card.MetricRow label="Rows" value={metadata.rows.toLocaleString()} />
+          <Card.MetricRow label="Columns" value={metadata.n_columns} />
           {metadata.zero_day_count != null && (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Zero-arrival {spec.grain === 'daily' ? 'days' : 'hours'}</span>
-              <span className="mono tnum" style={{ color: metadata.zero_day_count > 0 ? '#d97706' : '#16a34a', fontWeight: 600 }}>
-                {metadata.zero_day_count.toLocaleString()}
-              </span>
-            </div>
+            <Card.MetricRow
+              label={`Zero-arrival ${spec.grain === 'daily' ? 'days' : 'hours'}`}
+              value={metadata.zero_day_count.toLocaleString()}
+              valueColor={metadata.zero_day_count > 0 ? '#d97706' : '#16a34a'}
+            />
           )}
           {metadata.date_range && (
             <div style={{ marginTop: 4, fontSize: 10, color: '#64748b' }}>
@@ -251,7 +227,8 @@ function GroupCard({ item, buildState, selected, onBuild, onClear, onSelect }) {
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 6, marginTop: 4 }} onClick={(e) => e.stopPropagation()}>
+      <div onClick={(e) => e.stopPropagation()}>
+        <Card.Actions>
         {isBuilding ? (
           <button className="btn btn-sm" disabled style={{ flex: 1, justifyContent: 'center' }}>
             <Icon name="refresh" size={12} /> Merging…
@@ -281,17 +258,19 @@ function GroupCard({ item, buildState, selected, onBuild, onClear, onSelect }) {
             <Icon name="play" size={12} /> Merge
           </button>
         )}
+        </Card.Actions>
       </div>
 
       {isError && (
         <div style={{
           fontSize: 11, color: '#7f1d1d', background: '#fff1f2',
           border: '1px solid #fecaca', borderRadius: 4, padding: '6px 8px',
+          minWidth: 0, overflowWrap: 'break-word',
         }}>
           {buildState.error}
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
