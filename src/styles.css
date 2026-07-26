@@ -1081,7 +1081,8 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
 
   .main { flex: 1; min-height: 0; }
   .content {
-    padding: 14px 14px calc(48px + env(safe-area-inset-bottom, 0px));
+    /* Bottom clearance covers the floating assistant button + notch inset */
+    padding: 14px 14px calc(88px + env(safe-area-inset-bottom, 0px));
     gap: 14px;
   }
   .sidebar { padding-bottom: env(safe-area-inset-bottom, 0px); }

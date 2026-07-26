@@ -331,10 +331,11 @@ function DatasetTile({
         <>
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            gap: 10, flexWrap: 'wrap',
             paddingTop: 10, borderTop: '1px solid #eef0f3', fontSize: 11, color: '#94a3b8',
           }}>
-            <span className="mono" style={{ fontSize: 10 }}>{metadata.filename}</span>
-            <span className="tnum" style={{ color: '#334155', fontWeight: 500 }}>
+            <span className="mono" style={{ fontSize: 10, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1 1 auto' }}>{metadata.filename}</span>
+            <span className="tnum" style={{ color: '#334155', fontWeight: 500, flexShrink: 0 }}>
               {metadata.rows.toLocaleString()} rows
             </span>
           </div>
