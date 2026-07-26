@@ -5,9 +5,11 @@ import { useEffect, useRef, useState } from 'react';
    "now" marker. If /videos/hero.mp4 exists it plays instead (muted loop,
    drop any exported Canva/stock clip there - no code change needed); the
    canvas animation is the built-in fallback. Honours reduced-motion. */
-export default function HeroMotion({ opacity = 0.55 }) {
+export default function HeroMotion({ opacity = 0.55, src = '/videos/hero.mp4', poster }) {
   const canvasRef = useRef(null);
   const [videoOk, setVideoOk] = useState(false);
+  const reducedMotion = typeof window !== 'undefined'
+    && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   useEffect(() => {
     const cv = canvasRef.current;
@@ -88,12 +90,15 @@ export default function HeroMotion({ opacity = 0.55 }) {
 
   return (
     <div aria-hidden="true" style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', opacity }}>
-      <video
-        src="/videos/hero.mp4" muted loop playsInline autoPlay
-        onCanPlay={() => setVideoOk(true)}
-        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: videoOk ? 'block' : 'none' }}
-      />
+      {!reducedMotion && (
+        <video
+          src={src} poster={poster} muted loop playsInline autoPlay
+          preload="metadata"
+          onCanPlay={() => setVideoOk(true)}
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: videoOk ? 'block' : 'none' }}
+        />
+      )}
       {!videoOk && <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />}
     </div>
   );

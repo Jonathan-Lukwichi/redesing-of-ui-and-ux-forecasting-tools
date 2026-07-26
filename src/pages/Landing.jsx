@@ -35,7 +35,7 @@ export default function Landing({ onNavigate }) {
         paddingTop: 'clamp(96px, 16vw, 150px)', paddingBottom: 'clamp(48px, 8vw, 90px)',
         overflow: 'hidden',
       }}>
-        <HeroMotion opacity={0.5} />
+        <HeroMotion opacity={0.5} src="/videos/hero.mp4" poster="/videos/hero.jpg" />
 
         <div className="lp-grid2" style={{ maxWidth: 1320, margin: '0 auto', position: 'relative' }}>
           <div style={{ minWidth: 0 }}>
@@ -258,7 +258,7 @@ export default function Landing({ onNavigate }) {
         background: 'linear-gradient(110deg, #0f1729 0%, #1e5b8a 60%, #14545c 100%)',
         color: 'white', textAlign: 'center', overflow: 'hidden',
       }}>
-        <HeroMotion opacity={0.35} />
+        <HeroMotion opacity={0.4} src="/videos/cta.mp4" poster="/videos/cta.jpg" />
         <div style={{ maxWidth: 700, margin: '0 auto', position: 'relative' }}>
           <h2 className="lp-h1" style={{ marginBottom: 20 }}>See it on your own data.</h2>
           <p className="lp-sub" style={{ color: '#cbd5e1', margin: '0 0 36px 0' }}>

@@ -11,7 +11,7 @@ export default function Welcome({ onNavigate }) {
         display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 32,
         position: 'relative', overflow: 'hidden',
       }}>
-        <HeroMotion opacity={0.45} />
+        <HeroMotion opacity={0.5} src="/videos/login.mp4" poster="/videos/login.jpg" />
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'relative', zIndex: 2 }}>
           <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg, #2f86c4, #0d9488)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16, flexShrink: 0 }}>HF</div>
           <div>
