@@ -15,9 +15,9 @@ export function CardGrid({ minItemWidth = 280, columns, children, style, classNa
   );
 }
 
-export default function Card({ children, dashed, tone, style, className = '' }) {
+export default function Card({ children, dashed, tone, style, className = '', ...rest }) {
   return (
-    <div className={`ui-card ${dashed ? 'ui-card-dashed' : ''} ${className}`} data-tone={tone || undefined} style={style}>
+    <div className={`ui-card ${dashed ? 'ui-card-dashed' : ''} ${className}`} data-tone={tone || undefined} style={style} {...rest}>
       {children}
     </div>
   );

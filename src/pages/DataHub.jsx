@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PageHero from '../components/PageHero';
 import Icon from '../components/Icon';
+import Card, { CardGrid } from '../components/ui/Card';
 import { api } from '../api/client';
 
 const ICON_BY_ID = {
@@ -209,7 +210,7 @@ export default function DataHub() {
         title="Hospital data"
         sub="Hospital dataset · 4 files · stays in-memory in the FastAPI process for this session only"
       />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+      <CardGrid columns={4} minItemWidth={240}>
         {hospitalItems.map((item) => (
           <DatasetTile
             key={item.schema.id}
@@ -225,14 +226,14 @@ export default function DataHub() {
             onSendToBestFit={(bestFitId) => onSendToBestFit(item.schema.id, bestFitId)}
           />
         ))}
-      </div>
+      </CardGrid>
 
       <SectionHeader
         kicker="Section B · Public"
         title="External factors"
         sub="South African calendar + local weather (Open-Meteo ERA5) · 3 files · usually preloaded across the full 2019–2026 window"
       />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+      <CardGrid columns={3} minItemWidth={240}>
         {externalItems.map((item) => (
           <DatasetTile
             key={item.schema.id}
@@ -248,7 +249,7 @@ export default function DataHub() {
             onSendToBestFit={(bestFitId) => onSendToBestFit(item.schema.id, bestFitId)}
           />
         ))}
-      </div>
+      </CardGrid>
 
       {selectedItem && selectedItem.loaded && (
         <PreviewPanel
@@ -290,55 +291,39 @@ function DatasetTile({
         : 'white';
 
   return (
-    <div
-      className="card"
+    <Card
       onClick={loaded ? onSelect : undefined}
       style={{
         ...borderStyle,
         background,
         padding: 16,
         cursor: loaded ? 'pointer' : 'default',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
         minHeight: 180,
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div style={{
-          width: 32, height: 32, borderRadius: 6,
-          background: isEmpty ? '#eef2f6' : 'var(--accent-soft, #e0f2f1)',
-          color: isEmpty ? '#94a3b8' : 'var(--accent, #0d9488)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Icon name={ICON_BY_ID[schema.id] || 'file'} size={16} />
-        </div>
-        <StatusBadge state={state} loaded={loaded} schemaValid={loaded && metadata?.schema_valid} />
-      </div>
+      <Card.Header
+        icon={<Icon name={ICON_BY_ID[schema.id] || 'file'} size={16} />}
+        chip={<StatusBadge state={state} loaded={loaded} schemaValid={loaded && metadata?.schema_valid} />}
+      />
 
-      <div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: isEmpty ? '#475569' : '#0f172a' }}>
+      <div style={{ minWidth: 0 }}>
+        <Card.Title style={{ fontSize: 14, color: isEmpty ? '#475569' : undefined }}>
           {schema.label}
-        </div>
-        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2, lineHeight: 1.4 }}>
+        </Card.Title>
+        <Card.Description style={{ fontSize: 11, marginTop: 2, lineHeight: 1.4 }}>
           {schema.description}
-        </div>
+        </Card.Description>
       </div>
 
       <div style={{ flex: 1 }} />
 
       {loaded && (
         <>
-          <div style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            gap: 10, flexWrap: 'wrap',
-            paddingTop: 10, borderTop: '1px solid #eef0f3', fontSize: 11, color: '#94a3b8',
-          }}>
-            <span className="mono" style={{ fontSize: 10, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1 1 auto' }}>{metadata.filename}</span>
-            <span className="tnum" style={{ color: '#334155', fontWeight: 500, flexShrink: 0 }}>
-              {metadata.rows.toLocaleString()} rows
-            </span>
-          </div>
+          <Card.MetricRow
+            label={<Card.FileLabel>{metadata.filename}</Card.FileLabel>}
+            value={`${metadata.rows.toLocaleString()} rows`}
+            mono={false}
+          />
           {metadata.date_range && (
             <div style={{ fontSize: 11, color: '#475569' }}>
               {metadata.date_range.start} → {metadata.date_range.end}
@@ -351,16 +336,17 @@ function DatasetTile({
       {isEmpty && (
         <div style={{
           paddingTop: 10, borderTop: '1px dashed #e4e7eb',
-          fontSize: 11, color: '#94a3b8', textAlign: 'center',
+          fontSize: 11, color: '#94a3b8', textAlign: 'center', minWidth: 0,
         }}>
-          Expected file: <span className="mono">{schema.source_filename_hint}</span>
+          Expected file: <Card.FileLabel>{schema.source_filename_hint}</Card.FileLabel>
           <div style={{ marginTop: 2 }}>
-            ~{schema.expected_rows_hint?.toLocaleString() || '—'} rows · key{schema.key_columns.length > 1 ? 's' : ''} <span className="mono">{schema.key_columns.join(' + ')}</span>
+            ~{schema.expected_rows_hint?.toLocaleString() || '—'} rows · key{schema.key_columns.length > 1 ? 's' : ''} <Card.FileLabel>{schema.key_columns.join(' + ')}</Card.FileLabel>
           </div>
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 6, marginTop: 4 }} onClick={(e) => e.stopPropagation()}>
+      <div onClick={(e) => e.stopPropagation()}>
+        <Card.Actions>
         {isUploading ? (
           <button className="btn btn-sm" disabled style={{ flex: 1, justifyContent: 'center' }}>
             <Icon name="upload" size={12} /> Uploading…
@@ -408,6 +394,7 @@ function DatasetTile({
             </button>
           </>
         )}
+        </Card.Actions>
       </div>
 
       {isError && (
@@ -417,7 +404,7 @@ function DatasetTile({
           onSendToBestFit={onSendToBestFit}
         />
       )}
-    </div>
+    </Card>
   );
 }
 

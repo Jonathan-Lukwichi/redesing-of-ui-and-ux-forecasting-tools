@@ -1034,7 +1034,7 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
   overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;   /* matches the legacy .card: repair, not redesign */
   padding: var(--card-pad);
   display: flex;
   flex-direction: column;
@@ -1093,7 +1093,11 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
 .ui-card-source-state { flex-shrink: 0; white-space: nowrap; font-weight: 600; }
 
 .ui-card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
-.ui-card-actions > * { min-height: 44px; }
+/* 44px only on touch devices: desktop keeps its current compact buttons
+   (WCAG 2.5.8 AA floor is 24px, met everywhere; 44px is the AAA/HIG touch goal) */
+@media (pointer: coarse) {
+  .ui-card-actions > * { min-height: 44px; }
+}
 /* Narrow cards: buttons go full width instead of slicing labels off. */
 @supports (container-type: inline-size) {
   @container card (max-width: 240px) {
