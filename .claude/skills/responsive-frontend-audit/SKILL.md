@@ -37,7 +37,19 @@ narrow viewports trigger in data-visualisation code.
   so culprits are identified rather than guessed at.
 - Report findings as a ranked list with file and line references BEFORE editing.
 
-## Phase 2: Fix layout, mobile-first
+## Phase 2: Fix layout, mobile-first, through a canonical card system
+
+When the breakage involves cards or card grids (it almost always does), do
+not patch page by page: build ONE primitive set and migrate routes onto it.
+The full reproducible framework, including copy-ready CSS, migration order,
+verification gates and field gotchas, is in `reference/card-system.md`.
+Summary: fluid tokens with the rem+vw ratio rule, an auto-fit CardGrid with
+the mandatory `min(var(--card-min), 100%)` wrapper, slotted Card components
+(Header, Title, FileLabel, StatusChip, MetricRow, SourceRow, Actions),
+universal `min-width: 0` shrink discipline, container-query action stacking,
+and space reservation for decorative overlays.
+
+## Phase 2b: General layout rules
 
 - Base styles target the smallest viewport; every breakpoint is a min-width
   addition, never a max-width patch layered over a desktop design.

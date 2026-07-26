@@ -37,6 +37,7 @@ concepts in plain English before jargon.
 | Frontend | `src/` | React 18 + Vite SPA, hash navigation in `App.jsx` (`/#page`) |
 | Charts | `src/components/Charts.jsx` | hand-rolled SVG; axis charts measure width via `useMeasuredWidth` (ResizeObserver) and thin ticks — keep this pattern |
 | Design system | `src/styles.css` + `src/styles/tokens.css` | "Dash" tokens; fluid clamp() type/space scales; mobile drawer ≤820px |
+| Card system | `src/components/ui/Card.jsx` | THE canonical card primitives (CardGrid + slots). New cards never use bespoke markup; contract in `docs/RESPONSIVE.md`; full framework in the `/responsive-frontend-audit` skill (`reference/card-system.md`) |
 | E2E tests | `tests/responsive.spec.js` | 112 layout assertions at 8 viewports — must pass before claiming UI changes work |
 | Docs | `docs/` | knowledge guide PDF (regen: `node scripts/make-pdf.cjs <html> <pdf>`), defense course, plans |
 
