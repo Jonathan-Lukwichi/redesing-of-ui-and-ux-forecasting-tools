@@ -10,7 +10,7 @@ import fs from 'node:fs';
 
 const WIDTHS = [320, 360, 390, 414, 768, 1024, 1440, 1920];
 // Portrait heights for phone/tablet widths; standard desktop heights above.
-const HEIGHT = { 320: 693, 360: 800, 390: 844, 414: 896, 768: 1024, 1024: 1366, 1440: 900, 1920: 1080 };
+const HEIGHT = { 320: 693, 360: 800, 390: 844, 393: 852, 414: 896, 640: 800, 768: 1024, 1024: 1366, 1440: 900, 1920: 1080 };
 const SHOT_WIDTHS = [320, 390, 768, 1440]; // screenshot subset (all routes) — full 8-width run kept for assertions
 
 const ROUTES = [
@@ -70,6 +70,67 @@ for (const route of ROUTES) {
       expect([...bad, ...crashes], `console: ${[...bad, ...crashes].join(' | ')}`).toHaveLength(0);
     });
   }
+}
+
+// Card-system contract: no clipped card text, no overlapping clickables,
+// every interactive element meets the 24px WCAG 2.5.8 AA floor. Elements
+// between 24 and 44px are reported, not failed (44 is the AAA/touch goal,
+// applied via pointer:coarse media query).
+const CARD_ROUTES = ['upload', 'prepare'];
+for (const route of CARD_ROUTES) {
+  for (const width of [320, 393]) {
+    test(`${route} @ ${width}px — card text unclipped, hit areas sane`, async ({ page }) => {
+      await openRoute(page, route, width);
+      const r = await page.evaluate(() => {
+        const vw = window.innerWidth, vh = window.innerHeight;
+        const visible = (b) => b.width > 0 && b.height > 0 && b.right > 0 && b.left < vw && b.bottom > 0 && b.top < vh;
+        const clipped = [];
+        document.querySelectorAll('.ui-card-title, .ui-card-desc, .ui-card-file, .ui-card-metric-label').forEach((el) => {
+          if (el.scrollWidth > el.clientWidth + 1) clipped.push(`${el.className}: ${(el.textContent || '').trim().slice(0, 40)}`);
+        });
+        const small = [];
+        let under44 = 0;
+        const boxes = [];
+        document.querySelectorAll('button, [role="button"]').forEach((el) => {
+          const b = el.getBoundingClientRect();
+          if (!visible(b) || el.offsetParent === null) return;
+          if (b.width < 24 || b.height < 24) small.push(`${(el.textContent || el.getAttribute('aria-label') || '?').trim().slice(0, 24)} ${Math.round(b.width)}x${Math.round(b.height)}`);
+          else if (b.width < 44 || b.height < 44) under44 += 1;
+          boxes.push([b, el]);
+        });
+        let overlaps = 0;
+        for (let i = 0; i < boxes.length; i++) {
+          for (let j = i + 1; j < boxes.length; j++) {
+            if (boxes[i][1].contains(boxes[j][1]) || boxes[j][1].contains(boxes[i][1])) continue;
+            const a = boxes[i][0], b = boxes[j][0];
+            const xo = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+            const yo = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+            if (xo > 2 && yo > 2) overlaps += 1;
+          }
+        }
+        return { clipped, small, overlaps, under44 };
+      });
+      expect(r.clipped, `clipped card text: ${r.clipped.join('; ')}`).toHaveLength(0);
+      expect(r.small, `hit areas under the 24px AA floor: ${r.small.join('; ')}`).toHaveLength(0);
+      expect(r.overlaps, 'overlapping clickable bounding boxes').toBe(0);
+      console.log(`${route}@${width}px: ${r.under44} interactive element(s) between 24 and 44px (reported, not failed)`);
+    });
+  }
+}
+
+// 200% browser zoom approximation: a 640px viewport lays out like 1280px at
+// 200% zoom. True browser-zoom behaviour on a real device stays UNVERIFIED.
+for (const route of ['dashboard', 'upload', 'prepare', 'landing']) {
+  test(`${route} @ 640px (zoom 200% approximation) — no horizontal overflow`, async ({ page }) => {
+    await page.setViewportSize({ width: 640, height: 800 });
+    await page.goto(`/#${route}`);
+    await page.waitForTimeout(1200);
+    const m = await page.evaluate(() => ({
+      sw: document.documentElement.scrollWidth,
+      cw: document.documentElement.clientWidth,
+    }));
+    expect(m.sw).toBeLessThanOrEqual(m.cw + 1);
+  });
 }
 
 for (const route of KEY_PAGES) {
