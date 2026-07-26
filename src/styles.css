@@ -646,6 +646,8 @@ body {
   margin-top: 8px;
 }
 
+.kpi { container-type: inline-size; container-name: kpi; }
+
 .kpi-spark {
   position: absolute;
   right: 16px;
@@ -653,6 +655,17 @@ body {
   width: 96px;
   height: 36px;
   opacity: 0.85;
+}
+
+/* The corner sparkline is decorative: the label must never run under it.
+   Reserve its footprint, and drop it entirely when the card is too narrow
+   to share the top row. */
+.kpi:has(.kpi-spark) .kpi-label { padding-right: 108px; }
+@supports (container-type: inline-size) {
+  @container kpi (max-width: 290px) {
+    .kpi-spark { display: none; }
+    .kpi:has(.kpi-spark) .kpi-label { padding-right: 0; }
+  }
 }
 
 /* Trend chips */
