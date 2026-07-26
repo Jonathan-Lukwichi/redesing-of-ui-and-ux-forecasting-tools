@@ -561,28 +561,35 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
+  min-width: 0;                 /* card-system shrink discipline, applied to the legacy layer */
 }
 
 .card-header {
   padding: 18px 22px;
   border-bottom: 1px solid var(--border);
   display: flex;
+  flex-wrap: wrap;              /* actions drop to their own line, never squeeze the title */
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
+.card-header > * { min-width: 0; }
 
 .card-title {
   font-size: 15px;
   font-weight: 600;
   color: var(--text);
   margin: 0;
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 .card-sub {
   font-size: 13px;
   color: var(--text-3);
   margin-top: 3px;
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 .card-body {

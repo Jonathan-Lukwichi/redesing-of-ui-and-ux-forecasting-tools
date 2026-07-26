@@ -76,7 +76,7 @@ for (const route of ROUTES) {
 // every interactive element meets the 24px WCAG 2.5.8 AA floor. Elements
 // between 24 and 44px are reported, not failed (44 is the AAA/touch goal,
 // applied via pointer:coarse media query).
-const CARD_ROUTES = ['upload', 'prepare'];
+const CARD_ROUTES = ROUTES.filter((r) => !['landing', 'welcome'].includes(r));
 for (const route of CARD_ROUTES) {
   for (const width of [320, 393]) {
     test(`${route} @ ${width}px — card text unclipped, hit areas sane`, async ({ page }) => {
@@ -85,7 +85,7 @@ for (const route of CARD_ROUTES) {
         const vw = window.innerWidth, vh = window.innerHeight;
         const visible = (b) => b.width > 0 && b.height > 0 && b.right > 0 && b.left < vw && b.bottom > 0 && b.top < vh;
         const clipped = [];
-        document.querySelectorAll('.ui-card-title, .ui-card-desc, .ui-card-file, .ui-card-metric-label').forEach((el) => {
+        document.querySelectorAll('.ui-card-title, .ui-card-desc, .ui-card-file, .ui-card-metric-label, .card-title, .card-sub, .kpi-label').forEach((el) => {
           if (el.scrollWidth > el.clientWidth + 1) clipped.push(`${el.className}: ${(el.textContent || '').trim().slice(0, 40)}`);
         });
         const small = [];

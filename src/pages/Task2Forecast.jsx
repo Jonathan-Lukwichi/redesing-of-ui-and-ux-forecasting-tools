@@ -220,7 +220,7 @@ export default function Task2Forecast({ onNavigate }) {
           few patients a day at the hospital — too little signal for a reliable daily forecast — so they're not shown here.
         </div>
         {catalogue && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))', gap: 8 }}>
             {catalogue.map((s) => {
               const on = specialty === s.specialty;
               return (
@@ -245,7 +245,7 @@ export default function Task2Forecast({ onNavigate }) {
       {/* Step 2 — Forecast method (the 2 engines that actually run) */}
       {selectedSpecialty && (
         <Section step="2" title="Choose your forecast method" sub={`For ${selectedSpecialty.specialty} — what you pick is what runs.`}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: 10 }}>
             {ENGINES.map((e) => (
               <EngineCard
                 key={e.id} e={e}
@@ -635,7 +635,7 @@ function ForecastResult({ data, horizonId, weekly, badge }) {
       {/* Footer stats */}
       <div style={{
         marginTop: 18, paddingTop: 16, borderTop: '1px solid #e9ecf1',
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px,1fr))', gap: 10,
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%),1fr))', gap: 10,
       }}>
         <Stat label={`Total over ${days.length} ${unit}s`} val={Math.round(total).toLocaleString()} />
         <Stat label={`Average / ${unit}`} val={Math.round(avg).toLocaleString()} />

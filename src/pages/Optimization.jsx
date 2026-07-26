@@ -110,7 +110,7 @@ export default function Optimization({ onNavigate }) {
           </button>
         </div>
         <div className="card-body">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 12 }}>
             {(fcOptions || [{ model: 'ml', label: 'Best ML model' }, { model: 'statistical', label: 'Best statistical model' }]).map((o) => (
               <button key={o.model} onClick={() => selectModel(o.model)} disabled={busy.staff || busy.supply} style={{
                 textAlign: 'left', cursor: busy.staff || busy.supply ? 'wait' : 'pointer', fontFamily: 'inherit',
@@ -251,7 +251,7 @@ export default function Optimization({ onNavigate }) {
 
           <div className="card" style={{ marginBottom: 16 }}>
             <div className="card-header"><div className="card-title">Coverage by shift (own nurses)</div></div>
-            <div className="card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
+            <div className="card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(200px, 100%),1fr))', gap: 14 }}>
               {st.shifts.map((s) => {
                 const cov = s.required ? Math.round(s.assigned / s.required * 100) : 100;
                 return (

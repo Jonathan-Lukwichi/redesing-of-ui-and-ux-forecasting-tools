@@ -187,7 +187,7 @@ export default function Task1Forecast({ onNavigate }) {
 
       {/* Step 1 — Forecast method (the 2 engines that actually run) */}
       <Section step="1" title="Choose your forecast method" sub="What you pick is what runs.">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: 10 }}>
           {ENGINES.map((e) => (
             <EngineCard
               key={e.id} e={e}
@@ -529,7 +529,7 @@ function ForecastResult({ data, horizonId, badge }) {
       {/* Footer summary stats */}
       <div style={{
         marginTop: 18, paddingTop: 16, borderTop: '1px solid #e9ecf1',
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px,1fr))', gap: 10,
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%),1fr))', gap: 10,
       }}>
         <Stat label="Total over window" val={Math.round(total).toLocaleString()} />
         <Stat label="Average / day"     val={Math.round(avg).toLocaleString()} />
@@ -795,7 +795,7 @@ function AboutPanel({ m }) {
         </summary>
         <div style={{
           marginTop: 12, display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(160px, 100%), 1fr))', gap: 10,
         }}>
           <Stat label="Validation MAPE"      val={card.performance?.val_MAPE != null ? `${card.performance.val_MAPE.toFixed(2)}%` : '—'} />
           <Stat label="Validation RMSE"      val={card.performance?.val_RMSE != null ? card.performance.val_RMSE.toFixed(2)         : '—'} />

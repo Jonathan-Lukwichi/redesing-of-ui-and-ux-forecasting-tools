@@ -160,7 +160,7 @@ export default function SupplyPlanner() {
       {data?.by_abc && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-header"><div className="card-title">ABC analysis · cost & stock value by class</div></div>
-          <div className="card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 14 }}>
+          <div className="card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(220px, 100%),1fr))', gap: 14 }}>
             {data.by_abc.map((a) => (
               <div key={a.abc_class} style={{ border: '1px solid #eef0f3', borderRadius: 10, padding: '12px 14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -246,7 +246,7 @@ export default function SupplyPlanner() {
             <div style={{ padding: 16, color: C.muted, fontSize: 13 }}>Running four policies against the demo basket…</div>
           )}
           {compare && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(180px, 100%),1fr))', gap: 12 }}>
               {POLICY_ORDER.map((p) => {
                 const s = compare.policies[p];
                 if (!s) return null;

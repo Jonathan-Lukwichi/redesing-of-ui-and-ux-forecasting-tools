@@ -69,7 +69,7 @@ function AdminContent() {
       <div className="card" style={{ marginBottom: 16, borderLeft: `4px solid ${C.navy}` }}>
         <div className="card-header"><div className="card-title">AI System Card</div>
           <span className="tag" style={{ fontSize: 10 }}>Responsible-AI documentation</span></div>
-        <div className="card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 18 }}>
+        <div className="card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(300px, 100%),1fr))', gap: 18 }}>
           <Field label="Intended use" v="Operational decision-support: forecast ED arrivals and turn them into staffing rosters and supply reorder plans. Explanations and a read-only assistant for managers and charge nurses." />
           <Field label="NOT intended for" v="Clinical decisions about individual patients, diagnosis, triage or treatment. The assistant cannot prescribe care and must not be used as a medical device." danger />
           <Field label="Human oversight" v="The AI is READ-ONLY. It can look up and explain, but never changes a schedule, places an order or moves stock. A human reviews and approves every action (Action Center / Staff / Supply / Optimization)." />

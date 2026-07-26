@@ -159,7 +159,7 @@ export default function StaffPlanner() {
       {data?.shifts && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-header"><div className="card-title">Shifts · demand & cost by time of day</div></div>
-          <div className="card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
+          <div className="card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(200px, 100%),1fr))', gap: 14 }}>
             {data.shifts.map((s) => (
               <div key={s.shift} style={{ border: '1px solid #eef0f3', borderRadius: 10, padding: '14px 16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -215,7 +215,7 @@ export default function StaffPlanner() {
           )}
           {!strat && !stratErr && <div style={{ color: C.muted, fontSize: 13 }}>Running six rostering strategies…</div>}
           {strat && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12, opacity: stratBusy ? 0.55 : 1, transition: 'opacity .15s' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(190px, 100%),1fr))', gap: 12, opacity: stratBusy ? 0.55 : 1, transition: 'opacity .15s' }}>
               {STRAT_ORDER.map((s) => {
                 const d = strat.strategies[s];
                 if (!d) return null;
