@@ -1,5 +1,5 @@
 // ---- Storytelling primitives ----------------------------------------------
-import { useEffect, useId, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 
 // ---- Responsive sizing ------------------------------------------------------
 // Axis charts draw on a logical canvas equal to their real rendered width
@@ -8,12 +8,16 @@ import { useEffect, useId, useRef, useState } from 'react';
 function useMeasuredWidth(fallback = 720) {
   const ref = useRef(null);
   const [w, setW] = useState(fallback);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = ref.current;
-    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    if (!el) return undefined;
+    // Synchronous first measurement so the first paint is already right
+    const rect = el.getBoundingClientRect?.();
+    if (rect && rect.width > 0) setW(Math.max(220, Math.round(rect.width)));
+    if (typeof ResizeObserver === 'undefined') return undefined;
     const ro = new ResizeObserver((entries) => {
       const cw = entries[0]?.contentRect?.width;
-      if (cw) setW(Math.max(220, Math.round(cw)));
+      if (cw > 0) setW(Math.max(220, Math.round(cw)));
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -132,7 +136,7 @@ function DeltaPill({ value, polarity = 'normal' }) {
 }
 
 export function ProgressRing({ value, max = 100, size = 56, thickness = 6, color = '#0d9488', trackColor = '#eef0f3' }) {
-  const pct = Math.max(0, Math.min(1, value / max));
+  const pct = Math.max(0, Math.min(1, (Number(value) || 0) / (Number(max) || 1)));
   const r = size / 2 - thickness / 2;
   const c = Math.PI * 2 * r;
   return (
@@ -243,6 +247,7 @@ export function RankedBars({ rows, valueKey = 'pct_deviation', labelKey = 'categ
   const labelGutter = 160;
   const valueGutter = 60;          // reserved on each side for "+45%" tags
   const pad = { l: labelGutter, r: valueGutter, t: 12, b: 12 };
+  if (!rows || !rows.length) return null;
   const values = rows.map((r) => r[valueKey]);
   const maxAbs = Math.max(1, ...values.map((v) => Math.abs(v)));
   const innerW = w - pad.l - pad.r;
@@ -285,6 +290,7 @@ export function RankedBars({ rows, valueKey = 'pct_deviation', labelKey = 'categ
 export function MonthlyIndexBars({ rows, baselineLabel = 'Annual mean', height = 240 }) {
   const [svgRef, w] = useMeasuredWidth(720);
   const h = height, pad = { l: 48, r: 16, t: 26, b: 30 };
+  if (!rows || !rows.length) return null;
   const innerW = w - pad.l - pad.r;
   const innerH = h - pad.t - pad.b;
   const values = rows.map((r) => r.index ?? 100);
@@ -337,7 +343,8 @@ export function MonthlyIndexBars({ rows, baselineLabel = 'Annual mean', height =
 export function DonutWithCenter({ slices, size = 200, thickness = 30, centerHeadline, centerSub }) {
   const r = size / 2;
   const ri = r - thickness;
-  const total = slices.reduce((s, x) => s + (x.value || 0), 0);
+  const total = (slices || []).reduce((s, x) => s + (x.value || 0), 0);
+  if (!slices || !slices.length || total <= 0) return null;
   let a = -Math.PI / 2;
   return (
     <div style={{ position: 'relative', width: '100%', maxWidth: size, aspectRatio: '1 / 1', margin: '0 auto' }}>
@@ -381,6 +388,7 @@ export function DonutWithCenter({ slices, size = 200, thickness = 30, centerHead
 // ---- Existing primitives -----------------------------------------------------
 
 export function Sparkline({ data, color = '#1e6091', width = 80, height = 28, fill = true }) {
+  if (!data || data.length < 2) return null;
   const max = Math.max(...data);
   const min = Math.min(...data);
   const w = width, h = height;
@@ -403,6 +411,7 @@ export function LineChart({ series, height = 220, xLabels, showGrid = true, fill
   const uid = useId().replace(/[:]/g, '');
   const [svgRef, w] = useMeasuredWidth(720);
   const h = height, pad = { l: 44, r: 18, t: 14, b: 28 };
+  if (!series || !series.length || !series[0]?.data || series[0].data.length < 2) return null;
   const allVals = series.flatMap((s) => s.data.filter((v) => v != null && v !== 0));
   const max = (allVals.length ? Math.max(...allVals) : 1) * 1.1;
   const min = Math.min(0, allVals.length ? Math.min(...allVals) : 0);
@@ -486,7 +495,8 @@ export function BarChart({ data, height = 200, color = '#1e6091', labels, valueF
   const [svgRef, w] = useMeasuredWidth(720);
   const h = height;
   const pad = { l: 48, r: 16, t: 16, b: shouldRotate ? 56 : 30 };
-  const max = Math.max(...data) * 1.15;
+  if (!data || !data.length) return null;
+  const max = Math.max(1e-9, ...data.filter(Number.isFinite)) * 1.15;
   const innerW = w - pad.l - pad.r, innerH = h - pad.t - pad.b;
   const bw = (innerW / data.length) * 0.6;
   const lblStride = thinStride(data.length, innerW, shouldRotate ? 34 : 56);
@@ -518,7 +528,8 @@ export function BarChart({ data, height = 200, color = '#1e6091', labels, valueF
 
 export function Donut({ data, size = 180, thickness = 28 }) {
   const r = size / 2, ri = r - thickness;
-  const total = data.reduce((s, d) => s + d.value, 0);
+  const total = (data || []).reduce((s, d) => s + (d.value || 0), 0);
+  if (!data || !data.length || total <= 0) return null;
   let a = -Math.PI / 2;
   return (
     <svg viewBox={`0 0 ${size} ${size}`}
@@ -542,7 +553,8 @@ export function Donut({ data, size = 180, thickness = 28 }) {
 export function StemPlot({ data, height = 200, color = '#1e6091', confidenceBand, labels }) {
   const [svgRef, w] = useMeasuredWidth(720);
   const h = height, pad = { l: 48, r: 16, t: 16, b: 30 };
-  const max = Math.max(1, ...data.map((v) => Math.abs(v)));
+  if (!data || !data.length) return null;
+  const max = Math.max(1, ...data.map((v) => Math.abs(v)).filter(Number.isFinite));
   const innerW = w - pad.l - pad.r, innerH = h - pad.t - pad.b;
   const x = (i) => pad.l + (i / Math.max(1, data.length - 1)) * innerW;
   const y = (v) => pad.t + innerH / 2 - (v / max) * (innerH / 2 - 6);
@@ -563,7 +575,7 @@ export function StemPlot({ data, height = 200, color = '#1e6091', confidenceBand
           <circle cx={x(i)} cy={y(v)} r="3" fill={color} />
         </g>
       ))}
-      {labels && labels.map((lbl, i) => (
+      {labels && labels.length > 1 && labels.map((lbl, i) => (
         i % thinStride(labels.length, innerW, 70) !== 0 ? null :
         <text key={i} x={x(Math.round((i / (labels.length - 1)) * (data.length - 1)))} y={h - 6} textAnchor="middle" fontSize="11" fill="#94a3b8">{lbl}</text>
       ))}
@@ -575,6 +587,7 @@ export function BoxPlot({ data, labels, height = 220, color = '#1e6091' }) {
   // data: [{ min, q1, median, q3, max, whisker_low?, whisker_high?, mean? }, ...]
   const [svgRef, w] = useMeasuredWidth(720);
   const h = height, pad = { l: 48, r: 16, t: 16, b: 30 };
+  if (!data || !data.length) return null;
   const allMin = Math.min(...data.map((d) => d.whisker_low ?? d.min ?? 0));
   const allMax = Math.max(...data.map((d) => d.whisker_high ?? d.max ?? 1));
   const span = (allMax - allMin) * 1.1 || 1;
@@ -692,6 +705,7 @@ export function DivergingMatrix({ rows, columns, data, height = 280, max: maxOve
   // data: 2D array of numbers (rows × columns), centred at 0
   const [svgRef, w] = useMeasuredWidth(760);
   const h = height, pad = { l: 140, r: 12, t: 12, b: 80 };
+  if (!data || !data.length || !rows?.length || !columns?.length) return null;
   const cellW = (w - pad.l - pad.r) / columns.length;
   const cellH = (h - pad.t - pad.b) / Math.max(1, rows.length);
   const flat = data.flat().filter((v) => v != null && Number.isFinite(v));
@@ -739,9 +753,10 @@ export function DivergingMatrix({ rows, columns, data, height = 280, max: maxOve
 export function Heatmap({ data, rows, cols, height = 200, max: maxProp }) {
   const [svgRef, w] = useMeasuredWidth(720);
   const h = height, pad = { l: 68, r: 16, t: 12, b: 30 };
+  if (!data || !data.length || !rows?.length || !cols?.length) return null;
   const cellW = (w - pad.l - pad.r) / cols.length;
   const cellH = (h - pad.t - pad.b) / rows.length;
-  const m = maxProp || Math.max(...data.flat());
+  const m = maxProp || Math.max(1e-9, ...data.flat().filter(Number.isFinite));
   return (
     <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {rows.map((rl, ri) => (

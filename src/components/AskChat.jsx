@@ -52,7 +52,10 @@ export default function AskChat() {
     <>
       {/* Floating button */}
       <button onClick={() => setOpen((o) => !o)} title="Analyst Assistant" style={{
-        position: 'fixed', right: 22, bottom: 22, zIndex: 1000,
+        position: 'fixed',
+        right: 'calc(22px + env(safe-area-inset-right, 0px))',
+        bottom: 'calc(22px + env(safe-area-inset-bottom, 0px))',
+        zIndex: 1000,
         width: 56, height: 56, borderRadius: '50%', border: 0, cursor: 'pointer',
         background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', color: '#fff',
         boxShadow: '0 8px 24px rgba(109,40,217,0.45)', fontSize: 22, fontWeight: 700,
@@ -60,7 +63,8 @@ export default function AskChat() {
 
       {open && (
         <div style={{
-          position: 'fixed', right: 'min(22px, 3vw)', bottom: 88, zIndex: 1000,
+          position: 'fixed', right: 'min(22px, 3vw)',
+          bottom: 'calc(88px + env(safe-area-inset-bottom, 0px))', zIndex: 1000,
           width: 380, maxWidth: 'calc(100vw - 16px)', height: 520,
           maxHeight: 'calc(100dvh - 110px)',
           background: '#fff', border: '1px solid #ddd6fe', borderRadius: 16,

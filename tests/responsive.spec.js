@@ -47,6 +47,31 @@ for (const route of ROUTES) {
   }
 }
 
+// Chart/SVG runtime failures worth failing the build over (skill Phase 3
+// acceptance: console clean at 320px). Network noise from the absent backend
+// is not a layout failure and is ignored.
+const BAD_CONSOLE = /NaN|Expected (length|number|moveto)|Invalid value|attribute [dxy012]/i;
+const IGNORED_CONSOLE = /Failed to load resource|net::ERR|favicon|load failed/i;
+const CONSOLE_WIDTHS = [320, 393];
+
+for (const route of ROUTES) {
+  for (const width of CONSOLE_WIDTHS) {
+    test(`${route} @ ${width}px — console clean (no chart/SVG errors)`, async ({ page }) => {
+      const errors = [];
+      page.on('console', (m) => {
+        if (m.type() === 'error' && !IGNORED_CONSOLE.test(m.text())) errors.push(m.text());
+      });
+      page.on('pageerror', (e) => errors.push(String(e)));
+      await page.setViewportSize({ width, height: width === 320 ? 693 : 852 });
+      await page.goto(`/#${route}`);
+      await page.waitForTimeout(1500);
+      const bad = errors.filter((e) => BAD_CONSOLE.test(e));
+      const crashes = errors.filter((e) => /^Error|^TypeError|^RangeError/.test(e));
+      expect([...bad, ...crashes], `console: ${[...bad, ...crashes].join(' | ')}`).toHaveLength(0);
+    });
+  }
+}
+
 for (const route of KEY_PAGES) {
   for (const width of OVERLAP_WIDTHS) {
     test(`${route} @ ${width}px — no overlapping text blocks`, async ({ page }) => {

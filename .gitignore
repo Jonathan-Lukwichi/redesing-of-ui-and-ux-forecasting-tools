@@ -3,8 +3,9 @@ dist/
 healthforecast-ai.zip
 *.zip
 
-# local working artifacts
-.claude/
+# local working artifacts (but version the project's skills)
+.claude/*
+!.claude/skills/
 _backup_before_reset/
 
 # AI audit trail (runtime, not committed)

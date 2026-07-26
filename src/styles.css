@@ -1060,7 +1060,11 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
   }
 
   .main { flex: 1; min-height: 0; }
-  .content { padding: 14px 14px 48px; gap: 14px; }
+  .content {
+    padding: 14px 14px calc(48px + env(safe-area-inset-bottom, 0px));
+    gap: 14px;
+  }
+  .sidebar { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
   .topbar { padding: 0 12px; }
   .topbar-crumbs { overflow: hidden; }
