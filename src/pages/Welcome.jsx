@@ -2,7 +2,7 @@ import HeroMotion from '../components/HeroMotion';
 
 export default function Welcome({ onNavigate }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', minHeight: '100vh' }}>
+    <div className="lp-page" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
       {/* Left — branding */}
       <div className="lp-pad" style={{
         background: 'linear-gradient(160deg, #0f1729 0%, #1e3a5f 60%, #1e6091 100%)',

@@ -1114,6 +1114,9 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
    LANDING & LOGIN — mobile-first marketing layer (fluid, no fixed px layout)
    ============================================================================= */
 .lp-pad { padding-left: clamp(16px, 5vw, 56px); padding-right: clamp(16px, 5vw, 56px); }
+/* svh: fully visible on load with browser chrome showing; vh fallback first */
+.lp-page { min-height: 100vh; }
+@supports (min-height: 100svh) { .lp-page { min-height: 100svh; } }
 .lp-h1 {
   font-size: clamp(2.05rem, 8vw, 4rem);
   font-weight: 600; line-height: 1.07; letter-spacing: -1px;

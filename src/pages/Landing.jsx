@@ -6,7 +6,7 @@ import HeroMotion from '../components/HeroMotion';
    correction plan. Mobile-first: layout classes live in styles.css (lp-*). */
 export default function Landing({ onNavigate }) {
   return (
-    <div style={{ background: '#fafbfc', minHeight: '100vh', color: '#0f172a', fontFamily: 'Inter, system-ui, sans-serif', overflowY: 'auto' }}>
+    <div className="lp-page" style={{ background: '#fafbfc', color: '#0f172a', fontFamily: 'Inter, system-ui, sans-serif', overflowY: 'auto' }}>
 
       {/* Top nav */}
       <div className="lp-pad" style={{

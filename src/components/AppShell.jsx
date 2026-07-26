@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Icon from './Icon';
 import AskChat from './AskChat';
 
@@ -69,9 +69,10 @@ function ToggleBtn({ collapsed, onToggle }) {
   );
 }
 
-function Sidebar({ active, onNavigate, collapsed, onToggle, mobileOpen }) {
+function Sidebar({ active, onNavigate, collapsed, onToggle, mobileOpen, sidebarRef }) {
   return (
-    <aside className={'sidebar' + (mobileOpen ? ' mobile-open' : '')}>
+    <aside id="app-sidebar" ref={sidebarRef} tabIndex={-1}
+      className={'sidebar' + (mobileOpen ? ' mobile-open' : '')}>
       <div className="sidebar-brand" style={collapsed
         ? { padding: '18px 0', justifyContent: 'center' }
         : { justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
@@ -137,10 +138,18 @@ function Sidebar({ active, onNavigate, collapsed, onToggle, mobileOpen }) {
   );
 }
 
-function Topbar({ crumbs = [], onNavigate, onMenu }) {
+function Topbar({ crumbs = [], onNavigate, onMenu, menuOpen, menuBtnRef }) {
   return (
     <div className="topbar">
-      <button className="topbar-menu-btn" onClick={onMenu} aria-label="Open menu" title="Menu">
+      <button
+        ref={menuBtnRef}
+        className="topbar-menu-btn"
+        onClick={onMenu}
+        aria-label="Open menu"
+        aria-expanded={menuOpen ? 'true' : 'false'}
+        aria-controls="app-sidebar"
+        title="Menu"
+      >
         <Icon name="menu" size={18} />
       </button>
       <div className="topbar-crumbs">
@@ -168,6 +177,34 @@ export default function AppShell({ active = 'dashboard', onNavigate, children })
   const crumbs = CRUMB_MAP[active] || ['Dashboard'];
   const isMobile = useIsMobile();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const menuBtnRef = useRef(null);
+  const sidebarRef = useRef(null);
+
+  // Accessible disclosure behaviour: Escape closes, focus moves into the
+  // drawer on open and returns to the trigger on close, Tab stays inside.
+  useEffect(() => {
+    if (!mobileOpen) return undefined;
+    sidebarRef.current?.focus();
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setMobileOpen(false);
+        menuBtnRef.current?.focus();
+      } else if (e.key === 'Tab' && sidebarRef.current) {
+        const focusables = sidebarRef.current.querySelectorAll(
+          'button, [href], [tabindex]:not([tabindex="-1"]), .sidebar-item');
+        if (!focusables.length) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault(); last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault(); first.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [mobileOpen]);
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem('hf_sidebar_collapsed') === '1'; } catch { return false; }
   });
@@ -191,12 +228,14 @@ export default function AppShell({ active = 'dashboard', onNavigate, children })
         collapsed={isMobile ? false : collapsed}
         onToggle={isMobile ? () => setMobileOpen(false) : toggle}
         mobileOpen={mobileOpen}
+        sidebarRef={sidebarRef}
       />
       {isMobile && mobileOpen && (
         <div className="sidebar-backdrop" onClick={() => setMobileOpen(false)} />
       )}
       <div className="main">
-        <Topbar crumbs={crumbs} onNavigate={navigate} onMenu={() => setMobileOpen(true)} />
+        <Topbar crumbs={crumbs} onNavigate={navigate} onMenu={() => setMobileOpen(true)}
+          menuOpen={mobileOpen} menuBtnRef={menuBtnRef} />
         {children}
       </div>
       <AskChat />
