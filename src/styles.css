@@ -1005,6 +1005,108 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
 }
 
 /* =============================================================================
+   CARD SYSTEM — canonical primitives (src/components/ui/Card.jsx).
+   Intrinsic grid, universal min-width:0 shrink discipline, container-query
+   action stacking. Desktop look matches the legacy .card on purpose.
+   ============================================================================= */
+
+.ui-cardgrid {
+  display: grid;
+  gap: var(--card-gap);
+  /* min(--card-min, 100%) is mandatory: without it a viewport narrower than
+     the track minimum overflows sideways. */
+  grid-template-columns: repeat(auto-fit, minmax(min(var(--card-min), 100%), 1fr));
+  container-type: inline-size;
+  container-name: cardgrid;
+}
+/* Fixed-count opt-in: always a single-column mobile base, never a bare N-col. */
+.ui-cardgrid[data-cols] { grid-template-columns: 1fr; }
+@media (min-width: 640px) {
+  .ui-cardgrid[data-cols="2"], .ui-cardgrid[data-cols="3"], .ui-cardgrid[data-cols="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1100px) {
+  .ui-cardgrid[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ui-cardgrid[data-cols="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.ui-card {
+  min-width: 0;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: var(--card-pad);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  container-type: inline-size;
+  container-name: card;
+}
+.ui-card-dashed { border-style: dashed; background: var(--surface-2); }
+.ui-card[data-tone="danger"] { border-color: #fecaca; background: #fffafa; }
+
+.ui-card-header {
+  display: flex;
+  flex-wrap: wrap;            /* the chip drops to its own line, never squeezes the title */
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ui-card-header-main { min-width: 0; flex: 1 1 60%; }
+.ui-card-header-chip { flex-shrink: 0; }
+.ui-card-icon {
+  width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+  background: var(--brand-soft); color: var(--brand);
+  display: flex; align-items: center; justify-content: center;
+}
+
+.ui-card-title { min-width: 0; overflow-wrap: break-word; font-size: 15px; font-weight: 600; color: var(--text); }
+.ui-card-desc  { min-width: 0; overflow-wrap: break-word; font-size: 13px; color: var(--text-3); line-height: 1.5; }
+
+.ui-card-file {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  min-width: 0;
+  overflow-wrap: anywhere;    /* filenames have no natural break point */
+  color: var(--text-2);
+  background: var(--surface-3);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.ui-card-chip { white-space: nowrap; flex-shrink: 0; }
+
+.ui-card-metric {
+  display: flex; justify-content: space-between; gap: 12px;
+  font-size: 11px; color: var(--text-2);
+}
+.ui-card-metric-label { min-width: 0; overflow-wrap: break-word; }
+.ui-card-metric-value { flex-shrink: 0; font-weight: 600; color: var(--text); font-size: 11px; }
+
+.ui-card-source {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-size: 10.5px; border-radius: 5px; padding: 3px 7px;
+}
+.ui-card-source[data-ok="1"] { background: var(--success-soft); color: var(--success); }
+.ui-card-source[data-ok="0"] { background: var(--danger-soft); color: var(--danger); }
+.ui-card-source-name { min-width: 0; overflow-wrap: anywhere; }
+.ui-card-source-state { flex-shrink: 0; white-space: nowrap; font-weight: 600; }
+
+.ui-card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
+.ui-card-actions > * { min-height: 44px; }
+/* Narrow cards: buttons go full width instead of slicing labels off. */
+@supports (container-type: inline-size) {
+  @container card (max-width: 240px) {
+    .ui-card-actions > * { width: 100%; justify-content: center; }
+  }
+}
+@supports not (container-type: inline-size) {
+  @media (max-width: 380px) {
+    .ui-card-actions > * { width: 100%; justify-content: center; }
+  }
+}
+
+/* =============================================================================
    LANDING & LOGIN — mobile-first marketing layer (fluid, no fixed px layout)
    ============================================================================= */
 .lp-pad { padding-left: clamp(16px, 5vw, 56px); padding-right: clamp(16px, 5vw, 56px); }

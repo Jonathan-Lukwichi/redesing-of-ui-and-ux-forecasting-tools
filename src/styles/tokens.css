@@ -33,4 +33,10 @@
   --measure:       65ch;     /* max comfortable line length for prose */
   --container-max: 1240px;
   --gutter:        var(--space-m);
+
+  /* ---- Card system tokens (all clamp preferred values are rem + vw:
+          bare vw would break browser-zoom text scaling, WCAG 1.4.4) ------- */
+  /* ratio 2.00 */ --card-gap: clamp(0.75rem, 0.65rem + 0.5vw, 1.5rem);
+  /* ratio 1.75 */ --card-pad: clamp(1rem, 0.85rem + 0.75vw, 1.75rem);
+  --card-min: 280px;
 }
