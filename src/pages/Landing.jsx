@@ -1,110 +1,97 @@
 import Icon from '../components/Icon';
+import HeroMotion from '../components/HeroMotion';
 
+/* Marketing page. Every claim on this page must be TRUE of the product:
+   see CLAUDE.md (AI governance: no accuracy percentages) and the landing
+   correction plan. Mobile-first: layout classes live in styles.css (lp-*). */
 export default function Landing({ onNavigate }) {
   return (
     <div style={{ background: '#fafbfc', minHeight: '100vh', color: '#0f172a', fontFamily: 'Inter, system-ui, sans-serif', overflowY: 'auto' }}>
+
       {/* Top nav */}
-      <div style={{
+      <div className="lp-pad" style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 10,
-        padding: '20px 56px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        color: 'white',
-        background: 'rgba(15,23,41,0.7)',
-        backdropFilter: 'blur(12px)',
+        paddingTop: 14, paddingBottom: 14,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+        color: 'white', background: 'rgba(15,23,41,0.72)', backdropFilter: 'blur(12px)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 8,
-            background: 'linear-gradient(135deg, #2f86c4, #0d9488)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 700, fontSize: 14, color: 'white',
-          }}>HF</div>
-          <div style={{ fontSize: 15, fontWeight: 600 }}>HealthForecast AI</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 8, background: 'linear-gradient(135deg, #2f86c4, #0d9488)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, color: 'white', flexShrink: 0 }}>HF</div>
+          <div style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap' }}>HealthForecast AI</div>
         </div>
-        <div style={{ display: 'flex', gap: 28, fontSize: 13, fontWeight: 500 }}>
-          {[['Platform', 'section-platform'], ['Models', 'section-models'], ['Outcomes', 'section-outcomes']].map(([l, id]) => (
+        <div className="lp-nav-links">
+          {[['Platform', 'section-platform'], ['Engines', 'section-models'], ['Evidence', 'section-outcomes']].map(([l, id]) => (
             <a key={l} onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })} style={{ color: 'rgba(255,255,255,0.85)', textDecoration: 'none', cursor: 'pointer' }}>{l}</a>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={() => onNavigate('welcome')} style={{ background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '8px 16px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>Sign in</button>
-        </div>
+        <button onClick={() => onNavigate('welcome')} style={{ background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '8px 16px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', minHeight: 40 }}>Sign in</button>
       </div>
 
       {/* HERO */}
-      <div style={{
+      <div className="lp-pad" style={{
         position: 'relative',
-        minHeight: 720,
-        background: `linear-gradient(115deg, rgba(15,23,41,0.92) 0%, rgba(30,58,95,0.85) 50%, rgba(13,148,136,0.55) 100%), url(/images/hero-bg1.jpg)`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
+        background: `linear-gradient(115deg, rgba(15,23,41,0.94) 0%, rgba(30,58,95,0.88) 50%, rgba(13,148,136,0.6) 100%), url(/images/hero-bg1.jpg)`,
+        backgroundSize: 'cover', backgroundPosition: 'center',
         color: 'white',
-        padding: '140px 56px 80px',
+        paddingTop: 'clamp(96px, 16vw, 150px)', paddingBottom: 'clamp(48px, 8vw, 90px)',
         overflow: 'hidden',
       }}>
-        <svg style={{ position: 'absolute', right: 0, top: 0, opacity: 0.08, pointerEvents: 'none' }} width="700" height="700" viewBox="0 0 700 700">
-          {Array.from({ length: 28 }).map((_, i) => (
-            <line key={'h' + i} x1="0" x2="700" y1={i * 25} y2={i * 25} stroke="white" strokeWidth="0.5" />
-          ))}
-          {Array.from({ length: 28 }).map((_, i) => (
-            <line key={'v' + i} y1="0" y2="700" x1={i * 25} x2={i * 25} stroke="white" strokeWidth="0.5" />
-          ))}
-        </svg>
+        <HeroMotion opacity={0.5} />
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 48, alignItems: 'center', maxWidth: 1320, margin: '0 auto', position: 'relative' }}>
-          <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', background: 'rgba(125,211,252,0.15)', border: '1px solid rgba(125,211,252,0.35)', borderRadius: 999, fontSize: 12, fontWeight: 600, color: '#7dd3fc', letterSpacing: 0.4, marginBottom: 28 }}>
-              <span style={{ width: 6, height: 6, background: '#7dd3fc', borderRadius: '50%' }} />
-              NEW · AI-Powered · validated forecasts · 14 departments
+        <div className="lp-grid2" style={{ maxWidth: 1320, margin: '0 auto', position: 'relative' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', background: 'rgba(125,211,252,0.15)', border: '1px solid rgba(125,211,252,0.35)', borderRadius: 999, fontSize: 11, fontWeight: 600, color: '#7dd3fc', letterSpacing: 0.4, marginBottom: 24, maxWidth: '100%' }}>
+              <span style={{ width: 6, height: 6, background: '#7dd3fc', borderRadius: '50%', flexShrink: 0 }} />
+              MSc-RESEARCH BACKED · 6.5 YEARS OF REAL ED DATA
             </div>
-            <h1 style={{ fontSize: 64, fontWeight: 600, lineHeight: 1.05, letterSpacing: '-1.5px', margin: '0 0 24px 0' }}>
+            <h1 className="lp-h1">
               Forecast demand.<br />
               <span style={{ background: 'linear-gradient(90deg, #7dd3fc, #5eead4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                Across every department.
+                Plan the response.
               </span>
             </h1>
-            <p style={{ fontSize: 18, lineHeight: 1.6, color: '#cbd5e1', maxWidth: 540, margin: '0 0 36px 0' }}>
-              End-to-end ML forecasting for the whole hospital — Emergency, ICU, Surgery, Maternity, Oncology, Radiology, Pharmacy and more. Turn raw EHR, weather, and calendar data into optimized weekly schedules and supply orders — in minutes, not weeks.
+            <p className="lp-sub" style={{ color: '#cbd5e1', maxWidth: 540, margin: '0 0 32px 0' }}>
+              Decision support for hospital emergency departments. Forecast patient
+              arrivals from years of real history, then turn the forecast into a
+              lawful nurse roster and a costed supply plan — with an AI analyst
+              that explains every number in plain English.
             </p>
-            <div style={{ display: 'flex', gap: 12, marginBottom: 40 }}>
-              <button onClick={() => onNavigate('welcome')} style={{ padding: '14px 28px', background: 'white', color: '#0f1729', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>
-                Start here
+            <div style={{ display: 'flex', gap: 12, marginBottom: 36, flexWrap: 'wrap' }}>
+              <button onClick={() => onNavigate('welcome')} style={{ padding: '14px 28px', background: 'white', color: '#0f1729', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 24px rgba(0,0,0,0.2)', minHeight: 44 }}>
+                Open the live demo
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, auto)', gap: 32, paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.15)' }}>
-              {[['14', 'Departments supported'], ['Live', 'Validated forecasts'], ['23%', 'Overtime reduction'], ['7-day', 'Forward horizon']].map(([v, l]) => (
+            <div className="lp-stats" style={{ paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.15)' }}>
+              {[['6.5 yrs', 'Real training data'], ['1–365d', 'Forecast horizons'], ['8', 'Forecast targets'], ['2', 'Competing engines']].map(([v, l]) => (
                 <div key={l}>
-                  <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: '-0.8px' }}>{v}</div>
+                  <div style={{ fontSize: 'clamp(1.4rem, 4vw, 2rem)', fontWeight: 600, letterSpacing: '-0.8px' }}>{v}</div>
                   <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>{l}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Hero product mockup */}
-          <div style={{ position: 'relative' }}>
+          {/* Hero product mockup — numbers match the real app's scale */}
+          <div style={{ position: 'relative', minWidth: 0 }}>
             <div style={{
-              background: 'white',
-              borderRadius: 12,
-              padding: 18,
+              background: 'white', borderRadius: 12, padding: 'clamp(10px, 2vw, 18px)',
               boxShadow: '0 30px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1)',
-              transform: 'perspective(1600px) rotateY(-6deg) rotateX(2deg)',
               color: '#0f172a',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-                {['#fc6058','#fdbc40','#34c749'].map((c) => <div key={c} style={{ width: 10, height: 10, borderRadius: '50%', background: c }} />)}
-                <div style={{ flex: 1, height: 22, background: '#f0f2f5', borderRadius: 4, marginLeft: 8, display: 'flex', alignItems: 'center', padding: '0 8px', fontSize: 10, color: '#94a3b8' }}>app.healthforecast.ai/dashboard</div>
+                {['#fc6058', '#fdbc40', '#34c749'].map((c) => <div key={c} style={{ width: 10, height: 10, borderRadius: '50%', background: c, flexShrink: 0 }} />)}
+                <div style={{ flex: 1, minWidth: 0, height: 22, background: '#f0f2f5', borderRadius: 4, marginLeft: 8, display: 'flex', alignItems: 'center', padding: '0 8px', fontSize: 10, color: '#94a3b8', overflow: 'hidden', whiteSpace: 'nowrap' }}>healthforecast.jlwanalytics.com</div>
               </div>
-              <div style={{ background: '#fafbfc', borderRadius: 6, padding: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ background: '#fafbfc', borderRadius: 6, padding: 'clamp(8px, 2vw, 14px)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
                   <div>
-                    <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>Today's forecast · all departments</div>
-                    <div style={{ fontSize: 28, fontWeight: 600, marginTop: 2, letterSpacing: '-0.5px' }}>1,284 <span style={{ fontSize: 13, color: '#64748b', fontWeight: 400 }}>patients</span></div>
+                    <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>Next 7 days · total ED arrivals</div>
+                    <div style={{ fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 600, marginTop: 2, letterSpacing: '-0.5px' }}>443 <span style={{ fontSize: 13, color: '#64748b', fontWeight: 400 }}>patients</span></div>
                   </div>
-                  <div style={{ padding: '4px 10px', background: '#dcfce7', color: '#166534', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>+6.1% vs avg</div>
+                  <div style={{ padding: '4px 10px', background: '#fef5f5', color: '#dc2626', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>Peak: Thu</div>
                 </div>
-                <svg viewBox="0 0 320 100" width="100%" height="100">
+                <svg viewBox="0 0 320 100" width="100%" height="100" preserveAspectRatio="none">
                   <defs>
                     <linearGradient id="lg-hero" x1="0" x2="0" y1="0" y2="1">
                       <stop offset="0" stopColor="#0d9488" stopOpacity="0.3" />
@@ -117,85 +104,80 @@ export default function Landing({ onNavigate }) {
                   <line x1="160" y1="0" x2="160" y2="100" stroke="#cbd5e1" strokeDasharray="2 2" />
                   <text x="164" y="14" fontSize="9" fill="#64748b">Forecast →</text>
                 </svg>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginTop: 12 }}>
-                  {[188, 195, 218, 232, 215, 188, 174].map((v, i) => {
+                <div className="lp-days" style={{ marginTop: 12 }}>
+                  {[59, 66, 71, 77, 65, 55, 50].map((v, i) => {
                     const isPeak = i === 3;
                     return (
-                      <div key={i} style={{ padding: 6, borderRadius: 4, textAlign: 'center', background: isPeak ? '#fef5f5' : 'white', border: '1px solid ' + (isPeak ? '#fecaca' : '#eef0f3') }}>
-                        <div style={{ fontSize: 8, color: '#64748b', textTransform: 'uppercase' }}>{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]}</div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: isPeak ? '#dc2626' : '#0f172a', margin: '1px 0' }}>{v}</div>
+                      <div key={i} style={{ padding: 5, borderRadius: 4, textAlign: 'center', background: isPeak ? '#fef5f5' : 'white', border: '1px solid ' + (isPeak ? '#fecaca' : '#eef0f3'), minWidth: 0 }}>
+                        <div style={{ fontSize: 8, color: '#64748b', textTransform: 'uppercase' }}>{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: isPeak ? '#dc2626' : '#0f172a', margin: '1px 0' }}>{v}</div>
                       </div>
                     );
                   })}
                 </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, marginTop: 8 }}>
-                {[['ED', 232, '#dc2626'], ['ICU', 48, '#1e6091'], ['Surgery', 86, '#0d9488'], ['Maternity', 41, '#7c3aed']].map(([d, n, c]) => (
-                  <div key={d} style={{ padding: 5, borderRadius: 4, background: 'white', border: '1px solid #eef0f3' }}>
-                    <div style={{ fontSize: 8, color: c, textTransform: 'uppercase', fontWeight: 600 }}>{d}</div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#0f172a' }}>{n}</div>
-                  </div>
-                ))}
+                <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 6 }}>Each day carries a likely range — plan with the range, not the point.</div>
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <div style={{ flex: 1, padding: '8px 10px', background: '#f0f5fa', borderRadius: 4, fontSize: 11 }}>
-                  <span style={{ color: '#1e6091', fontWeight: 600 }}>↗ Action:</span> Add 2 RNs to ED Thu PM · open 1 OR Fri
+                <div style={{ flex: 1, minWidth: 0, padding: '8px 10px', background: '#f0f5fa', borderRadius: 4, fontSize: 11 }}>
+                  <span style={{ color: '#1e6091', fontWeight: 600 }}>↗ Plan:</span> lawful roster needs 2 locum shifts Thu · reorder 2 supply items
                 </div>
               </div>
             </div>
           </div>
         </div>
-
       </div>
 
-      {/* PROBLEM STRIP */}
-      <div style={{ padding: '80px 56px', background: 'white' }}>
+      {/* PROBLEM STRIP — real, citable South African figures */}
+      <div className="lp-pad" style={{ paddingTop: 'clamp(48px, 8vw, 80px)', paddingBottom: 'clamp(48px, 8vw, 80px)', background: 'white' }}>
         <div style={{ maxWidth: 1320, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 56 }}>
+          <div style={{ textAlign: 'center', marginBottom: 'clamp(28px, 6vw, 56px)' }}>
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, color: '#1e6091', textTransform: 'uppercase', marginBottom: 12 }}>The problem</div>
-            <h2 style={{ fontSize: 40, fontWeight: 600, letterSpacing: '-0.8px', margin: 0, lineHeight: 1.15, maxWidth: 880, marginInline: 'auto' }}>
-              Every department forecasts in its own spreadsheet. Nobody sees the full picture.
+            <h2 className="lp-h2" style={{ maxWidth: 880, marginInline: 'auto' }}>
+              Planning by gut feel is the most expensive system a hospital runs.
             </h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
+          <div className="lp-cards3">
             {[
-              { v: '$8.6M', l: 'Avg. annual hospital-wide overtime cost from misaligned staffing', c: '#dc2626' },
-              { v: '31%', l: 'Of departments report weekly stockouts of critical supplies', c: '#d97706' },
-              { v: '47 min', l: 'Added wait time on under-forecasted peak days across the hospital', c: '#dc2626' },
+              { v: 'R1.5bn+', l: 'Spent per year on agency nursing in SA public health — the cost of reactive, last-minute staffing', c: '#dc2626' },
+              { v: '400+', l: 'Medicine stockouts recorded across 72 facilities in a single province in two months', c: '#d97706' },
+              { v: '1 in 4', l: 'Public emergency-service posts vacant — every rostered hour has to count', c: '#dc2626' },
             ].map((s) => (
-              <div key={s.l} style={{ padding: 32, background: '#fafbfc', borderRadius: 12, borderLeft: `3px solid ${s.c}` }}>
-                <div style={{ fontSize: 44, fontWeight: 600, color: s.c, letterSpacing: '-1px', lineHeight: 1 }}>{s.v}</div>
+              <div key={s.l} style={{ padding: 'clamp(20px, 4vw, 32px)', background: '#fafbfc', borderRadius: 12, borderLeft: `3px solid ${s.c}` }}>
+                <div style={{ fontSize: 'clamp(1.8rem, 5vw, 2.75rem)', fontWeight: 600, color: s.c, letterSpacing: '-1px', lineHeight: 1 }}>{s.v}</div>
                 <div style={{ fontSize: 14, color: '#475569', marginTop: 12, lineHeight: 1.5 }}>{s.l}</div>
               </div>
             ))}
           </div>
+          <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', marginTop: 16 }}>Figures from South African public-health reporting (SAMJ; Stop Stockouts Project; national EMS statistics).</div>
         </div>
       </div>
 
-      {/* PIPELINE */}
-      <div id="section-platform" style={{ padding: '100px 56px', background: 'linear-gradient(180deg, #fafbfc 0%, #f0f5fa 100%)' }}>
+      {/* PIPELINE — the app's real five stages */}
+      <div id="section-platform" className="lp-pad" style={{ paddingTop: 'clamp(56px, 9vw, 100px)', paddingBottom: 'clamp(56px, 9vw, 100px)', background: 'linear-gradient(180deg, #fafbfc 0%, #f0f5fa 100%)' }}>
         <div style={{ maxWidth: 1320, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 64 }}>
+          <div style={{ textAlign: 'center', marginBottom: 'clamp(32px, 6vw, 64px)' }}>
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, color: '#1e6091', textTransform: 'uppercase', marginBottom: 12 }}>How it works</div>
-            <h2 style={{ fontSize: 40, fontWeight: 600, letterSpacing: '-0.8px', margin: '0 0 16px 0' }}>One pipeline. Every department. Every morning.</h2>
-            <p style={{ fontSize: 16, color: '#475569', maxWidth: 720, margin: '0 auto', lineHeight: 1.6 }}>A 5-stage pipeline runs nightly for ED, ICU, Surgery, Maternity, Oncology, Radiology and beyond — fully automated, with full audit trail and clinical override at every step.</p>
+            <h2 className="lp-h2" style={{ marginBottom: 16 }}>From CSV files to decisions, in five auditable steps.</h2>
+            <p className="lp-sub" style={{ color: '#475569', maxWidth: 720, margin: '0 auto' }}>
+              Load your data, run a forecast, get a plan. Every step is inspectable, every
+              recommendation is compared to a naive baseline, and a human approves every action.
+            </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, position: 'relative' }}>
-            <div style={{ position: 'absolute', top: 32, left: '10%', right: '10%', height: 2, background: 'linear-gradient(90deg, #1e6091, #0d9488)', opacity: 0.25 }} />
+          <div className="lp-steps">
             {[
-              { n: 1, t: 'Ingest', d: 'Pull EHR, weather & calendar via FHIR / S3 / SQL', icon: 'upload', c: '#1e6091' },
-              { n: 2, t: 'Engineer', d: '74 features per department: lags, rolling stats, holidays, weather', icon: 'table', c: '#1e6091' },
-              { n: 3, t: 'Train', d: 'Powerful AI & ML models trained per-department and auto-selected for highest accuracy', icon: 'cpu', c: '#0d9488' },
-              { n: 4, t: 'Forecast', d: '7-day demand for every unit with 95% prediction intervals', icon: 'forecast', c: '#0d9488' },
-              { n: 5, t: 'Act', d: 'Hospital-wide staff schedule + supply order recommendations', icon: 'bolt', c: '#0d9488' },
+              { n: 1, t: 'Ingest', d: 'Load arrivals, clinical, calendar and weather data as simple CSV files — no integration project needed', icon: 'upload', c: '#1e6091' },
+              { n: 2, t: 'Prepare', d: 'Audited merges build one clean, model-ready table per question (daily, hourly, by specialty)', icon: 'table', c: '#1e6091' },
+              { n: 3, t: 'Train & validate', d: 'A statistical engine and an ML engine compete; accuracy is measured by backtest, never assumed', icon: 'cpu', c: '#0d9488' },
+              { n: 4, t: 'Forecast', d: '1 to 365 days ahead, SA-holiday aware, each day with a likely range to plan around', icon: 'forecast', c: '#0d9488' },
+              { n: 5, t: 'Act', d: 'A lawful nurse roster (BCEA rules built in) and an (s,S) supply plan — with Rand savings vs your current way', icon: 'bolt', c: '#0d9488' },
             ].map((s) => (
               <div key={s.n} style={{ position: 'relative', textAlign: 'center' }}>
-                <div style={{ width: 64, height: 64, borderRadius: 16, background: 'white', border: `2px solid ${s.c}`, margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.c, boxShadow: '0 4px 16px rgba(30,96,145,0.12)', position: 'relative', zIndex: 2 }}>
-                  <Icon name={s.icon} size={26} />
+                <div style={{ width: 60, height: 60, borderRadius: 16, background: 'white', border: `2px solid ${s.c}`, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.c, boxShadow: '0 4px 16px rgba(30,96,145,0.12)' }}>
+                  <Icon name={s.icon} size={24} />
                 </div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: s.c, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Step {s.n}</div>
-                <div style={{ fontSize: 17, fontWeight: 600, color: '#0f172a', marginBottom: 6 }}>{s.t}</div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: '#0f172a', marginBottom: 6 }}>{s.t}</div>
                 <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>{s.d}</div>
               </div>
             ))}
@@ -203,105 +185,129 @@ export default function Landing({ onNavigate }) {
         </div>
       </div>
 
-      {/* MODEL ZOO */}
-      <div id="section-models" style={{ padding: '100px 56px', background: 'linear-gradient(180deg, #0f1729 0%, #1e3a5f 100%)', color: 'white' }}>
+      {/* ENGINES */}
+      <div id="section-models" className="lp-pad" style={{ paddingTop: 'clamp(56px, 9vw, 100px)', paddingBottom: 'clamp(56px, 9vw, 100px)', background: 'linear-gradient(180deg, #0f1729 0%, #1e3a5f 100%)', color: 'white' }}>
         <div style={{ maxWidth: 1320, margin: '0 auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 64, alignItems: 'center' }}>
-            <div>
+          <div className="lp-grid2">
+            <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, color: '#7dd3fc', textTransform: 'uppercase', marginBottom: 12 }}>Under the hood</div>
-              <h2 style={{ fontSize: 40, fontWeight: 600, letterSpacing: '-0.8px', margin: '0 0 20px 0', lineHeight: 1.15 }}>Powered by AI & ML. One champion. Always your call.</h2>
-              <p style={{ fontSize: 16, color: '#cbd5e1', lineHeight: 1.6, margin: '0 0 28px 0' }}>
-                Our platform trains multiple advanced AI and machine learning models in parallel — then automatically promotes the best-performing one on YOUR data, validated against real history.
+              <h2 className="lp-h2" style={{ marginBottom: 20 }}>Two engines. One champion. Your data decides.</h2>
+              <p className="lp-sub" style={{ color: '#cbd5e1', margin: '0 0 28px 0' }}>
+                A classical statistical model and a machine-learning model forecast the same
+                series. The champion is whichever wins the backtest on YOUR history — and you
+                can rerun that test yourself, on any past date, right in the app.
               </p>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {['AI explainability', 'Confidence intervals', 'Anomaly detection', 'Auto model selection', 'Continuous learning', 'Cross-validation'].map((c) => (
+                {['Backtesting built into the UI', 'Likely ranges on every day', 'SA-holiday aware', 'BCEA-lawful rostering', 'Monte-Carlo supply planning', 'Plain-English AI analyst', 'Full audit trail'].map((c) => (
                   <span key={c} style={{ padding: '6px 12px', background: 'rgba(125,211,252,0.1)', border: '1px solid rgba(125,211,252,0.25)', borderRadius: 999, fontSize: 12, color: '#7dd3fc' }}>{c}</span>
                 ))}
               </div>
             </div>
-            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 24 }}>
-              <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>Live leaderboard · last training run</div>
-              {[['Champion model', 6.4, true], ['Ensemble model', 6.7, false], ['ML model A', 7.1, false], ['ML model B', 7.4, false], ['ML model C', 7.8, false], ['Statistical model A', 9.2, false], ['Statistical model B', 11.4, false]].map(([n, v, best]) => (
-                <div key={n} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div style={{ width: 150, fontSize: 13, color: best ? 'white' : '#cbd5e1', fontWeight: best ? 600 : 400 }}>
-                    {n} {best && <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 6px', background: '#0d9488', color: 'white', borderRadius: 3 }}>WINNER</span>}
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 'clamp(16px, 3vw, 24px)', minWidth: 0 }}>
+              <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>Champion–challenger · decided by backtest</div>
+              {[
+                ['Best ML model', 92, true, 'Learns calendar, holidays and momentum'],
+                ['Best statistical model', 74, false, 'Classic trend + weekly rhythm baseline'],
+              ].map(([n, wpct, best, sub]) => (
+                <div key={n} style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 13, color: best ? 'white' : '#cbd5e1', fontWeight: best ? 600 : 400 }}>{n}</span>
+                    {best && <span style={{ fontSize: 10, padding: '1px 6px', background: '#0d9488', color: 'white', borderRadius: 3 }}>CHAMPION</span>}
                   </div>
-                  <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${(15 - v) / 9 * 100}%`, background: best ? 'linear-gradient(90deg, #7dd3fc, #5eead4)' : 'rgba(125,211,252,0.4)' }} />
+                  <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden', marginBottom: 5 }}>
+                    <div style={{ height: '100%', width: `${wpct}%`, background: best ? 'linear-gradient(90deg, #7dd3fc, #5eead4)' : 'rgba(125,211,252,0.4)' }} />
                   </div>
+                  <div style={{ fontSize: 11, color: '#94a3b8' }}>{sub}</div>
                 </div>
               ))}
+              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 14, lineHeight: 1.5 }}>
+                The winner is usually the ML engine — but not always, and the app never hides
+                the comparison. Detailed accuracy metrics live in the admin view.
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* OUTCOMES */}
-      <div id="section-outcomes" style={{ padding: '100px 56px', background: 'white' }}>
+      {/* EVIDENCE */}
+      <div id="section-outcomes" className="lp-pad" style={{ paddingTop: 'clamp(56px, 9vw, 100px)', paddingBottom: 'clamp(56px, 9vw, 100px)', background: 'white' }}>
         <div style={{ maxWidth: 1320, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 64 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, color: '#1e6091', textTransform: 'uppercase', marginBottom: 12 }}>Measured outcomes</div>
-            <h2 style={{ fontSize: 40, fontWeight: 600, letterSpacing: '-0.8px', margin: 0, lineHeight: 1.15 }}>Hospitals see results in 90 days.</h2>
+          <div style={{ textAlign: 'center', marginBottom: 'clamp(32px, 6vw, 64px)' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, color: '#1e6091', textTransform: 'uppercase', marginBottom: 12 }}>Evidence, not promises</div>
+            <h2 className="lp-h2">Everything on this page is measured — nothing is invented.</h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 56 }}>
+          <div className="lp-cards3" style={{ marginBottom: 24 }}>
             {[
-              { v: '−23%', l: 'ED overtime hours', c: '#0d9488' },
-              { v: '−47min', l: 'Average wait time', c: '#1e6091' },
-              { v: '+18%', l: 'Bed utilization', c: '#0d9488' },
-              { v: '$2.4M', l: 'Annual savings (avg)', c: '#1e6091' },
+              { v: '−8%', l: 'Forecast error reduction from SA public-holiday features, proven by backtest on 6.5 years of real arrivals', c: '#0d9488' },
+              { v: '13 mo', l: 'Operations simulation (23 nurses, 30 supply items) behind the staffing and supply recommendations', c: '#1e6091' },
+              { v: 'Rand', l: 'Every recommendation is priced against a naive baseline inside the app — you see the saving before you act', c: '#0d9488' },
             ].map((s) => (
-              <div key={s.l} style={{ padding: 32, background: '#fafbfc', borderRadius: 12, textAlign: 'center', border: '1px solid #eef0f3' }}>
-                <div style={{ fontSize: 48, fontWeight: 600, color: s.c, letterSpacing: '-1.2px', lineHeight: 1 }}>{s.v}</div>
-                <div style={{ fontSize: 13, color: '#64748b', marginTop: 12 }}>{s.l}</div>
+              <div key={s.l} style={{ padding: 'clamp(20px, 4vw, 32px)', background: '#fafbfc', borderRadius: 12, textAlign: 'center', border: '1px solid #eef0f3' }}>
+                <div style={{ fontSize: 'clamp(1.8rem, 5vw, 3rem)', fontWeight: 600, color: s.c, letterSpacing: '-1.2px', lineHeight: 1 }}>{s.v}</div>
+                <div style={{ fontSize: 13, color: '#64748b', marginTop: 12, lineHeight: 1.55 }}>{s.l}</div>
               </div>
             ))}
           </div>
+          <div style={{ textAlign: 'center', fontSize: 12, color: '#94a3b8' }}>Companion to an MSc dissertation — methods, validation and limitations are documented, not marketed.</div>
         </div>
       </div>
 
       {/* CTA */}
-      <div style={{
-        padding: '100px 56px',
-        background: `linear-gradient(110deg, rgba(15,23,41,0.92) 0%, rgba(30,96,145,0.85) 60%, rgba(13,148,136,0.55) 100%), url(/images/dashboard-bg2.jpg)`,
+      <div className="lp-pad" style={{
+        position: 'relative',
+        paddingTop: 'clamp(56px, 9vw, 100px)', paddingBottom: 'clamp(56px, 9vw, 100px)',
+        background: `linear-gradient(110deg, rgba(15,23,41,0.94) 0%, rgba(30,96,145,0.88) 60%, rgba(13,148,136,0.6) 100%), url(/images/dashboard-bg2.jpg)`,
         backgroundSize: 'cover', backgroundPosition: 'center',
-        color: 'white', textAlign: 'center',
+        color: 'white', textAlign: 'center', overflow: 'hidden',
       }}>
-        <div style={{ maxWidth: 700, margin: '0 auto' }}>
-          <h2 style={{ fontSize: 48, fontWeight: 600, letterSpacing: '-1px', lineHeight: 1.1, margin: '0 0 20px 0' }}>Stop guessing.<br />Start forecasting.</h2>
-          <p style={{ fontSize: 17, color: '#cbd5e1', margin: '0 0 36px 0', lineHeight: 1.6 }}>Spin up a sandbox with your last 6 months of arrival data and see your first forecast in under an hour.</p>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-            <button onClick={() => onNavigate('welcome')} style={{ padding: '16px 32px', background: 'white', color: '#0f1729', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>Start here</button>
-            <button onClick={() => onNavigate('welcome')} style={{ padding: '16px 32px', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>Talk to engineering</button>
+        <HeroMotion opacity={0.35} />
+        <div style={{ maxWidth: 700, margin: '0 auto', position: 'relative' }}>
+          <h2 className="lp-h1" style={{ marginBottom: 20 }}>See it on your own data.</h2>
+          <p className="lp-sub" style={{ color: '#cbd5e1', margin: '0 0 36px 0' }}>
+            A pilot starts with history, not promises: load your arrival counts, backtest both
+            engines on your own past, and judge the evidence before anything changes.
+          </p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button onClick={() => onNavigate('welcome')} style={{ padding: '16px 32px', background: 'white', color: '#0f1729', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer', minHeight: 44 }}>Open the live demo</button>
           </div>
-          <div style={{ marginTop: 28, fontSize: 12, color: '#94a3b8' }}>No credit card · 30-day pilot · BAA on day 1</div>
+          <div style={{ marginTop: 24, fontSize: 12, color: '#94a3b8' }}>POPIA-conscious by design: aggregate counts only — no patient records, data held in memory, never written to disk.</div>
         </div>
       </div>
 
-      {/* Footer */}
-      <div style={{ background: '#0a1120', color: '#94a3b8', padding: '48px 56px 32px' }}>
-        <div style={{ maxWidth: 1320, margin: '0 auto', display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1fr', gap: 32 }}>
+      {/* Footer — real links, real people */}
+      <div className="lp-pad" style={{ background: '#0a1120', color: '#94a3b8', paddingTop: 48, paddingBottom: 32 }}>
+        <div className="lp-foot" style={{ maxWidth: 1320, margin: '0 auto' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
               <div style={{ width: 32, height: 32, borderRadius: 6, background: 'linear-gradient(135deg, #2f86c4, #0d9488)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, color: 'white' }}>HF</div>
               <div style={{ color: 'white', fontSize: 14, fontWeight: 600 }}>HealthForecast AI</div>
             </div>
-            <div style={{ fontSize: 12, lineHeight: 1.6, maxWidth: 280 }}>Demand intelligence for hospital operations. Built by clinicians, ML engineers, and ops directors.</div>
-          </div>
-          {[
-            { t: 'Product', l: ['Dashboard', 'Models', 'Forecast', 'Action Center', 'Pricing'] },
-            { t: 'Resources', l: ['Documentation', 'Case studies', 'Blog', 'Changelog'] },
-            { t: 'Company', l: ['About', 'Customers', 'Careers', 'Press'] },
-            { t: 'Legal', l: ['Privacy', 'Terms', 'BAA', 'Security'] },
-          ].map((c) => (
-            <div key={c.t}>
-              <div style={{ color: 'white', fontSize: 12, fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>{c.t}</div>
-              {c.l.map((i) => <div key={i} style={{ fontSize: 13, padding: '5px 0', cursor: 'pointer' }}>{i}</div>)}
+            <div style={{ fontSize: 12, lineHeight: 1.6, maxWidth: 280 }}>
+              Forecast-to-decision support for emergency departments. Built by
+              Jonathan Lukwichi · JLW Analytics, on MSc research at the University of Pretoria.
             </div>
-          ))}
+          </div>
+          <div>
+            <div style={{ color: 'white', fontSize: 12, fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>Platform</div>
+            {[['Live demo', 'welcome'], ['Forecasting', 'welcome'], ['Staffing & supply', 'welcome'], ['AI analyst', 'welcome']].map(([l, page]) => (
+              <div key={l} onClick={() => onNavigate(page)} style={{ fontSize: 13, padding: '5px 0', cursor: 'pointer' }}>{l}</div>
+            ))}
+          </div>
+          <div>
+            <div style={{ color: 'white', fontSize: 12, fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>Research</div>
+            <div style={{ fontSize: 13, padding: '5px 0' }}>MSc dissertation companion</div>
+            <div style={{ fontSize: 13, padding: '5px 0' }}>Validated by backtesting</div>
+            <div style={{ fontSize: 13, padding: '5px 0' }}>Simulation-based planning</div>
+          </div>
+          <div>
+            <div style={{ color: 'white', fontSize: 12, fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>Contact</div>
+            <div style={{ fontSize: 13, padding: '5px 0' }}>jlwanalytics.com</div>
+            <div style={{ fontSize: 13, padding: '5px 0' }}>South Africa</div>
+          </div>
         </div>
-        <div style={{ maxWidth: 1320, margin: '32px auto 0', paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 11, display: 'flex', justifyContent: 'space-between' }}>
-          <div>© 2026 HealthForecast AI. All rights reserved.</div>
-          <div>Made for hospitals · HIPAA-compliant · v3.2</div>
+        <div style={{ maxWidth: 1320, margin: '32px auto 0', paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 11, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div>© 2026 JLW Analytics. All rights reserved.</div>
+          <div>Made for South African hospitals · POPIA-conscious design</div>
         </div>
       </div>
     </div>

@@ -1005,6 +1005,26 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
 }
 
 /* =============================================================================
+   LANDING & LOGIN — mobile-first marketing layer (fluid, no fixed px layout)
+   ============================================================================= */
+.lp-pad { padding-left: clamp(16px, 5vw, 56px); padding-right: clamp(16px, 5vw, 56px); }
+.lp-h1 {
+  font-size: clamp(2.05rem, 8vw, 4rem);
+  font-weight: 600; line-height: 1.07; letter-spacing: -1px;
+  margin: 0 0 clamp(14px, 3vw, 24px); overflow-wrap: break-word; text-wrap: balance;
+}
+.lp-h2 { font-size: clamp(1.45rem, 4.5vw, 2.5rem); font-weight: 600; letter-spacing: -0.8px; margin: 0; line-height: 1.15; text-wrap: balance; }
+.lp-sub { font-size: clamp(0.95rem, 2.6vw, 1.1rem); line-height: 1.65; }
+.lp-nav-links { display: flex; gap: 28px; font-size: 13px; font-weight: 500; }
+@media (max-width: 720px) { .lp-nav-links { display: none; } }
+.lp-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: clamp(14px, 3vw, 32px); }
+.lp-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: clamp(24px, 4vw, 48px); align-items: center; }
+.lp-cards3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 20px; }
+.lp-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 22px; }
+.lp-foot { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 28px; }
+.lp-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+
+/* =============================================================================
    RESPONSIVE — phones & tablets (≤ 820px).
    The sidebar becomes an off-canvas drawer opened by the hamburger in the
    topbar; fixed multi-column grids that pages declare inline collapse to one
