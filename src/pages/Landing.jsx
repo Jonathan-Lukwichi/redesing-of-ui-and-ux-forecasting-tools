@@ -30,8 +30,7 @@ export default function Landing({ onNavigate }) {
       {/* HERO */}
       <div className="lp-pad" style={{
         position: 'relative',
-        background: `linear-gradient(115deg, rgba(15,23,41,0.94) 0%, rgba(30,58,95,0.88) 50%, rgba(13,148,136,0.6) 100%), url(/images/hero-bg1.jpg)`,
-        backgroundSize: 'cover', backgroundPosition: 'center',
+        background: 'linear-gradient(115deg, #0f1729 0%, #1e3a5f 50%, #14545c 100%)',
         color: 'white',
         paddingTop: 'clamp(96px, 16vw, 150px)', paddingBottom: 'clamp(48px, 8vw, 90px)',
         overflow: 'hidden',
@@ -256,8 +255,7 @@ export default function Landing({ onNavigate }) {
       <div className="lp-pad" style={{
         position: 'relative',
         paddingTop: 'clamp(56px, 9vw, 100px)', paddingBottom: 'clamp(56px, 9vw, 100px)',
-        background: `linear-gradient(110deg, rgba(15,23,41,0.94) 0%, rgba(30,96,145,0.88) 60%, rgba(13,148,136,0.6) 100%), url(/images/dashboard-bg2.jpg)`,
-        backgroundSize: 'cover', backgroundPosition: 'center',
+        background: 'linear-gradient(110deg, #0f1729 0%, #1e5b8a 60%, #14545c 100%)',
         color: 'white', textAlign: 'center', overflow: 'hidden',
       }}>
         <HeroMotion opacity={0.35} />

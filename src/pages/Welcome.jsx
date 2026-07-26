@@ -5,8 +5,7 @@ export default function Welcome({ onNavigate }) {
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', minHeight: '100vh' }}>
       {/* Left — branding */}
       <div className="lp-pad" style={{
-        background: `linear-gradient(160deg, rgba(15,23,41,0.94) 0%, rgba(30,58,95,0.88) 60%, rgba(30,96,145,0.75) 100%), url(/images/login-bg1.jpg)`,
-        backgroundSize: 'cover', backgroundPosition: 'center',
+        background: 'linear-gradient(160deg, #0f1729 0%, #1e3a5f 60%, #1e6091 100%)',
         paddingTop: 40, paddingBottom: 40,
         color: 'white',
         display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 32,

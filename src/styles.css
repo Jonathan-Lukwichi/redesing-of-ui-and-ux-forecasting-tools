@@ -902,7 +902,7 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
 .divider-h { height: 1px; background: var(--border); }
 .muted { color: var(--text-3); }
 .mono { font-family: var(--font-mono); }
-.tnum { font-variant-numeric: tabular-nums; }
+.tnum { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* Process strip */
 .steps {
