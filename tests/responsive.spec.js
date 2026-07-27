@@ -137,6 +137,25 @@ for (const route of ['dashboard', 'upload', 'prepare', 'landing']) {
   });
 }
 
+// Plan C rule: NOTHING computes on Optimization page load. Only light state
+// reads (GET /policy, /last-style lookups the user explicitly presses) are
+// allowed; any POST or heavy evidence/compare/tune/run call on load fails.
+test('optimize @ 390px — no heavy compute on page load', async ({ page }) => {
+  const heavy = [];
+  page.on('request', (r) => {
+    const url = r.url();
+    const isApi = url.includes('/api/');
+    if (!isApi) return;
+    const banned = r.method() === 'POST'
+      || /forecast-options|compare-demo|sweep-demo|strategy-compare|policy\/tune(?!\/last)/.test(url);
+    if (banned) heavy.push(`${r.method()} ${url}`);
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#optimize');
+  await page.waitForTimeout(2000);
+  expect(heavy, `heavy calls on load: ${heavy.join(' | ')}`).toHaveLength(0);
+});
+
 for (const route of KEY_PAGES) {
   for (const width of OVERLAP_WIDTHS) {
     test(`${route} @ ${width}px — no overlapping text blocks`, async ({ page }) => {

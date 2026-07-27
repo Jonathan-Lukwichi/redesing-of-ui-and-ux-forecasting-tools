@@ -103,6 +103,8 @@ export const api = {
       return request(`/api/supply/compare-demo${q ? '?' + q : ''}`, { signal });
     },
     sweepDemo:   (signal) => request('/api/supply/sweep-demo', { signal }),
+    compareLast: (signal) => request('/api/supply/compare-last', { signal }),
+    sweepLast:   (signal) => request('/api/supply/sweep-last', { signal }),
   },
 
   staff: {
@@ -138,6 +140,11 @@ export const api = {
     forecastOptions: (signal) => request('/api/optimization/forecast-options', { signal }),
     last:      (signal) => request('/api/optimization/last', { signal }),
     staffPool: (signal) => request('/api/optimization/staff-pool', { signal }),
+    // Standing supply policy (Plan C): registry + adoption + per-item tuning.
+    policy:     (signal) => request('/api/optimization/policy', { signal }),
+    setPolicy:  (policy) => request('/api/optimization/policy', { method: 'PUT', body: { policy } }),
+    tunePolicy: (policy) => request('/api/optimization/policy/tune', { method: 'POST', body: { policy } }),
+    tuneLast:   (signal) => request('/api/optimization/policy/tune/last', { signal }),
   },
 
   task1: {

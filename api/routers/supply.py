@@ -289,6 +289,11 @@ async def _engine_items() -> tuple[list[dict], str]:
     return out, f"real {len(out)}-item hospital panel (chapter-7 simulation)"
 
 
+# Load-last caches for the on-demand evidence runs (the /last pattern).
+_LAST_COMPARE: dict[str, Any] = {}
+_LAST_SWEEP: dict[str, Any] = {}
+
+
 @router.get("/compare-demo")
 async def supply_compare_demo(
     lead_time: Optional[float] = None,
@@ -306,6 +311,7 @@ async def supply_compare_demo(
         items, basket = await _engine_items()
     res = optimize_supply_multi_arm(items, service_level=service_level, lead_time_mean=lead_time)
     res["basket"] = basket
+    _LAST_COMPARE["result"] = res
     return res
 
 
@@ -323,4 +329,17 @@ async def supply_sweep_demo(
         items, service_level=service_level, lead_times=list(DEFAULT_LEAD_TIME_SWEEP),
     )
     res["basket"] = basket
+    _LAST_SWEEP["result"] = res
     return res
+
+
+@router.get("/compare-last")
+async def supply_compare_last() -> dict[str, Any]:
+    """Most recent policy comparison, if any (for Load-last-result buttons)."""
+    return {"result": _LAST_COMPARE.get("result")}
+
+
+@router.get("/sweep-last")
+async def supply_sweep_last() -> dict[str, Any]:
+    """Most recent lead-time sweep, if any."""
+    return {"result": _LAST_SWEEP.get("result")}

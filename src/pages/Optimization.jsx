@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import PageHero from '../components/PageHero';
 import KPI from '../components/KPI';
 import Icon from '../components/Icon';
 import { LineChart } from '../components/Charts';
 import AiPanel from '../components/AiPanel';
+import PolicyEvidence from '../components/PolicyEvidence';
 import { api } from '../api/client';
 
 const C = { ink: '#0f172a', muted: '#64748b', teal: '#0d9488', navy: '#1e6091', red: '#dc2626', amber: '#d97706', green: '#15803d' };
@@ -24,26 +25,26 @@ export default function Optimization({ onNavigate }) {
   const [model, setModel] = useState('ml');   // default to the most accurate engine (matches Forecast page)
   const [service, setService] = useState(0.95);
   const [kappa, setKappa] = useState(1.65);
-  const [fcOptions, setFcOptions] = useState(null); // [{model,label,accuracy_pct,mae,...}]
-  const [specialtyNote, setSpecialtyNote] = useState('');
   const [cmp, setCmp] = useState(null);             // forecast comparison result
+  const [policyState, setPolicyState] = useState(null);
+  const [loadBusy, setLoadBusy] = useState(false);
 
-  // On first load: the forecast options (accuracy per model) + any last solution.
-  useEffect(() => {
-    let alive = true;
-    api.optimization.forecastOptions()
-      .then((d) => { if (alive) { setFcOptions(d.options || []); setSpecialtyNote(d.specialty_note || ''); } })
-      .catch(() => {});
+  // Nothing computes on page load (Plan C rule). Previous results are
+  // restored only when the user presses "Load last plan".
+  const loadLast = () => {
+    setLoadBusy(true); setError(null);
     api.optimization.last()
       .then((d) => {
-        if (alive && d && (d.staff || d.supply)) {
+        if (d && (d.staff || d.supply)) {
           setData(d);
-          if (d.meta?.forecast_model) setModel(d.meta.forecast_model); // keep the selected card in sync with shown results
+          if (d.meta?.forecast_model) setModel(d.meta.forecast_model);
+        } else {
+          setError('No previous plan on the server yet — run an optimization below.');
         }
       })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, []);
+      .catch((e) => setError(e.message || 'Could not load the last plan'))
+      .finally(() => setLoadBusy(false));
+  };
 
   const merge = (slice) => setData((prev) => ({ ...prev, ...slice }));
   const setBusyKey = (k, v) => setBusy((b) => ({ ...b, [k]: v }));
@@ -97,11 +98,16 @@ export default function Optimization({ onNavigate }) {
       <PageHero
         kicker="Operations · Optimization"
         title="Forecast-driven Optimization"
-        sub="Run each optimization to see the hospital's cost BEFORE vs AFTER — and how much next week's forecast lets you save on staffing and supplies."
-        image="/images/staff-bg.jpg"
+        sub="One decision chain: choose the forecast, choose the standing policy, then run this week's plan. Everything computes on demand — nothing runs until you press Run."
+        actions={
+          <button className="btn btn-sm" onClick={loadLast} disabled={loadBusy} style={{ background: 'rgba(255,255,255,0.12)', color: 'white', borderColor: 'rgba(255,255,255,0.3)' }}>
+            <Icon name="refresh" size={12} /> {loadBusy ? 'Loading…' : 'Load last plan'}
+          </button>
+        }
       />
 
-      {/* Controls — which forecast drives the optimization */}
+      {/* STEP 1 — which forecast drives the optimization */}
+      <SectionHeader n="1" title="Choose the forecast engine" desc="The demand signal everything downstream consumes." />
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
           <div className="card-title">Which forecast should drive the optimization?</div>
@@ -111,7 +117,7 @@ export default function Optimization({ onNavigate }) {
         </div>
         <div className="card-body">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 12 }}>
-            {(fcOptions || [{ model: 'ml', label: 'Best ML model' }, { model: 'statistical', label: 'Best statistical model' }]).map((o) => (
+            {[{ model: 'ml', label: 'Best ML model' }, { model: 'statistical', label: 'Best statistical model' }].map((o) => (
               <button key={o.model} onClick={() => selectModel(o.model)} disabled={busy.staff || busy.supply} style={{
                 textAlign: 'left', cursor: busy.staff || busy.supply ? 'wait' : 'pointer', fontFamily: 'inherit',
                 border: `2px solid ${model === o.model ? C.navy : '#e5e9f0'}`, borderRadius: 10,
@@ -157,16 +163,19 @@ export default function Optimization({ onNavigate }) {
             </div>
           </div>
 
-          {specialtyNote && (
-            <div style={{ fontSize: 11.5, color: C.muted, marginTop: 12, lineHeight: 1.55, borderTop: '1px solid #f1f5f9', paddingTop: 10 }}>
-              <strong>Specialties:</strong> {specialtyNote}
-            </div>
-          )}
+          <div style={{ fontSize: 11.5, color: C.muted, marginTop: 12, lineHeight: 1.55, borderTop: '1px solid #f1f5f9', paddingTop: 10 }}>
+            <strong>Specialties:</strong> optimization is driven by the total-ED forecast (Task 1);
+            specialty acuity enters through the skills-mix rule, not per-specialty demand.
+          </div>
         </div>
       </div>
 
       {/* Forecast comparison — what accuracy is worth */}
       {cmp && <ForecastComparison cmp={cmp} onUse={selectModel} />}
+
+      {/* STEP 2 — the standing reorder policy (Plan C) */}
+      <SectionHeader n="2" title="Choose the standing reorder policy" desc="Your default ordering rule. Compare the families on evidence, adopt one, tune its parameters — the supply run then optimizes within it." />
+      <PolicyEvidence onPolicyChange={setPolicyState} />
 
       {error && (
         <div className="card"><div className="card-body" style={{ color: C.red }}>
@@ -198,7 +207,7 @@ export default function Optimization({ onNavigate }) {
       {anyRun && <AiPanel surface="optimization" context={data} label="Read this plan for me" />}
 
       {/* ════════════════ STAFF ════════════════ */}
-      <SectionHeader n="1" title="Staff cost optimization" desc="Cost-minimal lawful roster (integer programme) — staff to the forecast instead of to the busy day." />
+      <SectionHeader n="3" title="Staff cost optimization" desc="Cost-minimal lawful roster (integer programme) — staff to the forecast instead of to the busy day." />
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
           <div className="card-title">Workforce scheduling model</div>
@@ -304,7 +313,8 @@ export default function Optimization({ onNavigate }) {
       )}
 
       {/* ════════════════ SUPPLY ════════════════ */}
-      <SectionHeader n="2" title="Supply cost optimization" desc="Forecast-scaled (s,S) reorder — order the right amount now to avoid expensive stockouts later." />
+      <SectionHeader n="4" title="Supply cost optimization"
+        desc={`This week's order plan under your standing policy${policyState?.label ? `: ${policyState.label}` : ''} — order the right amount now to avoid expensive stockouts later.`} />
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
           <div className="card-title">Inventory reorder model</div>
@@ -318,12 +328,12 @@ export default function Optimization({ onNavigate }) {
           {sup && (
             <>
               <SavingsPanel
-                beforeLabel="BEFORE — naive policy, no forecast safety stock"
-                afterLabel="AFTER — optimised (s*, S*) via Monte-Carlo"
+                beforeLabel="BEFORE — naive baseline (no policy)"
+                afterLabel={`AFTER — optimised ${sup.policy_label || '(s*, S*)'}`}
                 before={sup.cost.before_zar} after={sup.cost.after_zar}
                 saving={sup.cost.saving_zar} savingPct={sup.cost.saving_pct}
                 unit="per year"
-                note={`Annual expected total cost over a ${sup.horizon_days}-day rolling horizon × ${sup.n_reps} simulated demand paths · consumption scaled ×${sup.forecast_factor} to the forecast · order ${sup.kpis.items_to_order} of ${sup.kpis.items_total} items now (${zarShort(sup.kpis.order_cost_zar)}).`}
+                note={`Annual expected total cost over a ${sup.horizon_days}-day rolling horizon × ${sup.n_reps} simulated demand paths${sup.forecast_factor ? ` · consumption scaled ×${sup.forecast_factor} to the forecast` : ''} · order ${sup.kpis.items_to_order} of ${sup.kpis.items_total} items now (${zarShort(sup.kpis.order_cost_zar)})${sup.policy_label ? ` · policy: ${sup.policy_label}` : ''}.`}
               />
               {sup.cost_breakdown && (
                 <div style={{ marginTop: 14 }}>
