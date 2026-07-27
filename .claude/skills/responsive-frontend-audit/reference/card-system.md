@@ -112,6 +112,15 @@ or hide below a container width. Decoration never wins against content.
   a manual check.
 - Wire the suite into CI so the build fails at 320px.
 
+## 7b. The scrollable-flex-column banner trap (field lesson)
+
+A child of a scrollable flex column shrinks by default, and `overflow: hidden`
+zeroes its automatic minimum size, so a rounded banner (overflow hidden for
+the corners) silently compresses to its min-height and clips its own kicker
+and buttons on content-heavy pages. Any flex-column child that must keep its
+natural height needs `flex-shrink: 0`. Assert it: for every banner,
+`scrollHeight <= clientHeight + 1`.
+
 ## 8. Deployment gotchas met in the field
 
 - Git does not track empty directories: deleting a folder's last file breaks

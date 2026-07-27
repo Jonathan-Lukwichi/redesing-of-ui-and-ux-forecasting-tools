@@ -3,9 +3,13 @@
    ignored - photo banners were unlicensed stock comps and are gone. */
 export default function PageHero({ title, sub, image, actions, kicker }) {
   return (
-    <div style={{
+    <div className="page-hero" style={{
       position: 'relative',
       minHeight: 'clamp(120px, 14vw, 200px)',
+      /* flexShrink 0 is load-bearing: this sits in a scrollable flex column,
+         and overflow:hidden zeroes a flex child's automatic minimum size, so
+         without it the banner compresses and clips its own content. */
+      flexShrink: 0,
       borderRadius: 'clamp(8px, 1vw, 14px)',
       overflow: 'hidden',
       background: 'linear-gradient(110deg, #0f1729 0%, #1e3a5f 55%, #14545c 100%)',

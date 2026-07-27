@@ -88,6 +88,10 @@ for (const route of CARD_ROUTES) {
         document.querySelectorAll('.ui-card-title, .ui-card-desc, .ui-card-file, .ui-card-metric-label, .card-title, .card-sub, .kpi-label').forEach((el) => {
           if (el.scrollWidth > el.clientWidth + 1) clipped.push(`${el.className}: ${(el.textContent || '').trim().slice(0, 40)}`);
         });
+        // Page banners must never be vertically compressed by the flex column
+        document.querySelectorAll('.page-hero').forEach((el) => {
+          if (el.scrollHeight > el.clientHeight + 1) clipped.push(`page-hero vertically clipped: ${el.scrollHeight}px content in ${el.clientHeight}px box`);
+        });
         const small = [];
         let under44 = 0;
         const boxes = [];
