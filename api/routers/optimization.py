@@ -32,9 +32,31 @@ _MODEL_LABEL = {"statistical": "Best statistical model", "ml": "Best ML model"}
 class RunRequest(BaseModel):
     model: str = "ml"                   # statistical | ml — default to the most accurate engine
     kappa: float = 1.65                 # safety-buffer factor (~95% service)
-    service_level: float = 0.95         # supply (s,S) service level
+    service_level: float = 0.95         # supply service level
     weekly_budget_zar: Optional[float] = None
     start_date: Optional[str] = None    # optional backtest origin
+    policy: Optional[str] = None        # supply policy family; None = the standing policy
+
+
+class PolicyRequest(BaseModel):
+    policy: str                          # one of engine.DEPLOYABLE_POLICIES
+    service_level: float = 0.95
+
+
+def _arm_items(items: list[dict]) -> list[dict]:
+    """Map the supply panel's item records onto the arm simulator's schema."""
+    return [{
+        "sku": str(it.get("item_id") or it.get("item_name")),
+        "daily_demand_avg": float(it.get("mean_daily_consumption") or 0),
+        "unit_cost": float(it.get("unit_price_zar") or 0),
+        "holding_rate": 0.25,
+        "ordering_cost": float(it.get("ordering_cost_zar") or 50.0),
+        "lead_time_days": float(it.get("lead_time_mean_days") or 7),
+    } for it in items if float(it.get("mean_daily_consumption") or 0) > 0]
+
+
+# Load-last cache for the on-demand tuning runs (the /last pattern).
+_LAST_TUNE: dict[str, Any] = {}
 
 
 # Cache the fitted forecast so the staff and supply buttons (and re-runs) don't
@@ -155,10 +177,64 @@ async def run_staff(req: RunRequest) -> dict[str, Any]:
 
 @router.post("/supply")
 async def run_supply(req: RunRequest) -> dict[str, Any]:
-    """Run ONLY the supply (s,S) reorder optimization."""
+    """Run ONLY the supply optimization — under the requested policy family,
+    or the standing policy when none is given (Plan C)."""
     forecast = await _get_week_forecast(req.model, req.start_date)
     items = await _load_items()
-    return await run_in_threadpool(engine.run_supply, forecast, items, req.service_level)
+    state = engine.get_policy_state()
+    policy = req.policy or state["policy"]
+    if policy not in engine.DEPLOYABLE_POLICIES:
+        raise HTTPException(400, f"'{policy}' is not a deployable policy.")
+    params = state["params_by_item"] if policy == state["policy"] else None
+    return await run_in_threadpool(
+        engine.run_supply_policy, forecast, items, policy, req.service_level, params)
+
+
+@router.get("/policy")
+async def get_policy() -> dict[str, Any]:
+    """The standing supply policy + the deployable-policy registry."""
+    return {
+        "state": engine.get_policy_state(),
+        "registry": {k: {"label": v["label"], "desc": v["desc"], "params": list(v["params"])}
+                     for k, v in engine.DEPLOYABLE_POLICIES.items()},
+    }
+
+
+@router.put("/policy")
+async def put_policy(req: PolicyRequest) -> dict[str, Any]:
+    """Adopt a standing policy family (untuned: textbook parameters apply
+    until /policy/tune is run)."""
+    try:
+        state = engine.set_policy(req.policy, tuned=_LAST_TUNE.get(req.policy))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"state": state}
+
+
+@router.post("/policy/tune")
+async def tune_policy(req: PolicyRequest) -> dict[str, Any]:
+    """Grid-search the family's parameters per item on the shared simulator
+    (on demand — nothing runs on page load)."""
+    items = await _load_items()
+    arm_items = _arm_items(items)
+    if not arm_items:
+        raise HTTPException(503, "No supply items available to tune against.")
+    try:
+        result = await run_in_threadpool(
+            engine.tune_policy, arm_items, req.policy, req.service_level)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    _LAST_TUNE[req.policy] = result
+    # Tuning an adopted policy refreshes its stored parameters immediately.
+    if engine.get_policy_state()["policy"] == req.policy:
+        engine.set_policy(req.policy, tuned=result)
+    return result
+
+
+@router.get("/policy/tune/last")
+async def tune_last() -> dict[str, Any]:
+    """Most recent tuning results per policy (for Load-last-result buttons)."""
+    return {"results": _LAST_TUNE}
 
 
 @router.post("/run")

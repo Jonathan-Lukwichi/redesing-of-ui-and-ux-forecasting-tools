@@ -24,6 +24,7 @@ Action Center can rank actions from it without re-solving.
 from __future__ import annotations
 import math
 import time
+from datetime import datetime
 from typing import Any, Optional
 
 import numpy as np
@@ -643,6 +644,37 @@ DEFAULT_LEAD_TIME_SWEEP = [3, 5, 7, 10, 14, 21, 30]
 _POLICIES = ("naive", "s_q", "r_s", "ss_static", "dynamic", "oracle")
 _POLICY_IDX = {p: i for i, p in enumerate(_POLICIES)}
 
+# Product-facing arms. Oracle (perfect foresight) is confirmed OUT of every
+# user-facing surface — it survives only for offline thesis analysis, reachable
+# by explicitly passing arms=_POLICIES to the comparison functions.
+_PRODUCT_ARMS = ("naive", "s_q", "r_s", "ss_static", "dynamic")
+
+# ── Standing-policy registry (Plan C) ────────────────────────────────────────
+# The families a hospital may ADOPT as its standing reorder policy. Naive and
+# oracle are benchmarks, never deployable. Each family declares its tunable
+# parameters; the tuner grid-searches them per item on the shared simulator.
+DEPLOYABLE_POLICIES: dict[str, dict] = {
+    "s_q":       {"label": "(s,Q) reorder / EOQ",     "params": ("s_mult", "q_mult"),
+                  "desc": "Continuous review: order a fixed quantity Q when stock falls to s."},
+    "r_s":       {"label": "(R,S) periodic review",   "params": ("R", "S_mult"),
+                  "desc": "Every R days, top stock up to level S."},
+    "ss_static": {"label": "Static (s,S)",            "params": ("s_mult", "q_mult"),
+                  "desc": "Weekly review: when stock falls to s, order up to S (mean-based)."},
+    "dynamic":   {"label": "Forecast base-stock",     "params": ("z",),
+                  "desc": "Weekly review: order up to a forecast-driven target over the lead-time window."},
+}
+
+_TUNE_GRIDS: dict[str, list[dict]] = {
+    "s_q":       [{"s_mult": a, "q_mult": b}
+                  for a in (0.7, 0.85, 1.0, 1.15, 1.3) for b in (0.6, 0.8, 1.0, 1.25, 1.5)],
+    "r_s":       [{"R": r, "S_mult": m} for r in (5, 7, 10, 14) for m in (0.85, 1.0, 1.15, 1.3)],
+    "ss_static": [{"s_mult": a, "q_mult": b} for a in (0.85, 1.0, 1.15) for b in (0.7, 1.0, 1.3)],
+    "dynamic":   [{"z": zz} for zz in (1.036, 1.282, 1.645, 1.881, 2.054)],
+}
+# The parameter search scores every candidate on ALL SIM_SEEDS (not a coarse
+# subset): every grid contains the textbook default, so the tuned choice can
+# never evaluate worse than the default it is compared against.
+
 
 def _stable_key(text: str) -> int:
     """Deterministic small integer from a string (process-independent)."""
@@ -694,11 +726,19 @@ def _simulate_item_policy(
     lead_time_sd: float,
     z: float,
     seed: int,
+    params: Optional[dict] = None,
 ) -> dict:
     """One `SIM_HORIZON_DAYS`-day simulation of one item under one policy.
 
+    `params` (Plan C tuning overrides): s_mult and q_mult scale the derived
+    reorder point / order quantity; R overrides the review period; S_mult
+    scales the (R,S) order-up-to level; z overrides the dynamic arm's service
+    z. Absent keys keep the textbook derivations, so params=None reproduces
+    the original arms exactly.
+
     Returns {total_cost, holding, ordering, stockout, stockouts, service_level}.
     """
+    p_ = params or {}
     rng_lead = np.random.default_rng(seed * 100003 + _POLICY_IDX[policy] * 7919 + 13)
     n_days = len(actual_demand)
     unit_cost = float(item["unit_cost"])
@@ -711,11 +751,15 @@ def _simulate_item_policy(
 
     # Static (s, S) sizing — the target for naive and thresholds for ss_static.
     safety = z * d_std * np.sqrt(lead_time_mean)
-    s_thr = d_avg * lead_time_mean + safety
+    s_thr = (d_avg * lead_time_mean + safety) * float(p_.get("s_mult", 1.0))
     D_annual = d_avg * 365
     H = unit_cost * hold_rate
     eoq = float(np.sqrt(2 * D_annual * order_cost / H)) if (H > 0 and D_annual > 0) else max(1.0, d_avg * 7)
+    eoq *= float(p_.get("q_mult", 1.0))
     S_cap = s_thr + eoq
+    review = max(1, int(p_.get("R", REVIEW_PERIOD_DAYS)))
+    z_eff = float(p_.get("z", z))
+    S_mult = float(p_.get("S_mult", 1.0))
 
     stock = float(item.get("on_hand", int(S_cap)))
     pending: list[tuple] = []
@@ -763,27 +807,27 @@ def _simulate_item_policy(
         elif policy == "r_s":
             # Periodic-review (R, S): every review, top up to a mean-based
             # order-up-to level covering demand over the (L + R) window.
-            if day % REVIEW_PERIOD_DAYS == 0:
-                S_rs = d_avg * (lead_time_mean + REVIEW_PERIOD_DAYS) + safety
+            if day % review == 0:
+                S_rs = (d_avg * (lead_time_mean + review) + safety) * S_mult
                 position = stock + sum(q for _, q in pending)
                 if position < S_rs:
                     place = max(1, int(round(S_rs - position)))
 
         elif policy == "ss_static":
-            if day % REVIEW_PERIOD_DAYS == 0:
+            if day % review == 0:
                 position = stock + sum(q for _, q in pending)
                 if position < s_thr:
                     place = max(1, int(round(S_cap - position)))
 
         elif policy == "dynamic":
-            if day % REVIEW_PERIOD_DAYS == 0:
+            if day % review == 0:
                 L_int = max(1, int(round(lead_time_mean)))
-                window = forecast_demand[day:min(n_days, day + L_int + REVIEW_PERIOD_DAYS)]
+                window = forecast_demand[day:min(n_days, day + L_int + review)]
                 if len(window):
                     mean_window = float(np.sum(window))
                     forecast_var = (CHAPTER6_TEST_MAPE * mean_window) ** 2
                     nb_var = mean_window * (1.0 + mean_window / NB_DISPERSION)
-                    target = mean_window + z * np.sqrt(forecast_var + nb_var)
+                    target = mean_window + z_eff * np.sqrt(forecast_var + nb_var)
                     position = stock + sum(q for _, q in pending)
                     if position < target:
                         place = max(1, int(round(target - position)))
@@ -820,17 +864,19 @@ def _simulate_item_policy(
     }
 
 
-def _run_comparison_for_lead_time(items: list[dict], z: float, lead_time_mean: float) -> dict:
-    """Run the four policies × `SIM_SEEDS` for a given mean lead time.
+def _run_comparison_for_lead_time(items: list[dict], z: float, lead_time_mean: float,
+                                  arms: tuple = _PRODUCT_ARMS) -> dict:
+    """Run the product policy arms × `SIM_SEEDS` for a given mean lead time.
 
     Common random numbers: each (seed, item) generates ONE actual demand and
     ONE forecast realisation shared across all policies, so policy differences
-    are paired and cleaner than independent draws would give.
+    are paired and cleaner than independent draws would give. Pass
+    arms=_POLICIES for offline research runs that include the oracle ceiling.
     """
     lead_time_sd = 0.3 * lead_time_mean            # coefficient of variation 30%
     accum = {p: {k: [] for k in ("total_cost", "holding", "ordering",
                                  "stockout", "stockouts", "service_level")}
-             for p in _POLICIES}
+             for p in arms}
 
     for seed in SIM_SEEDS:
         rng_demand = np.random.default_rng(seed)
@@ -840,7 +886,7 @@ def _run_comparison_for_lead_time(items: list[dict], z: float, lead_time_mean: f
                                for _ in range(SIM_HORIZON_DAYS)], dtype=float)
             forecast = _synthesize_forecast(actual, CHAPTER6_TEST_MAPE,
                                             seed + _stable_key(item["sku"]))
-            for p in _POLICIES:
+            for p in arms:
                 r = _simulate_item_policy(item, actual, forecast, p,
                                           lead_time_mean, lead_time_sd, z, seed)
                 for k in accum[p]:
@@ -892,7 +938,7 @@ def optimize_supply_multi_arm(
         "n_seeds": len(SIM_SEEDS),
         "sim_horizon_days": SIM_HORIZON_DAYS,
         "policies": summary,
-        "message": (f"Compared naive, static (s,S), dynamic base-stock and oracle "
+        "message": (f"Compared naive, (s,Q), (R,S), static (s,S) and forecast base-stock "
                     f"across {len(items)} SKUs at mean lead time {lead_time_mean:.0f}d."),
     }
 
@@ -913,15 +959,15 @@ def optimize_supply_lead_time_sweep(
         lead_times = list(DEFAULT_LEAD_TIME_SWEEP)
     z = _z_for(service_level)
 
-    series = {p: [] for p in _POLICIES}
+    series = {p: [] for p in _PRODUCT_ARMS}
     rows = []
     for L in lead_times:
         summary = _run_comparison_for_lead_time(items, z, float(L))
-        for p in _POLICIES:
+        for p in _PRODUCT_ARMS:
             series[p].append(round(summary[p]["total_cost_mean"], 2))
         rows.append({
             "lead_time_days": float(L),
-            "costs": {p: round(summary[p]["total_cost_mean"], 2) for p in _POLICIES},
+            "costs": {p: round(summary[p]["total_cost_mean"], 2) for p in _PRODUCT_ARMS},
             "dynamic_vs_ss_static_pct": round(
                 100.0 * (summary["ss_static"]["total_cost_mean"]
                          - summary["dynamic"]["total_cost_mean"])
@@ -988,8 +1034,11 @@ STAFF_OT_MULT = 1.5                 # overtime premium (hours above 45/week)
 STAFF_LOCUM_MULT = 1.8             # locum premium (Rispel 2015)
 STAFF_MAX_WEEKLY_H = 58.0           # observed overwork ceiling (Abrahams 2022)
 STAFF_SIM_WEEKS = 12
+# Product strategies (oracle removed from every user-facing surface; pass
+# STAFF_STRATEGIES_RESEARCH explicitly for offline thesis analysis).
 STAFF_STRATEGIES = ("peak", "mean", "forecast_lawful", "forecast_ot",
-                    "forecast_stochastic", "oracle")
+                    "forecast_stochastic")
+STAFF_STRATEGIES_RESEARCH = STAFF_STRATEGIES + ("oracle",)
 
 
 def _required_nurse_hours(arrivals: float) -> float:
@@ -1001,6 +1050,7 @@ def _required_nurse_hours(arrivals: float) -> float:
 def compare_staff_strategies(
     mean_arrivals: Optional[float] = None,
     service_z: float = 1.282,
+    strategies: tuple = STAFF_STRATEGIES,
 ) -> dict[str, Any]:
     """Compare six rostering strategies for the fixed 23-nurse pool.
 
@@ -1031,8 +1081,8 @@ def compare_staff_strategies(
     rate = NURSE_HOURLY_ZAR
     ones = np.ones(weeks)
 
-    strategies = {}
-    for strat in STAFF_STRATEGIES:
+    out_strategies = {}
+    for strat in strategies:
         if strat == "peak":
             sched = np.minimum(peak, max_cap) * ones
         elif strat == "mean":
@@ -1059,7 +1109,7 @@ def compare_staff_strategies(
         locum_cost = float(gap.sum()) * rate * STAFF_LOCUM_MULT
         total = base_payroll + ot_cost + locum_cost
 
-        strategies[strat] = {
+        out_strategies[strat] = {
             "annual_cost_zar": round(total * annual, 0),
             "base_payroll_zar": round(base_payroll * annual, 0),
             "overtime_cost_zar": round(ot_cost * annual, 0),
@@ -1079,10 +1129,279 @@ def compare_staff_strategies(
         "mean_arrivals": ma,
         "sim_weeks": weeks,
         "lawful_weekly_cap_h": LEGAL_WEEKLY_HOURS,
-        "strategies": strategies,
+        "strategies": out_strategies,
         "recommended": "forecast_lawful",
-        "message": (f"Compared six rostering strategies for {N} nurses at ~{ma:.0f} "
+        "deployable": ["forecast_lawful"],   # unlawful strategies are benchmarks only
+        "message": (f"Compared rostering strategies for {N} nurses at ~{ma:.0f} "
                     f"arrivals/day. Best is multi-objective: forecast-driven lawful "
                     f"rostering is the recommended balance; no roster closes the "
                     f"structural shortage (a hiring problem)."),
+    }
+
+
+# ─── Plan C: standing-policy store, per-family tuning, per-policy planning ───
+#
+# The chosen policy FAMILY is a standing decision (strategic); the tuner finds
+# the best parameters WITHIN the family (tactical); the planner turns tuned
+# parameters into this week's order rows. Store follows the /last pattern so
+# the pages, the planner chips and the AI assistant all read the same state.
+
+_POLICY_STATE: dict[str, Any] = {
+    "policy": "dynamic",            # default standing policy: forecast base-stock
+    "label": DEPLOYABLE_POLICIES["dynamic"]["label"],
+    "params_by_item": None,         # sku -> tuned params (None until tuned)
+    "tuned_at": None,
+    "lead_time_mean": None,
+    "service_level": None,
+}
+
+
+def get_policy_state() -> dict[str, Any]:
+    return dict(_POLICY_STATE)
+
+
+def set_policy(policy: str, tuned: Optional[dict] = None) -> dict[str, Any]:
+    if policy not in DEPLOYABLE_POLICIES:
+        raise ValueError(f"'{policy}' is not a deployable policy "
+                         f"(choose from {list(DEPLOYABLE_POLICIES)})")
+    _POLICY_STATE.update({
+        "policy": policy,
+        "label": DEPLOYABLE_POLICIES[policy]["label"],
+        "params_by_item": (tuned or {}).get("params_by_item"),
+        "tuned_at": (tuned or {}).get("tuned_at"),
+        "lead_time_mean": (tuned or {}).get("lead_time_mean"),
+        "service_level": (tuned or {}).get("service_level"),
+    })
+    return get_policy_state()
+
+
+def tune_policy(
+    items: list[dict],
+    policy: str,
+    service_level: float = 0.95,
+    lead_time_mean: Optional[float] = None,
+) -> dict[str, Any]:
+    """Per-item grid search of the family's parameters on the shared simulator.
+
+    Candidates are scored on all SIM_SEEDS with common random numbers, and the
+    grids include the textbook defaults, so `saving_vs_default` is a paired
+    comparison that is non-negative by construction.
+    """
+    if policy not in DEPLOYABLE_POLICIES:
+        raise ValueError(f"'{policy}' is not a deployable policy")
+    z = _z_for(service_level)
+    if lead_time_mean is None:
+        lead_time_mean = float(np.mean([it.get("lead_time_days", 7) for it in items]))
+    lead_time_sd = 0.3 * float(lead_time_mean)
+    grid = _TUNE_GRIDS[policy]
+
+    # Pre-generate demand/forecast per (seed, item) once — shared by all
+    # candidates (common random numbers).
+    def _demand(seed: int, item: dict) -> tuple:
+        rng_d = np.random.default_rng(seed * 7 + _stable_key(item["sku"]))
+        actual = np.array([_negbin(float(item["daily_demand_avg"]), NB_DISPERSION, rng_d)
+                           for _ in range(SIM_HORIZON_DAYS)], dtype=float)
+        fc = _synthesize_forecast(actual, CHAPTER6_TEST_MAPE, seed + _stable_key(item["sku"]))
+        return actual, fc
+
+    params_by_item: dict[str, dict] = {}
+    tuned_costs, default_costs, services = [], [], []
+
+    for item in items:
+        streams = {s: _demand(s, item) for s in SIM_SEEDS}
+        best_params, best_cost = None, np.inf
+        for cand in grid:
+            c = 0.0
+            for s in SIM_SEEDS:
+                a, f = streams[s]
+                c += _simulate_item_policy(item, a, f, policy, float(lead_time_mean),
+                                           lead_time_sd, z, s, params=cand)["total_cost"]
+            if c < best_cost:
+                best_cost, best_params = c, cand
+        params_by_item[str(item["sku"])] = dict(best_params)
+
+        for s in SIM_SEEDS:
+            a, f = streams[s]
+            tuned_costs.append(_simulate_item_policy(
+                item, a, f, policy, float(lead_time_mean), lead_time_sd, z, s,
+                params=best_params))
+            default_costs.append(_simulate_item_policy(
+                item, a, f, policy, float(lead_time_mean), lead_time_sd, z, s)["total_cost"])
+        services.extend(r["service_level"] for r in tuned_costs[-len(SIM_SEEDS):])
+
+    tuned_total = float(np.mean([r["total_cost"] for r in tuned_costs]))
+    default_total = float(np.mean(default_costs))
+    result = {
+        "success": True,
+        "policy": policy,
+        "label": DEPLOYABLE_POLICIES[policy]["label"],
+        "service_level": service_level,
+        "lead_time_mean": float(lead_time_mean),
+        "n_items": len(items),
+        "params_by_item": params_by_item,
+        "tuned_cost_mean": round(tuned_total, 2),
+        "default_cost_mean": round(default_total, 2),
+        "saving_vs_default_pct": round(
+            100.0 * (default_total - tuned_total) / max(1.0, default_total), 1),
+        "service_level_mean": round(float(np.mean(services)) * 100, 1),
+        "tuned_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    return result
+
+
+def run_supply_policy(
+    forecast: dict,
+    items: list[dict],
+    policy: str,
+    service_level: float = 0.95,
+    params_by_item: Optional[dict] = None,
+) -> dict[str, Any]:
+    """Policy-aware counterpart of run_supply: plan under the standing policy,
+    update the shared cache, return the page payload slice."""
+    res = plan_orders_for_policy(policy, items, forecast, service_level, params_by_item)
+    _LAST["forecast"] = forecast
+    _LAST["supply"] = res
+    if _LAST.get("meta") is None:
+        _LAST["meta"] = _meta(forecast, service_level=service_level)
+    _LAST["meta"]["supply_policy"] = policy
+    _LAST["meta"]["supply_policy_label"] = DEPLOYABLE_POLICIES[policy]["label"]
+    _LAST["impact"] = _build_impact()
+    return {"meta": _LAST["meta"], "forecast": forecast, "supply": res, "impact": _LAST["impact"]}
+
+
+def plan_orders_for_policy(
+    policy: str,
+    items: list[dict],
+    forecast: dict,
+    service_level: float = 0.95,
+    params_by_item: Optional[dict] = None,
+) -> dict[str, Any]:
+    """This week's order rows under the standing policy.
+
+    ss_static and dynamic reuse the validated Monte-Carlo (s,S) engine
+    (ss_static = mean-based: forecast factor 1, no forecast-error term;
+    dynamic = the existing forecast-driven optimisation). s_q and r_s build
+    day-0 order decisions from their (tuned or textbook) parameters, with
+    before/after costs from the shared arm simulator (naive = before).
+    """
+    if policy == "dynamic":
+        res = reorder_supply(items, forecast_factor(forecast), service_level=service_level,
+                             forecast_rel_err=forecast_rel_err(forecast))
+        res["policy"], res["policy_label"] = policy, DEPLOYABLE_POLICIES[policy]["label"]
+        return res
+    if policy == "ss_static":
+        res = reorder_supply(items, 1.0, service_level=service_level, forecast_rel_err=0.0)
+        res["policy"], res["policy_label"] = policy, DEPLOYABLE_POLICIES[policy]["label"]
+        return res
+    if policy not in ("s_q", "r_s"):
+        raise ValueError(f"'{policy}' is not a deployable policy")
+
+    z = _z_for(service_level)
+    p_all = params_by_item or {}
+    lead_mean = float(np.mean([float(it.get("lead_time_mean_days") or 5) for it in items]))
+    lead_sd = 0.3 * lead_mean
+    annual = 365.0 / SIM_HORIZON_DAYS
+
+    orders = []
+    before_total = after_total = 0.0
+    order_cost = 0.0
+    n_to_order = n_at_risk = 0
+    breakdown_before = {"ordering": 0.0, "holding": 0.0, "stockout": 0.0, "wastage": 0.0}
+    breakdown_after = dict(breakdown_before)
+
+    rng = np.random.default_rng(42)
+    for it in items:
+        d_avg = float(it.get("mean_daily_consumption") or 0)
+        sd = float(it.get("sd_daily_consumption") or 0) or max(1.0, 0.3 * d_avg)
+        L = max(1, int(round(float(it.get("lead_time_mean_days") or 5))))
+        _cur = it.get("current_stock_units")
+        on_hand = float(_cur if _cur is not None else (it.get("avg_stock_on_hand") or 0))
+        price = float(it.get("unit_price_zar") or 0)
+        params = p_all.get(str(it.get("item_id") or it.get("sku") or it.get("item_name")), {})
+
+        safety = z * sd * math.sqrt(L) * float(params.get("s_mult", 1.0))
+        s_pt = d_avg * L * float(params.get("s_mult", 1.0)) + safety
+        K = float(it.get("ordering_cost_zar") or 50.0)
+        H = price * 0.25
+        D_annual = d_avg * 365
+        eoq = math.sqrt(2 * D_annual * K / H) if (H > 0 and D_annual > 0) else max(1.0, d_avg * 7)
+        eoq *= float(params.get("q_mult", 1.0))
+        R = int(params.get("R", REVIEW_PERIOD_DAYS))
+        S_rs = (d_avg * (L + R) + safety) * float(params.get("S_mult", 1.0))
+
+        order_qty, order_up_to = 0, (s_pt + eoq if policy == "s_q" else S_rs)
+        status = "ok"
+        if policy == "s_q" and on_hand <= s_pt:
+            order_qty = max(1, int(round(eoq)))
+        elif policy == "r_s" and on_hand < S_rs:
+            order_qty = max(1, int(round(S_rs - on_hand)))
+        if order_qty:
+            status = "order_now"
+            n_to_order += 1
+            order_cost += order_qty * price
+        if on_hand < safety:
+            n_at_risk += 1
+        elif d_avg > 0 and on_hand > order_up_to * 2.5:
+            status = "excess"
+
+        # Before/after from the shared arm simulator: naive vs this policy,
+        # averaged over all SIM_SEEDS with common random numbers per seed.
+        sim_item = {"sku": str(it.get("item_id") or it.get("item_name")),
+                    "daily_demand_avg": d_avg, "unit_cost": price,
+                    "holding_rate": 0.25, "ordering_cost": K}
+        b_cost = a_cost = 0.0
+        for seed in SIM_SEEDS:
+            rng_s = np.random.default_rng(seed * 11 + _stable_key(sim_item["sku"]))
+            actual = np.array([_negbin(d_avg, NB_DISPERSION, rng_s)
+                               for _ in range(SIM_HORIZON_DAYS)], dtype=float)
+            fc = _synthesize_forecast(actual, CHAPTER6_TEST_MAPE,
+                                      seed + _stable_key(sim_item["sku"]))
+            b = _simulate_item_policy(sim_item, actual, fc, "naive", lead_mean, lead_sd, z, seed)
+            a = _simulate_item_policy(sim_item, actual, fc, policy, lead_mean, lead_sd, z, seed,
+                                      params=params or None)
+            b_cost += b["total_cost"] / len(SIM_SEEDS)
+            a_cost += a["total_cost"] / len(SIM_SEEDS)
+            for kk in ("ordering", "holding", "stockout"):
+                breakdown_before[kk] += b[kk] / len(SIM_SEEDS)
+                breakdown_after[kk] += a[kk] / len(SIM_SEEDS)
+        before_total += b_cost
+        after_total += a_cost
+
+        days_cover = round(on_hand / d_avg, 1) if d_avg > 0 else None
+        orders.append(_order_row(it, on_hand, d_avg, L, safety, s_pt, order_up_to,
+                                 order_qty, price, days_cover, status,
+                                 saved=round(max(0.0, (b_cost - a_cost) * annual), 0)))
+
+    rank = {"order_now": 0, "excess": 1, "ok": 2}
+    abc = {"A": 0, "B": 1, "C": 2}
+    orders.sort(key=lambda o: (rank.get(o["status"], 9), abc.get(o["abc_class"], 9), -o["order_cost_zar"]))
+
+    before_a, after_a = before_total * annual, after_total * annual
+    saving_a = max(0.0, before_a - after_a)
+    return {
+        "policy": policy,
+        "policy_label": DEPLOYABLE_POLICIES[policy]["label"],
+        "service_level": service_level,
+        "horizon_days": SIM_HORIZON_DAYS,
+        "n_reps": len(SIM_SEEDS),
+        "cost": {
+            "before_zar": round(before_a, 0),
+            "after_zar": round(after_a, 0),
+            "saving_zar": round(saving_a, 0),
+            "saving_pct": round(saving_a / before_a * 100, 1) if before_a else 0.0,
+            "basis": "annualised expected total cost (arm simulation, naive baseline)",
+        },
+        "cost_breakdown": {
+            "before": {k: round(v * annual, 0) for k, v in breakdown_before.items()},
+            "after": {k: round(v * annual, 0) for k, v in breakdown_after.items()},
+        },
+        "kpis": {
+            "items_total": len(items),
+            "items_to_order": n_to_order,
+            "items_at_risk_now": n_at_risk,
+            "order_cost_zar": round(order_cost, 0),
+            "stockout_risk_addressed_zar": round(max(0.0, (breakdown_before["stockout"]
+                                                           - breakdown_after["stockout"]) * annual), 0),
+        },
+        "orders": orders,
     }

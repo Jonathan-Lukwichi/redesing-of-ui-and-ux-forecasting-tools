@@ -25,7 +25,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 // Forecast-value demonstration: six inventory policies, ordered as a ladder
 // from "no forecast" to "perfect foresight" by how fully each consumes it.
-const POLICY_ORDER = ['naive', 's_q', 'r_s', 'ss_static', 'dynamic', 'oracle'];
+const POLICY_ORDER = ['naive', 's_q', 'r_s', 'ss_static', 'dynamic'];
 const POLICY_LABEL = {
   naive:     'Naive monthly bulk',
   s_q:       '(s, Q) reorder / EOQ',

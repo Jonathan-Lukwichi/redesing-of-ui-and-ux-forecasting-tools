@@ -19,7 +19,7 @@ const SHIFT = { Day: '#f59e0b', Evening: '#1e6091', Night: '#6366f1' };
 const CAT_SHORT = { 'Professional Nurse': 'PN', 'Enrolled Nurse': 'EN', 'Enrolled Nursing Auxiliary': 'ENA' };
 
 // Rostering strategy comparison — ordered by how each uses the demand forecast.
-const STRAT_ORDER = ['peak', 'mean', 'forecast_lawful', 'forecast_ot', 'forecast_stochastic', 'oracle'];
+const STRAT_ORDER = ['peak', 'mean', 'forecast_lawful', 'forecast_ot', 'forecast_stochastic'];
 const STRAT_LABEL = {
   peak:                'Fixed peak roster',
   mean:                'Historical-mean roster',
