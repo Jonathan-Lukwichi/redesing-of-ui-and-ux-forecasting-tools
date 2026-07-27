@@ -456,6 +456,27 @@ CARDS: dict[str, dict] = {
         ),
     },
 
+    "policy_families": {
+        "title": "Standing policy vs parameter tuning — how the app decides how to order",
+        "keywords": "standing policy family adopt tune tuning parameters which reorder policy s q r s base stock deployable benchmark why not oracle naive optimization page choose",
+        "source": "Simchi-Levi et al.; the app's forecast-to-decision design",
+        "body": (
+            "Ordering is decided in two layers. STRATEGIC: choose the policy FAMILY — the "
+            "standing rule for how you order ((s,Q) continuous reorder, (R,S) periodic, "
+            "static (s,S), or forecast-driven base-stock). The evidence comparison on the "
+            "Optimization page simulates all of them on your items and shows which wins at "
+            "your lead times — typically base-stock at short lead times, (s,Q) when lead "
+            "times outrun the forecast horizon. TACTICAL: tune the numbers WITHIN the "
+            "chosen family — the tuner grid-searches each item's parameters and often beats "
+            "textbook settings by a large margin. Naive ordering is shown only as the "
+            "benchmark floor, and perfect-foresight ceilings are not shown at all: neither "
+            "is deployable. On the staffing side only the LAWFUL forecast-driven roster is "
+            "deployable — strategies that need unlawful hours appear as benchmarks the "
+            "system refuses to deploy. Everything computes on demand: nothing runs until "
+            "someone presses Run."
+        ),
+    },
+
     "value_of_information": {
         "title": "The value of information — what accuracy is worth in Rand",
         "keywords": "value information accuracy worth money rand savings better forecast pays sharing information why invest",

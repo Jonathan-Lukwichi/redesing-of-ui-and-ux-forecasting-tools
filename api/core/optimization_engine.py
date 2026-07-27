@@ -681,6 +681,16 @@ def _stable_key(text: str) -> int:
     return sum((i + 1) * ord(c) for i, c in enumerate(str(text))) % 100003
 
 
+def _demand_stream(seed: int, sku: str, d_avg: float, n_days: int = SIM_HORIZON_DAYS):
+    """THE shared demand generator: one (seed, item) stream used identically by
+    the evidence ladder, the parameter tuner and the weekly planner, so their
+    before/after stories agree (common random numbers across all consumers)."""
+    rng = np.random.default_rng(seed * 7 + _stable_key(sku))
+    actual = np.array([_negbin(d_avg, NB_DISPERSION, rng) for _ in range(n_days)], dtype=float)
+    forecast = _synthesize_forecast(actual, CHAPTER6_TEST_MAPE, seed + _stable_key(sku))
+    return actual, forecast
+
+
 def _negbin(mean: float, dispersion: float, rng: np.random.Generator) -> int:
     """Negative-binomial draw parameterised by (mean, dispersion)."""
     if mean <= 0:
@@ -879,13 +889,9 @@ def _run_comparison_for_lead_time(items: list[dict], z: float, lead_time_mean: f
              for p in arms}
 
     for seed in SIM_SEEDS:
-        rng_demand = np.random.default_rng(seed)
         for item in items:
             d_avg = float(item["daily_demand_avg"])
-            actual = np.array([_negbin(d_avg, NB_DISPERSION, rng_demand)
-                               for _ in range(SIM_HORIZON_DAYS)], dtype=float)
-            forecast = _synthesize_forecast(actual, CHAPTER6_TEST_MAPE,
-                                            seed + _stable_key(item["sku"]))
+            actual, forecast = _demand_stream(seed, item["sku"], d_avg)
             for p in arms:
                 r = _simulate_item_policy(item, actual, forecast, p,
                                           lead_time_mean, lead_time_sd, z, seed)
@@ -1195,20 +1201,12 @@ def tune_policy(
     lead_time_sd = 0.3 * float(lead_time_mean)
     grid = _TUNE_GRIDS[policy]
 
-    # Pre-generate demand/forecast per (seed, item) once — shared by all
-    # candidates (common random numbers).
-    def _demand(seed: int, item: dict) -> tuple:
-        rng_d = np.random.default_rng(seed * 7 + _stable_key(item["sku"]))
-        actual = np.array([_negbin(float(item["daily_demand_avg"]), NB_DISPERSION, rng_d)
-                           for _ in range(SIM_HORIZON_DAYS)], dtype=float)
-        fc = _synthesize_forecast(actual, CHAPTER6_TEST_MAPE, seed + _stable_key(item["sku"]))
-        return actual, fc
-
     params_by_item: dict[str, dict] = {}
     tuned_costs, default_costs, services = [], [], []
 
     for item in items:
-        streams = {s: _demand(s, item) for s in SIM_SEEDS}
+        streams = {s: _demand_stream(s, item["sku"], float(item["daily_demand_avg"]))
+                   for s in SIM_SEEDS}
         best_params, best_cost = None, np.inf
         for cand in grid:
             c = 0.0
@@ -1351,11 +1349,7 @@ def plan_orders_for_policy(
                     "holding_rate": 0.25, "ordering_cost": K}
         b_cost = a_cost = 0.0
         for seed in SIM_SEEDS:
-            rng_s = np.random.default_rng(seed * 11 + _stable_key(sim_item["sku"]))
-            actual = np.array([_negbin(d_avg, NB_DISPERSION, rng_s)
-                               for _ in range(SIM_HORIZON_DAYS)], dtype=float)
-            fc = _synthesize_forecast(actual, CHAPTER6_TEST_MAPE,
-                                      seed + _stable_key(sim_item["sku"]))
+            actual, fc = _demand_stream(seed, sim_item["sku"], d_avg)
             b = _simulate_item_policy(sim_item, actual, fc, "naive", lead_mean, lead_sd, z, seed)
             a = _simulate_item_policy(sim_item, actual, fc, policy, lead_mean, lead_sd, z, seed,
                                       params=params or None)

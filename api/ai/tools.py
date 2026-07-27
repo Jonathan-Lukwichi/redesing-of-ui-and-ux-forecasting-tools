@@ -36,7 +36,7 @@ TOOL_SCHEMAS = [
     },
     {
         "name": "get_optimization",
-        "description": "Get the forecast-driven optimization plan: the cost-minimal lawful nurse roster (lawful coverage, nurse shortfall, locum hours needed, locum saved) and the (s,S) reorder plan (items to order this week, order cost, stockout risk addressed). Use for questions about what to do next week, the optimal roster, or what to reorder.",
+        "description": "READ the last forecast-driven optimization plan (never triggers a run): the cost-minimal lawful nurse roster (lawful coverage, nurse shortfall, locum hours) and this week's reorder plan under the hospital's STANDING supply policy (the result names the policy family used, e.g. (s,Q) or forecast base-stock, and whether its parameters are tuned). Use for questions about what to do next week, the optimal roster, what to reorder, or which reorder policy is in force. If no plan exists, it says so — tell the user to press Run on the Optimization page.",
         "input_schema": {"type": "object", "properties": {}},
     },
     {
@@ -160,18 +160,27 @@ def execute(name: str, inp: dict[str, Any]) -> dict[str, Any]:
                         "available_topics": knowledge.topics()}
             return {"cards": cards}
         if name == "get_optimization":
+            # Plan C: everything computes on demand from the page. This tool
+            # only READS the materialized last plan; it never triggers a run.
             d = _get("/api/optimization/last")
-            if not d or not d.get("staff"):
-                d = _post("/api/optimization/run", {"model": "ml"})
-            if d.get("error") or d.get("detail") or not d.get("staff"):
-                return {"error": ("No optimization plan is available yet. Tell the user: press "
-                                  "'Run staff optimization' and 'Run supply optimization' on the "
-                                  "Optimization page to get the best demand-matched roster and "
-                                  "reorder recommendations.")}
+            pol = ((_get("/api/optimization/policy") or {}).get("state")) or {}
+            policy_info = {
+                "standing_supply_policy": pol.get("label"),
+                "policy_parameters_tuned": bool(pol.get("tuned_at")),
+            }
+            if not d or (not d.get("staff") and not d.get("supply")):
+                return {
+                    "error": ("No optimization plan has been run yet — nothing computes "
+                              "automatically. Tell the user: press 'Run staff optimization' "
+                              "and 'Run supply optimization' on the Optimization page."),
+                    **policy_info,
+                }
             staff = d.get("staff") or {}; supply = d.get("supply") or {}
             sk = staff.get("kpis") or {}; sc = staff.get("cost") or {}
             uk = supply.get("kpis") or {}; uc = supply.get("cost") or {}
             return {
+                **policy_info,
+                "supply_plan_policy": supply.get("policy_label"),
                 "week_starting": (d.get("forecast") or {}).get("week_starting"),
                 "forecast_source": (d.get("forecast") or {}).get("source"),
                 "staff_cost_before_after_saving_zar": [sc.get("before_zar"), sc.get("after_zar"), sc.get("saving_zar")],
