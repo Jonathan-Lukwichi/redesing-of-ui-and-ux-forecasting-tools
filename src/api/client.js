@@ -114,6 +114,7 @@ export const api = {
       const q = meanArrivals != null ? `?mean_arrivals=${meanArrivals}` : '';
       return request(`/api/staff/strategy-compare-demo${q}`, { signal });
     },
+    strategyCompareLast: (signal) => request('/api/staff/strategy-compare-last', { signal }),
   },
 
   optimization: {

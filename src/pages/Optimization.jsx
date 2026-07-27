@@ -5,6 +5,7 @@ import Icon from '../components/Icon';
 import { LineChart } from '../components/Charts';
 import AiPanel from '../components/AiPanel';
 import PolicyEvidence from '../components/PolicyEvidence';
+import StaffEvidence from '../components/StaffEvidence';
 import { api } from '../api/client';
 
 const C = { ink: '#0f172a', muted: '#64748b', teal: '#0d9488', navy: '#1e6091', red: '#dc2626', amber: '#d97706', green: '#15803d' };
@@ -207,7 +208,8 @@ export default function Optimization({ onNavigate }) {
       {anyRun && <AiPanel surface="optimization" context={data} label="Read this plan for me" />}
 
       {/* ════════════════ STAFF ════════════════ */}
-      <SectionHeader n="3" title="Staff cost optimization" desc="Cost-minimal lawful roster (integer programme) — staff to the forecast instead of to the busy day." />
+      <SectionHeader n="3" title="Staff cost optimization" desc="Cost-minimal lawful roster (integer programme) — staff to the forecast instead of to the busy day. The strategy evidence explains why lawful is the only deployable regime." />
+      <StaffEvidence />
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
           <div className="card-title">Workforce scheduling model</div>

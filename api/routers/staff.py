@@ -143,13 +143,26 @@ async def overview() -> dict[str, Any]:
 
 # ─── Rostering strategy comparison (forecast-value demonstration) ──────────────
 
+# Load-last cache for the on-demand strategy comparison (the /last pattern).
+_LAST_STRATEGY: dict[str, Any] = {}
+
+
 @router.get("/strategy-compare-demo")
 async def staff_strategy_compare_demo(
     mean_arrivals: Optional[float] = None,
 ) -> dict[str, Any]:
-    """Compare six rostering strategies (peak / mean / forecast-lawful /
-    forecast-OT / forecast-stochastic / oracle) for the fixed 23-nurse pool.
-    `mean_arrivals` lets the UI explore lighter/heavier demand regimes."""
+    """Compare the product rostering strategies (peak / mean / forecast-lawful
+    / forecast-OT / forecast-stochastic) for the fixed 23-nurse pool. Only the
+    lawful strategy is deployable; the rest are benchmarks. `mean_arrivals`
+    lets the UI explore lighter/heavier demand regimes."""
     if mean_arrivals is not None and not (10 <= mean_arrivals <= 300):
         raise HTTPException(400, "mean_arrivals must be between 10 and 300.")
-    return compare_staff_strategies(mean_arrivals=mean_arrivals)
+    res = compare_staff_strategies(mean_arrivals=mean_arrivals)
+    _LAST_STRATEGY["result"] = res
+    return res
+
+
+@router.get("/strategy-compare-last")
+async def staff_strategy_compare_last() -> dict[str, Any]:
+    """Most recent strategy comparison, if any (for Load-last-result buttons)."""
+    return {"result": _LAST_STRATEGY.get("result")}
