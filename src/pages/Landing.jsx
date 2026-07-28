@@ -20,7 +20,7 @@ export default function Landing({ onNavigate }) {
           <div style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap' }}>HealthForecast AI</div>
         </div>
         <div className="lp-nav-links">
-          {[['Platform', 'section-platform'], ['Engines', 'section-models'], ['Evidence', 'section-outcomes']].map(([l, id]) => (
+          {[['Platform', 'section-platform'], ['Trust', 'section-models'], ['Outcomes', 'section-outcomes']].map(([l, id]) => (
             <a key={l} onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })} style={{ color: 'rgba(255,255,255,0.85)', textDecoration: 'none', cursor: 'pointer' }}>{l}</a>
           ))}
         </div>
@@ -41,30 +41,29 @@ export default function Landing({ onNavigate }) {
           <div style={{ minWidth: 0 }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', background: 'rgba(125,211,252,0.15)', border: '1px solid rgba(125,211,252,0.35)', borderRadius: 999, fontSize: 11, fontWeight: 600, color: '#7dd3fc', letterSpacing: 0.4, marginBottom: 24, maxWidth: '100%' }}>
               <span style={{ width: 6, height: 6, background: '#7dd3fc', borderRadius: '50%', flexShrink: 0 }} />
-              MSc-RESEARCH BACKED · 6.5 YEARS OF REAL ED DATA
+              HOSPITAL DEMAND FORECASTING PLATFORM
             </div>
             <h1 className="lp-h1">
-              Forecast demand.<br />
+              Your hospital's demand forecast.<br />
               <span style={{ background: 'linear-gradient(90deg, #7dd3fc, #5eead4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                Plan the response.
+                Staffing and supply, planned to match.
               </span>
             </h1>
             <p className="lp-sub" style={{ color: '#cbd5e1', maxWidth: 540, margin: '0 0 32px 0' }}>
-              Decision support for hospital emergency departments. Forecast patient
-              arrivals from years of real history, then turn the forecast into a
-              lawful nurse roster and a costed supply plan — with an AI analyst
-              that explains every number in plain English.
+              Predict patient volume for your hospital, then turn the forecast into
+              a fair staffing roster and a costed supply plan — with an AI analyst
+              that explains every number in plain language.
             </p>
             <div style={{ display: 'flex', gap: 12, marginBottom: 36, flexWrap: 'wrap' }}>
               <button onClick={() => onNavigate('welcome')} style={{ padding: '14px 28px', background: 'white', color: '#0f1729', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 24px rgba(0,0,0,0.2)', minHeight: 44 }}>
-                Open the live demo
+                Start your forecast
               </button>
             </div>
 
             <div className="lp-stats" style={{ paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.15)' }}>
-              {[['6.5 yrs', 'Real training data'], ['1–365d', 'Forecast horizons'], ['8', 'Forecast targets'], ['2', 'Competing engines']].map(([v, l]) => (
+              {[['Forecast', 'Patient volume, weeks ahead'], ['Staff', 'Fair rosters, ready to use'], ['Supply', 'Costed reorder plans'], ['AI analyst', 'Explains every number']].map(([v, l]) => (
                 <div key={l}>
-                  <div style={{ fontSize: 'clamp(1.4rem, 4vw, 2rem)', fontWeight: 600, letterSpacing: '-0.8px' }}>{v}</div>
+                  <div style={{ fontSize: 'clamp(1.1rem, 2.8vw, 1.4rem)', fontWeight: 600, letterSpacing: '-0.4px' }}>{v}</div>
                   <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>{l}</div>
                 </div>
               ))}
@@ -85,7 +84,7 @@ export default function Landing({ onNavigate }) {
               <div style={{ background: '#fafbfc', borderRadius: 6, padding: 'clamp(8px, 2vw, 14px)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
                   <div>
-                    <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>Next 7 days · total ED arrivals</div>
+                    <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>Next 7 days · total arrivals</div>
                     <div style={{ fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 600, marginTop: 2, letterSpacing: '-0.5px' }}>443 <span style={{ fontSize: 13, color: '#64748b', fontWeight: 400 }}>patients</span></div>
                   </div>
                   <div style={{ padding: '4px 10px', background: '#fef5f5', color: '#dc2626', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>Peak: Thu</div>
@@ -118,7 +117,7 @@ export default function Landing({ onNavigate }) {
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <div style={{ flex: 1, minWidth: 0, padding: '8px 10px', background: '#f0f5fa', borderRadius: 4, fontSize: 11 }}>
-                  <span style={{ color: '#1e6091', fontWeight: 600 }}>↗ Plan:</span> lawful roster needs 2 locum shifts Thu · reorder 2 supply items
+                  <span style={{ color: '#1e6091', fontWeight: 600 }}>↗ Plan:</span> fair roster needs 2 locum shifts Thu · reorder 2 supply items
                 </div>
               </div>
             </div>
@@ -156,20 +155,20 @@ export default function Landing({ onNavigate }) {
         <div style={{ maxWidth: 1320, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 'clamp(32px, 6vw, 64px)' }}>
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, color: '#1e6091', textTransform: 'uppercase', marginBottom: 12 }}>How it works</div>
-            <h2 className="lp-h2" style={{ marginBottom: 16 }}>From CSV files to decisions, in five auditable steps.</h2>
+            <h2 className="lp-h2" style={{ marginBottom: 16 }}>From data to decisions, in five clear steps.</h2>
             <p className="lp-sub" style={{ color: '#475569', maxWidth: 720, margin: '0 auto' }}>
-              Load your data, run a forecast, get a plan. Every step is inspectable, every
-              recommendation is compared to a naive baseline, and a human approves every action.
+              Load your data, run a forecast, get a plan. Every step is visible, every
+              recommendation shows its cost, and a human approves every action.
             </p>
           </div>
 
           <div className="lp-steps">
             {[
               { n: 1, t: 'Ingest', d: 'Load arrivals, clinical, calendar and weather data as simple CSV files — no integration project needed', icon: 'upload', c: '#1e6091' },
-              { n: 2, t: 'Prepare', d: 'Audited merges build one clean, model-ready table per question (daily, hourly, by specialty)', icon: 'table', c: '#1e6091' },
-              { n: 3, t: 'Train & validate', d: 'A statistical engine and an ML engine compete; accuracy is measured by backtest, never assumed', icon: 'cpu', c: '#0d9488' },
-              { n: 4, t: 'Forecast', d: '1 to 365 days ahead, SA-holiday aware, each day with a likely range to plan around', icon: 'forecast', c: '#0d9488' },
-              { n: 5, t: 'Act', d: 'A lawful nurse roster (BCEA rules built in) and an (s,S) supply plan — with Rand savings vs your current way', icon: 'bolt', c: '#0d9488' },
+              { n: 2, t: 'Prepare', d: 'The system builds one clean, ready-to-use table for each question (daily, hourly, by specialty)', icon: 'table', c: '#1e6091' },
+              { n: 3, t: 'Learn', d: 'The system learns your hospital\'s patterns and checks itself against real history before you rely on it', icon: 'cpu', c: '#0d9488' },
+              { n: 4, t: 'Forecast', d: 'Plan a week, a month or a quarter ahead, aware of SA public holidays, with a likely range for every day', icon: 'forecast', c: '#0d9488' },
+              { n: 5, t: 'Act', d: 'A fair staffing roster and a costed supply plan — with the Rand savings shown before you commit', icon: 'bolt', c: '#0d9488' },
             ].map((s) => (
               <div key={s.n} style={{ position: 'relative', textAlign: 'center' }}>
                 <div style={{ width: 60, height: 60, borderRadius: 16, background: 'white', border: `2px solid ${s.c}`, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.c, boxShadow: '0 4px 16px rgba(30,96,145,0.12)' }}>
@@ -189,39 +188,33 @@ export default function Landing({ onNavigate }) {
         <div style={{ maxWidth: 1320, margin: '0 auto' }}>
           <div className="lp-grid2">
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, color: '#7dd3fc', textTransform: 'uppercase', marginBottom: 12 }}>Under the hood</div>
-              <h2 className="lp-h2" style={{ marginBottom: 20 }}>Two engines. One champion. Your data decides.</h2>
+              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, color: '#7dd3fc', textTransform: 'uppercase', marginBottom: 12 }}>Built for trust</div>
+              <h2 className="lp-h2" style={{ marginBottom: 20 }}>Built from your hospital's own patterns.</h2>
               <p className="lp-sub" style={{ color: '#cbd5e1', margin: '0 0 28px 0' }}>
-                A classical statistical model and a machine-learning model forecast the same
-                series. The champion is whichever wins the backtest on YOUR history — and you
-                can rerun that test yourself, on any past date, right in the app.
+                The system learns from your hospital's own history, and checks itself
+                against real outcomes before you rely on it. You can rerun that check
+                yourself, on any past date, right in the app.
               </p>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {['Backtesting built into the UI', 'Likely ranges on every day', 'SA-holiday aware', 'BCEA-lawful rostering', 'Monte-Carlo supply planning', 'Plain-English AI analyst', 'Full audit trail'].map((c) => (
+                {['Checks itself against real history', 'Likely ranges on every day', 'SA-holiday aware', 'Fair, lawful rostering', 'Smart supply planning', 'Plain-language AI analyst', 'Full audit trail'].map((c) => (
                   <span key={c} style={{ padding: '6px 12px', background: 'rgba(125,211,252,0.1)', border: '1px solid rgba(125,211,252,0.25)', borderRadius: 999, fontSize: 12, color: '#7dd3fc' }}>{c}</span>
                 ))}
               </div>
             </div>
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 'clamp(16px, 3vw, 24px)', minWidth: 0 }}>
-              <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>Champion–challenger · decided by backtest</div>
+              <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>What this means for you</div>
               {[
-                ['Best ML model', 92, true, 'Learns calendar, holidays and momentum'],
-                ['Best statistical model', 74, false, 'Classic trend + weekly rhythm baseline'],
-              ].map(([n, wpct, best, sub]) => (
+                ['Plain-language AI analyst', 'Ask what changed and why — get a straight answer, no jargon'],
+                ['Costed to the Rand', 'Every staffing and supply recommendation shows its price before you act'],
+                ['Zero data science required', 'You need the outcome, not the model — the platform handles the rest'],
+              ].map(([n, sub]) => (
                 <div key={n} style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 13, color: best ? 'white' : '#cbd5e1', fontWeight: best ? 600 : 400 }}>{n}</span>
-                    {best && <span style={{ fontSize: 10, padding: '1px 6px', background: '#0d9488', color: 'white', borderRadius: 3 }}>CHAMPION</span>}
-                  </div>
-                  <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden', marginBottom: 5 }}>
-                    <div style={{ height: '100%', width: `${wpct}%`, background: best ? 'linear-gradient(90deg, #7dd3fc, #5eead4)' : 'rgba(125,211,252,0.4)' }} />
-                  </div>
-                  <div style={{ fontSize: 11, color: '#94a3b8' }}>{sub}</div>
+                  <div style={{ fontSize: 13, color: 'white', fontWeight: 600, marginBottom: 6 }}>{n}</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.5 }}>{sub}</div>
                 </div>
               ))}
               <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 14, lineHeight: 1.5 }}>
-                The winner is usually the ML engine — but not always, and the app never hides
-                the comparison. Detailed accuracy metrics live in the admin view.
+                Full technical detail, including accuracy metrics, lives in the admin view.
               </div>
             </div>
           </div>
@@ -232,22 +225,22 @@ export default function Landing({ onNavigate }) {
       <div id="section-outcomes" className="lp-pad" style={{ paddingTop: 'clamp(56px, 9vw, 100px)', paddingBottom: 'clamp(56px, 9vw, 100px)', background: 'white' }}>
         <div style={{ maxWidth: 1320, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 'clamp(32px, 6vw, 64px)' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, color: '#1e6091', textTransform: 'uppercase', marginBottom: 12 }}>Evidence, not promises</div>
-            <h2 className="lp-h2">Everything on this page is measured — nothing is invented.</h2>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, color: '#1e6091', textTransform: 'uppercase', marginBottom: 12 }}>Why hospitals choose this</div>
+            <h2 className="lp-h2">Fewer surprises. Lower costs. Better care.</h2>
           </div>
           <div className="lp-cards3" style={{ marginBottom: 24 }}>
             {[
-              { v: '−8%', l: 'Forecast error reduction from SA public-holiday features, proven by backtest on 6.5 years of real arrivals', c: '#0d9488' },
-              { v: '13 mo', l: 'Operations simulation (23 nurses, 30 supply items) behind the staffing and supply recommendations', c: '#1e6091' },
-              { v: 'Rand', l: 'Every recommendation is priced against a naive baseline inside the app — you see the saving before you act', c: '#0d9488' },
+              { v: 'Cut agency & overtime spend', l: 'Plan staffing weeks in advance instead of scrambling for last-minute cover', c: '#0d9488' },
+              { v: 'Prevent stockouts', l: 'Order supplies based on predicted demand, not last month\'s guesswork', c: '#1e6091' },
+              { v: 'See the cost before you commit', l: 'Every staffing and supply recommendation is priced — compare scenarios instantly', c: '#0d9488' },
             ].map((s) => (
               <div key={s.l} style={{ padding: 'clamp(20px, 4vw, 32px)', background: '#fafbfc', borderRadius: 12, textAlign: 'center', border: '1px solid #eef0f3' }}>
-                <div style={{ fontSize: 'clamp(1.8rem, 5vw, 3rem)', fontWeight: 600, color: s.c, letterSpacing: '-1.2px', lineHeight: 1 }}>{s.v}</div>
+                <div style={{ fontSize: 'clamp(1.15rem, 3vw, 1.5rem)', fontWeight: 600, color: s.c, letterSpacing: '-0.4px', lineHeight: 1.25 }}>{s.v}</div>
                 <div style={{ fontSize: 13, color: '#64748b', marginTop: 12, lineHeight: 1.55 }}>{s.l}</div>
               </div>
             ))}
           </div>
-          <div style={{ textAlign: 'center', fontSize: 12, color: '#94a3b8' }}>Companion to an MSc dissertation — methods, validation and limitations are documented, not marketed.</div>
+          <div style={{ textAlign: 'center', fontSize: 12, color: '#94a3b8' }}>Everything above reflects what the platform does today — not what it might do someday.</div>
         </div>
       </div>
 
@@ -262,11 +255,11 @@ export default function Landing({ onNavigate }) {
         <div style={{ maxWidth: 700, margin: '0 auto', position: 'relative' }}>
           <h2 className="lp-h1" style={{ marginBottom: 20 }}>See it on your own data.</h2>
           <p className="lp-sub" style={{ color: '#cbd5e1', margin: '0 0 36px 0' }}>
-            A pilot starts with history, not promises: load your arrival counts, backtest both
-            engines on your own past, and judge the evidence before anything changes.
+            A pilot starts with your own history: load your arrival counts and see
+            the forecast for your hospital before anything changes.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button onClick={() => onNavigate('welcome')} style={{ padding: '16px 32px', background: 'white', color: '#0f1729', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer', minHeight: 44 }}>Open the live demo</button>
+            <button onClick={() => onNavigate('welcome')} style={{ padding: '16px 32px', background: 'white', color: '#0f1729', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer', minHeight: 44 }}>Sign in to plan ahead</button>
           </div>
           <div style={{ marginTop: 24, fontSize: 12, color: '#94a3b8' }}>POPIA-conscious by design: aggregate counts only — no patient records, data held in memory, never written to disk.</div>
         </div>
@@ -281,21 +274,21 @@ export default function Landing({ onNavigate }) {
               <div style={{ color: 'white', fontSize: 14, fontWeight: 600 }}>HealthForecast AI</div>
             </div>
             <div style={{ fontSize: 12, lineHeight: 1.6, maxWidth: 280 }}>
-              Forecast-to-decision support for emergency departments. Built by
-              Jonathan Lukwichi · JLW Analytics, on MSc research at the University of Pretoria.
+              Forecast-to-decision support for hospitals. Built by
+              Jonathan Lukwichi · JLW Analytics.
             </div>
           </div>
           <div>
             <div style={{ color: 'white', fontSize: 12, fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>Platform</div>
-            {[['Live demo', 'welcome'], ['Forecasting', 'welcome'], ['Staffing & supply', 'welcome'], ['AI analyst', 'welcome']].map(([l, page]) => (
+            {[['Sign in', 'welcome'], ['Forecasting', 'welcome'], ['Staffing & supply', 'welcome'], ['AI analyst', 'welcome']].map(([l, page]) => (
               <div key={l} onClick={() => onNavigate(page)} style={{ fontSize: 13, padding: '5px 0', cursor: 'pointer' }}>{l}</div>
             ))}
           </div>
           <div>
-            <div style={{ color: 'white', fontSize: 12, fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>Research</div>
-            <div style={{ fontSize: 13, padding: '5px 0' }}>MSc dissertation companion</div>
-            <div style={{ fontSize: 13, padding: '5px 0' }}>Validated by backtesting</div>
-            <div style={{ fontSize: 13, padding: '5px 0' }}>Simulation-based planning</div>
+            <div style={{ color: 'white', fontSize: 12, fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>Trust</div>
+            <div style={{ fontSize: 13, padding: '5px 0' }}>Built from real hospital data</div>
+            <div style={{ fontSize: 13, padding: '5px 0' }}>Fair, lawful staffing rules</div>
+            <div style={{ fontSize: 13, padding: '5px 0' }}>Costed supply recommendations</div>
           </div>
           <div>
             <div style={{ color: 'white', fontSize: 12, fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>Contact</div>
