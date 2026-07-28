@@ -23,7 +23,7 @@ class NumpyJSONResponse(ORJSONResponse):
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 _SERVE_FRONTEND = _STATIC_DIR.is_dir()
 
-from routers import forecast, staff, supply, kpis, upload, actions, datasets, prepare, explore, task1, task2, ai, optimization
+from routers import forecast, staff, supply, kpis, upload, actions, datasets, prepare, explore, task1, task2, ai, optimization, reports
 
 app = FastAPI(
     title="HealthForecast AI — Backend API",
@@ -68,6 +68,7 @@ app.include_router(task1.router)
 app.include_router(task2.router)
 app.include_router(ai.router)
 app.include_router(optimization.router)
+app.include_router(reports.router)
 
 
 @app.on_event("startup")

@@ -5,6 +5,7 @@ import Icon from '../components/Icon';
 import { LineChart, BarChart } from '../components/Charts';
 import AiPanel from '../components/AiPanel';
 import { api } from '../api/client';
+import { gatherReportData, buildReportPdf, pdfOutputs } from '../utils/buildReportPdf';
 
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -16,6 +17,11 @@ export default function Dashboard({ onNavigate }) {
   const [supply, setSupply] = useState(null);
   const [staff, setStaff] = useState(null);
   const [error, setError] = useState(null);
+
+  // Download / Email Report
+  const [reportBusy, setReportBusy] = useState(false);
+  const [reportEmail, setReportEmail] = useState('');
+  const [reportMsg, setReportMsg] = useState(null); // {ok, text}
 
   useEffect(() => {
     let alive = true;
@@ -50,6 +56,37 @@ export default function Dashboard({ onNavigate }) {
   const histAvg = histVals.length ? histVals.reduce((s, v) => s + v, 0) / histVals.length : 0;
   const sk = supply?.kpis; const tk = staff?.kpis; // dicts of {mean, lo, hi}
 
+  async function handleDownloadReport() {
+    setReportBusy(true); setReportMsg(null);
+    try {
+      const data = await gatherReportData();
+      const doc = await buildReportPdf(data);
+      doc.save('healthforecast-operations-report.pdf');
+    } catch (e) {
+      setReportMsg({ ok: false, text: 'Could not build the report: ' + (e.message || 'unknown error') });
+    } finally {
+      setReportBusy(false);
+    }
+  }
+
+  async function handleEmailReport() {
+    if (!reportEmail.trim()) { setReportMsg({ ok: false, text: 'Enter an email address first.' }); return; }
+    setReportBusy(true); setReportMsg(null);
+    try {
+      const data = await gatherReportData();
+      const doc = await buildReportPdf(data);
+      const { base64 } = pdfOutputs(doc);
+      const res = await api.reports.email({ to: reportEmail.trim(), pdf_base64: base64, context: data });
+      setReportMsg(res.sent
+        ? { ok: true, text: `Sent to ${reportEmail.trim()}.` }
+        : { ok: false, text: 'Could not send — the email service may not be configured yet.' });
+    } catch (e) {
+      setReportMsg({ ok: false, text: 'Could not send: ' + (e.message || 'unknown error') });
+    } finally {
+      setReportBusy(false);
+    }
+  }
+
   return (
     <div className="content">
       <PageHero
@@ -68,6 +105,39 @@ export default function Dashboard({ onNavigate }) {
           <button className="btn btn-sm" style={{ marginLeft: 10 }} onClick={() => onNavigate('prepare')}>Go to Prepare →</button>
         </div></div>
       )}
+
+      {/* Download / Email Report */}
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <div className="card-title">Operations report</div>
+            <div className="card-sub">Overview, analysis, forecast, optimization and recommendations — one PDF</div>
+          </div>
+        </div>
+        <div className="card-body">
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button className="btn" disabled={reportBusy} onClick={handleDownloadReport}>
+              <Icon name="download" size={14} />{reportBusy ? 'Working…' : 'Download PDF'}
+            </button>
+            <input
+              className="input"
+              type="email"
+              placeholder="colleague@hospital.org"
+              value={reportEmail}
+              onChange={(e) => setReportEmail(e.target.value)}
+              style={{ maxWidth: 260 }}
+            />
+            <button className="btn btn-primary" disabled={reportBusy} onClick={handleEmailReport}>
+              {reportBusy ? 'Working…' : 'Send by email'}
+            </button>
+          </div>
+          {reportMsg && (
+            <div style={{ marginTop: 10, fontSize: 12.5, color: reportMsg.ok ? '#0d9488' : '#dc2626' }}>
+              {reportMsg.text}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* AI daily briefing */}
       {fc && <AiPanel surface="briefing" context={fc} label="Generate today's briefing" />}

@@ -56,6 +56,8 @@ export const api = {
     engines: ({ group = 'g1', specialty = null } = {}, signal) =>
       request(`/api/forecast/engines?group=${group}${specialty ? `&specialty=${encodeURIComponent(specialty)}` : ''}`, { signal }),
     demo: (signal) => request('/api/forecast/demo', { signal }),
+    // The last materialized forecast run — read-only, never triggers a fresh run.
+    last: (signal) => request('/api/forecast/last', { signal }),
   },
 
   datasets: {
@@ -191,5 +193,16 @@ export const api = {
     task3ClassBalance:    (group = 'g3', signal) => request(`/api/explore/task3/class_balance?group=${group}`, { signal }),
     layer2HourlyProfile:  (group = 'g2', signal) => request(`/api/explore/layer2/hourly_profile?group=${group}`, { signal }),
     impactMatrix:         (group = 'g1', signal) => request(`/api/explore/impact_matrix?group=${group}`, { signal }),
+  },
+
+  reports: {
+    // Emails a client-built PDF (base64) with an AI-written cover note.
+    // context = the same data object used to build the PDF, so the note stays
+    // grounded in exactly what's in the report.
+    email: ({ to, pdf_base64, context }) =>
+      request('/api/reports/email', {
+        method: 'POST',
+        body: { to, pdf_base64, context },
+      }),
   },
 };
