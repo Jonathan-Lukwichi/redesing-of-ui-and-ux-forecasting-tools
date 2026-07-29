@@ -20,6 +20,7 @@ export default function Dashboard({ onNavigate }) {
 
   // Download / Email Report
   const [reportBusy, setReportBusy] = useState(false);
+  const [reportName, setReportName] = useState('');
   const [reportEmail, setReportEmail] = useState('');
   const [reportMsg, setReportMsg] = useState(null); // {ok, text}
 
@@ -76,7 +77,12 @@ export default function Dashboard({ onNavigate }) {
       const data = await gatherReportData();
       const doc = await buildReportPdf(data);
       const { base64 } = pdfOutputs(doc);
-      const res = await api.reports.email({ to: reportEmail.trim(), pdf_base64: base64, context: data });
+      const res = await api.reports.email({
+        to: reportEmail.trim(),
+        pdf_base64: base64,
+        context: data,
+        recipient_name: reportName.trim() || null,
+      });
       setReportMsg(res.sent
         ? { ok: true, text: `Sent to ${reportEmail.trim()}.` }
         : { ok: false, text: 'Could not send — the email service may not be configured yet.' });
@@ -119,6 +125,14 @@ export default function Dashboard({ onNavigate }) {
             <button className="btn" disabled={reportBusy} onClick={handleDownloadReport}>
               <Icon name="download" size={14} />{reportBusy ? 'Working…' : 'Download PDF'}
             </button>
+            <input
+              className="input"
+              type="text"
+              placeholder="Name (optional)"
+              value={reportName}
+              onChange={(e) => setReportName(e.target.value)}
+              style={{ maxWidth: 150 }}
+            />
             <input
               className="input"
               type="email"

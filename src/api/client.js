@@ -199,10 +199,10 @@ export const api = {
     // Emails a client-built PDF (base64) with an AI-written cover note.
     // context = the same data object used to build the PDF, so the note stays
     // grounded in exactly what's in the report.
-    email: ({ to, pdf_base64, context }) =>
+    email: ({ to, pdf_base64, context, recipient_name = null }) =>
       request('/api/reports/email', {
         method: 'POST',
-        body: { to, pdf_base64, context },
+        body: { to, pdf_base64, context, recipient_name },
       }),
   },
 };
