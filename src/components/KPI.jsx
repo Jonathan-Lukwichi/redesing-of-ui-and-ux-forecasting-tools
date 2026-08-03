@@ -1,6 +1,15 @@
 import { Sparkline } from './Charts';
 
-export default function KPI({ label, value, unit, foot, trend, trendDir = 'up', spark, sparkColor }) {
+export default function KPI({ label, value, unit, foot, trend, trendDir = 'up', spark, sparkColor, loading }) {
+  if (loading) {
+    return (
+      <div className="kpi">
+        <div className="kpi-label">{label}</div>
+        <div className="skel" style={{ width: '70%', height: 12, margin: '10px 0' }} />
+        <div className="skel" style={{ width: '92%', height: 30 }} />
+      </div>
+    );
+  }
   return (
     <div className="kpi">
       <div className="kpi-label">{label}</div>

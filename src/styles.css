@@ -1381,3 +1381,16 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
   /* Hide the "⋯" decorative dots and any SVG glow filters in print */
   .exp-dots { display: none !important; }
 }
+
+/* ---------- Loading skeletons (KPI/chart "still fetching" state) ---------- */
+@keyframes hfPulse { 0%, 100% { opacity: .35 } 50% { opacity: .9 } }
+.skel { background: var(--surface-3); border-radius: 6px; animation: hfPulse 1.4s ease-in-out infinite; }
+
+/* ---------- Humanized empty / offline notice cards ---------- */
+.notice-card { border-radius: var(--r-xl); padding: 22px 24px; }
+.notice-empty { border: 2px dashed var(--border-2); background: transparent; text-align: center; }
+.notice-offline { background: #fffaf0; border: 1px solid #f3d9a8; }
+.notice-offline pre {
+  background: var(--sidebar-bg, #0f1729); color: #cbd5e1; padding: 12px 14px;
+  border-radius: var(--r-md); overflow-x: auto; font-size: 12px; margin-top: 8px;
+}

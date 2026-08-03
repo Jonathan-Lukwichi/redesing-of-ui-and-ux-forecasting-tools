@@ -407,7 +407,7 @@ export function Sparkline({ data, color = '#1e6091', width = 80, height = 28, fi
   );
 }
 
-export function LineChart({ series, height = 220, xLabels, showGrid = true, fillArea = true }) {
+export function LineChart({ series, height = 220, xLabels, showGrid = true, fillArea = true, peakIndex, peakLabel }) {
   const uid = useId().replace(/[:]/g, '');
   const [svgRef, w] = useMeasuredWidth(720);
   const h = height, pad = { l: 44, r: 18, t: 14, b: 28 };
@@ -436,6 +436,12 @@ export function LineChart({ series, height = 220, xLabels, showGrid = true, fill
             <stop offset="100%" stopColor={s.color} stopOpacity="0" />
           </linearGradient>
         ))}
+        {peakIndex != null && (
+          <filter id={`${uid}-peakglow`} x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="3.2" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        )}
       </defs>
 
       {/* horizontal grid + y labels */}
@@ -484,6 +490,19 @@ export function LineChart({ series, height = 220, xLabels, showGrid = true, fill
           </g>
         );
       })}
+
+      {/* Sparse emphasis: only the single peak point glows, not every mark. */}
+      {peakIndex != null && series[series.length - 1]?.data[peakIndex] != null && (
+        <g filter={`url(#${uid}-peakglow)`}>
+          <circle cx={x(peakIndex)} cy={y(series[series.length - 1].data[peakIndex])} r="4.5" fill="#dc2626" />
+          {peakLabel && (
+            <text x={x(peakIndex)} y={y(series[series.length - 1].data[peakIndex]) - 12}
+              textAnchor="middle" fontSize="10.5" fontWeight="600" fill="#9f1239" fontFamily="var(--font-mono)">
+              {peakLabel}
+            </text>
+          )}
+        </g>
+      )}
     </svg>
   );
 }
