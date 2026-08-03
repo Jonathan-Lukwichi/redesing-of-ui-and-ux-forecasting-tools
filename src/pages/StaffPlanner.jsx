@@ -38,19 +38,28 @@ export default function StaffPlanner() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [catFilter, setCatFilter] = useState('All');
+  const [retryToken, setRetryToken] = useState(0);
   useEffect(() => {
     let alive = true;
     api.staff.overview()
       .then((d) => { if (alive) setData(d); })
-      .catch((e) => { if (alive) setError(e.message); });
+      .catch((e) => { if (alive) setError(e.message || 'Request failed'); });
     return () => { alive = false; };
-  }, []);
+  }, [retryToken]);
 
   if (error) return (
     <div className="content"><PageHero kicker="Operations · Staff" title="Staff Planner" sub="Scheduling simulation" />
-      <div className="card"><div className="card-body" style={{ color: C.red }}>
-        Couldn't load staffing data: {error}. Make sure the backend is running on port 8000.
-      </div></div>
+      <div className="card notice-card notice-offline">
+        <div style={{ fontWeight: 600, marginBottom: 6 }}>Live staffing data isn't reachable right now</div>
+        <div style={{ fontSize: 13, color: '#334155', marginBottom: 12 }}>
+          Your roster and cost figures couldn't be loaded. Try again below — if it keeps happening, pass the details to IT.
+        </div>
+        <button className="btn btn-primary" onClick={() => { setError(null); setData(null); setRetryToken((n) => n + 1); }}>Retry now</button>
+        <details style={{ marginTop: 10 }}>
+          <summary style={{ cursor: 'pointer', fontSize: 12, color: '#64748b' }}>Details for IT</summary>
+          <pre>{error}</pre>
+        </details>
+      </div>
     </div>
   );
 

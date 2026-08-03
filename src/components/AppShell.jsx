@@ -189,7 +189,7 @@ export default function AppShell({ active = 'dashboard', onNavigate, children })
         menuBtnRef.current?.focus();
       } else if (e.key === 'Tab' && sidebarRef.current) {
         const focusables = sidebarRef.current.querySelectorAll(
-          'button, [href], [tabindex]:not([tabindex="-1"]), .sidebar-item');
+          'button, [href], [tabindex]:not([tabindex="-1"])');
         if (!focusables.length) return;
         const first = focusables[0];
         const last = focusables[focusables.length - 1];

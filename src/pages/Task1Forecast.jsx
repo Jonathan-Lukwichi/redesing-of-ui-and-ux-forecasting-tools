@@ -167,12 +167,13 @@ export default function Task1Forecast({ onNavigate }) {
       </div>
 
       {error && (
-        <Banner color="red" title="Couldn't load model catalogue.">
-          {error}
-          <div style={{ marginTop: 6, fontSize: 12, color: '#7f1d1d' }}>
-            Make sure the backend is running at port 8000 and the git submodule is initialised
-            (<code>git submodule update --init --recursive</code>).
-          </div>
+        <Banner color="amber" title="Some background model details didn't load.">
+          The forecast itself still works using the two engines below — this only affects the
+          research model catalogue further down the page.
+          <details style={{ marginTop: 8 }}>
+            <summary style={{ cursor: 'pointer', fontSize: 12, color: '#78350f' }}>Details for IT</summary>
+            <pre style={{ marginTop: 6 }}>{error}</pre>
+          </details>
         </Banner>
       )}
 
