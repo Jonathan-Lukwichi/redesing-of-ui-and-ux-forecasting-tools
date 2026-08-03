@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Icon from './Icon';
 import AskChat from './AskChat';
+import { api } from '../api/client';
 
 const MOBILE_QUERY = '(max-width: 820px)';
 
@@ -31,10 +32,10 @@ const NAV_ITEMS = [
     { id: 'forecast-specialty', label: 'By specialty', icon: 'chart' },
   ]},
   { section: 'Operations', items: [
-    { id: 'staff',    label: 'Staffing',      icon: 'users', badge: '3' },
+    { id: 'staff',    label: 'Staffing',      icon: 'users' },
     { id: 'supply',   label: 'Supply',        icon: 'box' },
     { id: 'optimize', label: 'Optimization',  icon: 'bolt' },
-    { id: 'actions',  label: 'Action Center', icon: 'bolt', badge: '12' },
+    { id: 'actions',  label: 'Action Center', icon: 'bolt' },
   ]},
   { section: 'Governance', items: [
     { id: 'admin', label: 'Admin', icon: 'settings' },
@@ -69,7 +70,7 @@ function ToggleBtn({ collapsed, onToggle }) {
   );
 }
 
-function Sidebar({ active, onNavigate, collapsed, onToggle, mobileOpen, sidebarRef }) {
+function Sidebar({ active, onNavigate, collapsed, onToggle, mobileOpen, sidebarRef, badges = {} }) {
   return (
     <aside id="app-sidebar" ref={sidebarRef} tabIndex={-1}
       className={'sidebar' + (mobileOpen ? ' mobile-open' : '')}>
@@ -92,23 +93,28 @@ function Sidebar({ active, onNavigate, collapsed, onToggle, mobileOpen, sidebarR
         {NAV_ITEMS.map((sec) => (
           <div key={sec.section}>
             {collapsed ? <div style={{ height: 12 }} /> : <div className="sidebar-section">{sec.section}</div>}
-            <nav className="sidebar-nav">
-              {sec.items.map((it) => (
-                <div
-                  key={it.id}
-                  className={'sidebar-item' + (it.id === active ? ' active' : '')}
-                  onClick={() => onNavigate(it.id)}
-                  title={collapsed ? it.label : undefined}
-                  style={collapsed ? { justifyContent: 'center', padding: '11px 0', position: 'relative' } : undefined}
-                >
-                  <span className="sidebar-item-icon"><Icon name={it.icon} size={15} /></span>
-                  {!collapsed && <span>{it.label}</span>}
-                  {!collapsed && it.badge && <span className="sidebar-item-badge">{it.badge}</span>}
-                  {collapsed && it.badge && (
-                    <span style={{ position: 'absolute', top: 6, right: 12, width: 7, height: 7, borderRadius: '50%', background: '#f59e0b' }} />
-                  )}
-                </div>
-              ))}
+            <nav className="sidebar-nav" aria-label={sec.section}>
+              {sec.items.map((it) => {
+                const count = badges[it.id];
+                return (
+                  <button
+                    type="button"
+                    key={it.id}
+                    className={'sidebar-item' + (it.id === active ? ' active' : '')}
+                    aria-current={it.id === active ? 'page' : undefined}
+                    onClick={() => onNavigate(it.id)}
+                    title={collapsed ? it.label : undefined}
+                    style={collapsed ? { justifyContent: 'center', padding: '11px 0', position: 'relative' } : undefined}
+                  >
+                    <span className="sidebar-item-icon"><Icon name={it.icon} size={15} /></span>
+                    {!collapsed && <span>{it.label}</span>}
+                    {!collapsed && !!count && <span className="sidebar-item-badge">{count}</span>}
+                    {collapsed && !!count && (
+                      <span aria-hidden="true" style={{ position: 'absolute', top: 6, right: 12, width: 7, height: 7, borderRadius: '50%', background: '#f59e0b' }} />
+                    )}
+                  </button>
+                );
+              })}
             </nav>
           </div>
         ))}
@@ -126,7 +132,7 @@ function Sidebar({ active, onNavigate, collapsed, onToggle, mobileOpen, sidebarR
         </button>
         <button
           className="sidebar-footer-btn sidebar-footer-btn-danger"
-          onClick={() => onNavigate('welcome')}
+          onClick={() => { if (window.confirm('Sign out of HealthForecast AI?')) onNavigate('welcome'); }}
           title="Sign out"
           style={collapsed ? { justifyContent: 'center' } : undefined}
         >
@@ -138,7 +144,7 @@ function Sidebar({ active, onNavigate, collapsed, onToggle, mobileOpen, sidebarR
   );
 }
 
-function Topbar({ crumbs = [], onNavigate, onMenu, menuOpen, menuBtnRef }) {
+function Topbar({ crumbs = [], onMenu, menuOpen, menuBtnRef }) {
   return (
     <div className="topbar">
       <button
@@ -161,14 +167,6 @@ function Topbar({ crumbs = [], onNavigate, onMenu, menuOpen, menuBtnRef }) {
         ))}
       </div>
       <div className="topbar-spacer" />
-      <button
-        className="topbar-signout"
-        onClick={() => onNavigate('welcome')}
-        title="Sign out"
-      >
-        <Icon name="logout" size={14} />
-        Sign out
-      </button>
     </div>
   );
 }
@@ -217,6 +215,28 @@ export default function AppShell({ active = 'dashboard', onNavigate, children })
     setMobileOpen(false);
     onNavigate(id);
   };
+
+  // Real, computed nav badges — not hardcoded. A count that never changes
+  // teaches users to ignore it, so each renders only when genuinely > 0.
+  // Both calls are lightweight overview reads already used elsewhere (no
+  // forecast/optimization run triggered), fetched once per app session.
+  const [badges, setBadges] = useState({});
+  useEffect(() => {
+    const ctrl = new AbortController();
+    Promise.all([
+      api.staff.overview(ctrl.signal).catch(() => null),
+      api.supply.overview(ctrl.signal).catch(() => null),
+    ]).then(([staff, supply]) => {
+      const shortfall = staff?.kpis?.staffing_shortfall ?? 0;
+      const atRisk = supply?.items_at_risk ?? 0;
+      setBadges({
+        staff: shortfall > 0 ? shortfall : undefined,
+        actions: atRisk > 0 ? atRisk : undefined,
+      });
+    });
+    return () => ctrl.abort();
+  }, []);
+
   return (
     <div className="app" style={isMobile ? undefined : {
       gridTemplateColumns: collapsed ? '72px 1fr' : 'minmax(220px, 280px) 1fr',
@@ -229,12 +249,13 @@ export default function AppShell({ active = 'dashboard', onNavigate, children })
         onToggle={isMobile ? () => setMobileOpen(false) : toggle}
         mobileOpen={mobileOpen}
         sidebarRef={sidebarRef}
+        badges={badges}
       />
       {isMobile && mobileOpen && (
         <div className="sidebar-backdrop" onClick={() => setMobileOpen(false)} />
       )}
       <div className="main">
-        <Topbar crumbs={crumbs} onNavigate={navigate} onMenu={() => setMobileOpen(true)}
+        <Topbar crumbs={crumbs} onMenu={() => setMobileOpen(true)}
           menuOpen={mobileOpen} menuBtnRef={menuBtnRef} />
         {children}
       </div>

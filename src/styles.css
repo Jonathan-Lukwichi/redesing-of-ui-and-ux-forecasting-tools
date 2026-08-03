@@ -259,9 +259,14 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
   padding: 11px 14px;
   border-radius: 8px;
+  border: 0;
+  background: none;
   color: var(--sidebar-text);
+  font: inherit;
+  text-align: left;
   font-size: 15px;
   cursor: pointer;
   transition: background 0.12s;
@@ -270,6 +275,7 @@ body {
 }
 
 .sidebar-item:hover { background: var(--sidebar-hover); color: white; }
+.sidebar-item:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 2px; }
 
 .sidebar-item.active {
   background: var(--sidebar-active);
