@@ -1,6 +1,6 @@
 import { Sparkline } from './Charts';
 
-export default function KPI({ label, value, unit, foot, trend, trendDir = 'up', spark, sparkColor, loading }) {
+export default function KPI({ label, value, unit, foot, trend, trendDir = 'up', spark, sparkColor, loading, hint }) {
   if (loading) {
     return (
       <div className="kpi">
@@ -12,7 +12,7 @@ export default function KPI({ label, value, unit, foot, trend, trendDir = 'up', 
   }
   return (
     <div className="kpi">
-      <div className="kpi-label">{label}</div>
+      <div className="kpi-label" title={hint} style={hint ? { cursor: 'help', textDecoration: 'underline dotted', textUnderlineOffset: 3 } : undefined}>{label}</div>
       <div className="kpi-value">
         <span>{value}</span>
         {unit && <span className="kpi-unit">{unit}</span>}

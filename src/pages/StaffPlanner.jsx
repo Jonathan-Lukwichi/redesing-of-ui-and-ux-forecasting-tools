@@ -94,6 +94,7 @@ export default function StaffPlanner() {
         <KPI label="Overwork" value={k ? k.mean_weekly_hours : '—'} unit="h/wk"
           foot={k ? `${k.overwork_pct}% of the legal 45h max` : ''} />
         <KPI label="BCEA breaches / nurse" value={k ? k.bcea_per_nurse : '—'}
+          hint="How many times, on average, a nurse worked beyond the legal 45-hour week. Logged for visibility, not automatically enforced."
           foot="45h/week · logged, not enforced" />
       </div>
 

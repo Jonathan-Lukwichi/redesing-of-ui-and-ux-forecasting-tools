@@ -258,7 +258,8 @@ export default function Dashboard({ onNavigate }) {
           <div className="card-body">
             <SnapRow label="Items at risk" value={supply ? supply.items_at_risk : '—'} danger={supply?.items_at_risk > 0} />
             <SnapRow label="Total cost" value={sk ? zarShort(sk.total_cost_zar) : '—'} />
-            <SnapRow label="Stockout penalty" value={sk ? zarShort(sk.stockout_cost_zar) : '—'} danger />
+            <SnapRow label="Stockout penalty" value={sk ? zarShort(sk.stockout_cost_zar) : '—'} danger
+              hint="The estimated cost of running out of this stock at current levels, if nothing is reordered." />
           </div>
         </div>
         <div className="card">
@@ -267,7 +268,8 @@ export default function Dashboard({ onNavigate }) {
           <div className="card-body">
             <SnapRow label="Coverage (lawful hrs)" value={tk ? Math.round(tk.lawful_coverage_pct) + '%' : '—'} danger={tk?.lawful_coverage_pct < 90} />
             <SnapRow label="Staffing shortfall" value={tk ? tk.staffing_shortfall + ' nurses' : '—'} danger={tk?.staffing_shortfall > 0} />
-            <SnapRow label="BCEA breaches/nurse" value={tk ? tk.bcea_per_nurse : '—'} danger={tk?.bcea_per_nurse > 0} />
+            <SnapRow label="BCEA breaches/nurse" value={tk ? tk.bcea_per_nurse : '—'} danger={tk?.bcea_per_nurse > 0}
+              hint="How many times, on average, a nurse worked beyond the legal 45-hour week." />
           </div>
         </div>
         <div className="card">
@@ -286,10 +288,10 @@ export default function Dashboard({ onNavigate }) {
   );
 }
 
-function SnapRow({ label, value, danger }) {
+function SnapRow({ label, value, danger, hint }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #f1f5f9', fontSize: 13 }}>
-      <span style={{ color: '#64748b' }}>{label}</span>
+      <span title={hint} style={hint ? { color: '#64748b', cursor: 'help', textDecoration: 'underline dotted', textUnderlineOffset: 3 } : { color: '#64748b' }}>{label}</span>
       <strong style={{ color: danger ? '#dc2626' : '#0f172a' }}>{value}</strong>
     </div>
   );

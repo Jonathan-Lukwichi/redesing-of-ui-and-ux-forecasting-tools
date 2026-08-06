@@ -3,7 +3,7 @@ import HeroMotion from '../components/HeroMotion';
 export default function Welcome({ onNavigate }) {
   return (
     <div className="lp-page" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-      {/* Left — branding */}
+      {/* Left: branding */}
       <div className="lp-pad" style={{
         background: 'linear-gradient(160deg, #0f1729 0%, #1e3a5f 60%, #1e6091 100%)',
         paddingTop: 40, paddingBottom: 40,
@@ -28,7 +28,7 @@ export default function Welcome({ onNavigate }) {
           </h1>
           <p className="lp-sub" style={{ color: '#cbd5e1', maxWidth: 460, margin: 0 }}>
             Patient arrivals forecast from real hospital history, turned into a fair
-            staffing roster and a costed supply plan — explained in plain language by an AI analyst.
+            staffing roster and a costed supply plan, explained in plain language by an AI analyst.
           </p>
 
           <div className="lp-stats" style={{ marginTop: 28, maxWidth: 460 }}>
@@ -44,7 +44,7 @@ export default function Welcome({ onNavigate }) {
         <div style={{ fontSize: 11, color: '#64748b', position: 'relative', zIndex: 2 }}>© 2026 JLW Analytics · POPIA-conscious design</div>
       </div>
 
-      {/* Right — login form */}
+      {/* Right: login form */}
       <div className="lp-pad" style={{ background: 'white', paddingTop: 48, paddingBottom: 48, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         <div style={{ maxWidth: 380, width: '100%', margin: '0 auto' }}>
           <h2 style={{ fontSize: 'clamp(1.25rem, 3vw, 1.5rem)', fontWeight: 600, color: '#0f172a', margin: '0 0 6px 0', letterSpacing: '-0.3px' }}>Sign in</h2>
@@ -69,7 +69,7 @@ export default function Welcome({ onNavigate }) {
           </button>
 
           <div style={{ marginTop: 28, padding: 14, background: '#f0f5fa', borderRadius: 8, fontSize: 12, color: '#334155' }}>
-            <strong style={{ color: '#1e6091' }}>Try it now</strong> — sample credentials are already
+            <strong style={{ color: '#1e6091' }}>Try it now:</strong> sample credentials are already
             filled in, just click Sign in to explore the full platform.
           </div>
 
