@@ -36,7 +36,7 @@ TOOL_SCHEMAS = [
     },
     {
         "name": "get_optimization",
-        "description": "READ the last forecast-driven optimization plan (never triggers a run): the cost-minimal lawful nurse roster (lawful coverage, nurse shortfall, locum hours) and this week's reorder plan under the hospital's STANDING supply policy (the result names the policy family used, e.g. (s,Q) or forecast base-stock, and whether its parameters are tuned). Use for questions about what to do next week, the optimal roster, what to reorder, or which reorder policy is in force. If no plan exists, it says so — tell the user to press Run on the Optimization page.",
+        "description": "READ the last forecast-driven optimization plan (never triggers a run): the cheapest lawful nurse roster that covers the forecast (lawful coverage, nurse shortfall, locum hours) and this week's reorder plan under the hospital's STANDING supply policy (the result names the policy family used, e.g. (s,Q) or forecast base-stock, and whether its parameters are tuned). Use for questions about what to do next week, the optimal roster, what to reorder, or which reorder policy is in force. If no plan exists, it says so — tell the user to press Run on the Optimization page.",
         "input_schema": {"type": "object", "properties": {}},
     },
     {

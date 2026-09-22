@@ -3,7 +3,8 @@
 This is the PRESCRIPTIVE counterpart to the descriptive Staff/Supply planner
 pages. It takes next week's demand forecast and computes:
 
-  1. The cost-minimal LAWFUL nurse roster — a binary integer programme solved
+  1. The cheapest LAWFUL nurse roster that covers the forecast — a binary
+     integer programme solved
      with PuLP/CBC (Chapter 3 §3.5.7). Demand per shift d_s is disaggregated
      from the daily forecast (§3.5.8); the 45h BCEA cap is enforced as a HARD
      constraint, so any demand that cannot be met lawfully shows up as an
@@ -84,6 +85,14 @@ def _build_impact() -> dict[str, Any]:
         "staff_saving_weekly_zar": sc.get("saving_zar") or 0,
         "staff_saving_annual_zar": staff_annual,
         "supply_saving_annual_zar": supply_annual,
+        # The honest figure: measured against what the department spends today,
+        # not against a textbook baseline chosen to lose.
+        "staff_vs_current_annual_zar": ((st.get("current_practice") or {})
+                                        .get("saving_vs_current_annual_zar")),
+        "staff_vs_current_comparable": ((st.get("current_practice") or {}).get("comparable")),
+        "supply_vs_current_annual_zar": ((sup.get("current_practice") or {})
+                                         .get("saving_vs_current_zar")),
+        "supply_saving_range_zar": [uc.get("saving_low_zar"), uc.get("saving_high_zar")],
         "lawful_coverage_pct": sk.get("lawful_coverage_pct"),
         "staffing_shortfall": sk.get("staffing_shortfall"),
         "locum_hours": sk.get("locum_hours"),
@@ -112,6 +121,65 @@ def _shift_demand(daily_total: list[float], kappa: float, sigma_eps: float) -> d
     return d_s
 
 
+# Demand levels must match before a recorded cost can be compared to a plan:
+# rostering for 120 arrivals a day and spending for 69 is a difference in
+# workload, not in policy. Outside this band the comparison is withheld.
+_COMPARABLE_DEMAND_BAND = (0.85, 1.18)
+
+
+def _staff_current_practice(weekly_cost, observed_arrivals, planned_arrivals,
+                            planned_cost, lawful_coverage):
+    """The department's RECORDED weekly staffing spend, next to this plan.
+
+    Emits a saving only when the recorded history was worked at a comparable
+    demand level. Otherwise it reports both figures and says plainly why they
+    cannot be differenced."""
+    if not weekly_cost:
+        return None
+    out = {
+        "weekly_zar": round(float(weekly_cost), 0),
+        "annual_zar": round(float(weekly_cost) * 52, 0),
+        "planned_weekly_zar": round(float(planned_cost), 0),
+        "observed_mean_arrivals": (round(float(observed_arrivals), 1)
+                                   if observed_arrivals else None),
+        "planned_mean_arrivals": round(float(planned_arrivals), 1),
+        "note": ("Mean recorded weekly staffing spend (own payroll plus agency) over "
+                 "the observed history. Measured under a different roster, so it is a "
+                 "reference point rather than a controlled comparison."),
+    }
+    if not observed_arrivals or observed_arrivals <= 0:
+        out["comparable"] = False
+        out["not_comparable_reason"] = "The observed demand level is unknown."
+        return out
+
+    ratio = float(planned_arrivals) / float(observed_arrivals)
+    out["demand_ratio"] = round(ratio, 2)
+    lo, hi = _COMPARABLE_DEMAND_BAND
+    if not (lo <= ratio <= hi):
+        out["comparable"] = False
+        out["not_comparable_reason"] = (
+            f"This plan plans for {planned_arrivals:.0f} arrivals a day; the recorded "
+            f"spend was worked at {observed_arrivals:.0f} a day ({ratio:.2f}x). The "
+            "difference is workload, not roster policy, so the two costs are shown "
+            "side by side rather than subtracted.")
+        return out
+
+    out["comparable"] = True
+    delta = float(weekly_cost) - float(planned_cost)
+    out["saving_vs_current_weekly_zar"] = round(delta, 0)
+    out["saving_vs_current_annual_zar"] = round(delta * 52, 0)
+    if delta < 0:
+        out["interpretation"] = (
+            f"Covering the forecast lawfully costs R{abs(delta):,.0f} a week MORE than "
+            f"current spend. That gap is the price of reaching {lawful_coverage:.0f}% "
+            "lawful coverage, not an overrun — today's lower spend buys less coverage.")
+    else:
+        out["interpretation"] = (
+            f"The plan reaches {lawful_coverage:.0f}% lawful coverage for "
+            f"R{delta:,.0f} a week less than current spend.")
+    return out
+
+
 def solve_staff(
     daily_total: list[float],
     dates: list[str],
@@ -119,12 +187,20 @@ def solve_staff(
     kappa: float = 1.65,
     sigma_eps: float = DEFAULT_SIGMA_EPS,
     weekly_budget_zar: Optional[float] = None,
+    current_weekly_cost_zar: Optional[float] = None,
+    current_mean_arrivals: Optional[float] = None,
 ) -> dict[str, Any]:
     """Build and solve the Chapter 3 §3.5.7 binary IP with PuLP/CBC.
 
     Decision x[i, d, s] ∈ {0,1}: nurse i works shift s on day d. Demand coverage
     is softened with an integer `unfilled[d,s]` slack priced at a locum rate, so
     the problem is always feasible — the slack quantifies the lawful shortfall.
+
+    The objective is lexicographic over normalised terms: coverage first, then
+    the optional weekly budget, then even spread across shifts, then the skills
+    mix, and finally payroll cost as the tie-breaker. So the result is the
+    CHEAPEST roster among those that cover the forecast demand best while
+    staying lawful — not a cost minimum traded off against coverage.
     """
     t0 = time.perf_counter()
     n_days = len(daily_total)
@@ -151,15 +227,50 @@ def solve_staff(
     # Maximising it spreads the limited nurses evenly instead of dumping them on
     # one shift (a plain min-cost LP goes to a lop-sided corner solution).
     min_cov = LpVariable("min_cov", lowBound=0, upBound=1)
+    # Budget overrun slack (ZAR above the weekly cap). Soft, so a cap that is
+    # too tight reports the overrun instead of making the problem infeasible.
+    over_budget = LpVariable("over_budget", lowBound=0)
 
-    # Objective (set ONCE), lexicographic via weights:
-    #   1. minimise total locum-covered shortfall  (BIG weight) → max coverage
-    #   2. maximise the worst shift's coverage      (−1)        → even spread
-    #   3. small penalty for unmet skills-mix
-    BIG = 1_000_000.0
-    prob += (BIG * lpSum(unfilled[(d, sh)] for d in day_idx for sh in SHIFTS)
-             - min_cov
-             + lpSum(0.001 * v for v in pn_short.values()))
+    # ── Objective ────────────────────────────────────────────────────────────
+    # Every term is NORMALISED to roughly [0, 1] before weighting, so the
+    # lexicographic ordering is carried by the weights alone and CBC never has
+    # to compare a rand figure against a headcount. Priority order:
+    #   1. coverage      — minimise locum-covered shortfall             (1e6)
+    #   2. skills mix    — minimise shifts without a Professional Nurse (1e4)
+    #   3. balance       — maximise the worst shift's coverage          (1e2)
+    #   4. budget        — minimise spend above the weekly cap          (1e1)
+    #   5. cost          — minimise own payroll, the final tie-breaker  (1e0)
+    #
+    # Clinical safety outranks money on purpose: the skills-mix rule sits ABOVE
+    # the budget, so a cap that cannot be met lawfully is reported as an overrun
+    # rather than silently met by taking the Professional Nurse off a shift.
+    #
+    # Tier 5 is what makes the roster genuinely cost-minimal: among all rosters
+    # that cover equally, meet the skills mix equally, spread equally and sit
+    # equally against the budget, the solver now prefers the cheapest one.
+    # Without it the payroll reported below was whatever CBC branched into.
+    total_demand = sum(d_s.values()) or 1
+    n_slots = max(1, n_days * len(SHIFTS))
+    cost_scale = sum(shift_cost.values()) * n_days or 1.0   # upper bound on payroll
+
+    payroll_expr = lpSum(shift_cost[s["staff_id"]] * x[(s["staff_id"], d, sh)]
+                         for s in staff for d in day_idx for sh in SHIFTS)
+    unfilled_expr = lpSum(unfilled[(d, sh)] for d in day_idx for sh in SHIFTS)
+
+    prob += (1e6 * (unfilled_expr / total_demand)
+             + 1e4 * (lpSum(pn_short.values()) / n_slots)
+             - 1e2 * min_cov
+             + 1e1 * (over_budget / cost_scale)
+             + 1e0 * (payroll_expr / cost_scale))
+
+    # Weekly budget (optional): own payroll + the locum the shortfall implies
+    # must stay under the cap, or the overrun is reported. Charging locum here
+    # stops the solver from "saving" money by leaving shifts unfilled.
+    if weekly_budget_zar is not None and float(weekly_budget_zar) > 0:
+        prob += (payroll_expr + locum_shift_cost * unfilled_expr
+                 <= float(weekly_budget_zar) + over_budget)
+    else:
+        prob += over_budget == 0
 
     # Demand coverage (soft via the locum slack).
     for d in day_idx:
@@ -242,6 +353,8 @@ def solve_staff(
         })
     roster.sort(key=lambda r: -r["n_shifts"])
 
+    budget_overrun = round(float(lp_value(over_budget) or 0.0), 0)
+
     locum_hours = total_unfilled * SHIFT_HOURS
     locum_cost = total_unfilled * locum_shift_cost
     total_cost = payroll + locum_cost
@@ -281,6 +394,10 @@ def solve_staff(
             "before_locum_hours": round(before_locum_slots * SHIFT_HOURS, 0),
             "after_locum_hours": round(after_locum_slots * SHIFT_HOURS, 0),
         },
+        "current_practice": _staff_current_practice(
+            current_weekly_cost_zar, current_mean_arrivals,
+            float(np.mean(daily_total)) if len(daily_total) else 0.0,
+            after_cost, lawful_coverage),
         "kpis": {
             "coverage_pct": round(coverage, 1),
             "lawful_coverage_pct": round(lawful_coverage, 1),
@@ -295,6 +412,11 @@ def solve_staff(
             "staffing_shortfall": max(0, nurses_needed - len(staff)),
             "weekly_payroll_zar": round(payroll, 0),
             "weekly_cost_zar": round(total_cost, 0),
+            "weekly_budget_zar": (round(float(weekly_budget_zar), 0)
+                                  if weekly_budget_zar else None),
+            "budget_overrun_zar": budget_overrun,
+            "budget_respected": (None if not weekly_budget_zar
+                                 else budget_overrun <= 0.5),
         },
         "demand_vs_coverage": per_day,
         "shifts": shift_rows,
@@ -311,6 +433,14 @@ def solve_staff(
 MC_HORIZON_DAYS = 90
 MC_REPS = 800
 MC_GRID = 11
+
+# Length of the recorded operating history in api/data/simulation/*.csv
+# (2025-01-01 .. 2026-01-31). Used to annualise the hospital's REALISED cost so
+# it can sit next to the simulated policy costs on the same yearly basis.
+OBSERVED_PERIOD_DAYS = 396.0
+
+# 95% normal-approximation multiplier for Monte-Carlo half-widths.
+_Z95 = 1.959964
 
 
 def _item_cost_params(it: dict, price: float) -> tuple[float, float, float, float]:
@@ -359,9 +489,13 @@ def _simulate_policies(D, s_arr, S_arr, I0, L, K, h, p, w, cap):
             I = np.minimum(I, cap)
         Hc += h * I
     total = Kc + Hc + Pc + Wc
+    # `total` (reps x policies) is returned as well: because every policy saw the
+    # SAME demand draws, differencing two columns gives a PAIRED sample of the
+    # saving, which is what the reported confidence interval is built from.
     return (total.mean(axis=0),
             {"ordering": Kc.mean(axis=0), "holding": Hc.mean(axis=0),
-             "stockout": Pc.mean(axis=0), "wastage": Wc.mean(axis=0)})
+             "stockout": Pc.mean(axis=0), "wastage": Wc.mean(axis=0)},
+            total)
 
 
 def reorder_supply(
@@ -395,8 +529,24 @@ def reorder_supply(
     n_to_order = n_at_risk = 0
     breakdown_before = {"ordering": 0.0, "holding": 0.0, "stockout": 0.0, "wastage": 0.0}
     breakdown_after = dict(breakdown_before)
+    # Paired saving per replication, summed across items. Replication r is one
+    # coherent scenario for the whole catalogue, so summing within r and taking
+    # the spread ACROSS r gives an honest interval on the portfolio saving.
+    paired_saving = np.zeros(n_reps, dtype=float)
+    # What the catalogue costs the hospital TODAY, from the recorded operating
+    # history rather than from a textbook policy (see `current_practice` below).
+    cp_total = 0.0
+    cp_days = 0.0
+    cp_items = 0
 
     for it in items:
+        realised = it.get("total_cost_zar")
+        realised_days = float(it.get("observed_days") or OBSERVED_PERIOD_DAYS)
+        if realised is not None:
+            cp_total += float(realised)
+            cp_days = max(cp_days, realised_days)
+            cp_items += 1
+
         d_base = float(it.get("mean_daily_consumption") or 0)
         intrinsic_sd = float(it.get("sd_daily_consumption") or 0)
         L = max(1, int(round(float(it.get("lead_time_mean_days") or 5))))
@@ -430,7 +580,7 @@ def reorder_supply(
         S_arr = np.concatenate([[S_base], S_grid])
 
         D = np.clip(rng.normal(d_proj, max(sigma, 1e-6), size=(horizon_days, n_reps)), 0.0, None)
-        costs, comp = _simulate_policies(D, s_arr, S_arr, on_hand, L, K, h, p, w, cap)
+        costs, comp, per_rep = _simulate_policies(D, s_arr, S_arr, on_hand, L, K, h, p, w, cap)
 
         before_cost = float(costs[0])
         opt_idx = 1 + int(np.argmin(costs[1:]))
@@ -439,6 +589,7 @@ def reorder_supply(
 
         before_total += before_cost
         after_total += after_cost
+        paired_saving += per_rep[:, 0] - per_rep[:, opt_idx]
         for kk in breakdown_before:
             breakdown_before[kk] += float(comp[kk][0])
             breakdown_after[kk] += float(comp[kk][opt_idx])
@@ -469,18 +620,52 @@ def reorder_supply(
     saving_a = max(0.0, before_a - after_a)
     stockout_cut = max(0.0, (breakdown_before["stockout"] - breakdown_after["stockout"]) * annual)
 
+    # 95% interval on the saving, from the PAIRED per-replication differences
+    # (common random numbers), annualised on the same basis as the point value.
+    half_width = float(_Z95 * paired_saving.std(ddof=1) / math.sqrt(n_reps)) * annual if n_reps > 1 else 0.0
+
+    # Current practice: what the catalogue actually cost over the recorded
+    # operating history, annualised. This is a REFERENCE POINT, not a controlled
+    # comparison — it comes from a different stock trajectory and different
+    # opening conditions — but it is what the hospital spends today, which the
+    # textbook baseline below is not.
+    current_practice = None
+    if cp_items and cp_days > 0:
+        cp_annual = cp_total * (365.0 / cp_days)
+        current_practice = {
+            "annual_zar": round(cp_annual, 0),
+            "items_covered": cp_items,
+            "observed_days": round(cp_days, 0),
+            "saving_vs_current_zar": round(cp_annual - after_a, 0),
+            "saving_vs_current_pct": round((cp_annual - after_a) / cp_annual * 100, 1) if cp_annual else 0.0,
+            "note": ("Recorded operating cost over the observed history, annualised. "
+                     "A reference point from a different stock trajectory, not a "
+                     "controlled like-for-like comparison."),
+        }
+
     return {
         "service_level": service_level,
         "forecast_factor": round(factor, 3),
         "horizon_days": horizon_days,
         "n_reps": n_reps,
         "cost": {
-            "before_zar": round(before_a, 0),     # naive policy, annualised
+            "before_zar": round(before_a, 0),     # textbook reference, annualised
             "after_zar": round(after_a, 0),       # optimised (s*,S*), annualised
             "saving_zar": round(saving_a, 0),
             "saving_pct": round(saving_a / before_a * 100, 1) if before_a else 0.0,
-            "basis": "annualised expected total cost (Monte-Carlo)",
+            "saving_half_width_zar": round(half_width, 0),
+            "saving_low_zar": round(max(0.0, saving_a - half_width), 0),
+            "saving_high_zar": round(saving_a + half_width, 0),
+            "basis": "annualised expected total cost (Monte-Carlo, 95% CI from paired replications)",
+            "cost_basis": "realised",   # K,h,p,w derived from the recorded cost record
+            "engine": "mc_ss",
+            "baseline": "no_safety_stock",
+            "baseline_label": "Textbook reference: same policy with no safety stock",
+            "baseline_caveat": ("This baseline carries no safety stock, so it is a "
+                                "lower bound on sensible practice, not what the "
+                                "hospital does today. See current_practice."),
         },
+        "current_practice": current_practice,
         "cost_breakdown": {
             "before": {k: round(v * annual, 0) for k, v in breakdown_before.items()},
             "after": {k: round(v * annual, 0) for k, v in breakdown_after.items()},
@@ -541,12 +726,16 @@ def run_staff(
     staff: list[dict],
     kappa: float = 1.65,
     weekly_budget_zar: Optional[float] = None,
+    current_weekly_cost_zar: Optional[float] = None,
+    current_mean_arrivals: Optional[float] = None,
 ) -> dict[str, Any]:
     """Run ONLY the staff optimization; update the shared cache; return the
     staff slice of the page payload."""
     sigma_eps = float(forecast.get("mae") or DEFAULT_SIGMA_EPS)
     res = solve_staff(forecast["daily_total"], forecast["dates"], staff,
-                      kappa=kappa, sigma_eps=sigma_eps, weekly_budget_zar=weekly_budget_zar)
+                      kappa=kappa, sigma_eps=sigma_eps, weekly_budget_zar=weekly_budget_zar,
+                      current_weekly_cost_zar=current_weekly_cost_zar,
+                      current_mean_arrivals=current_mean_arrivals)
     _LAST["forecast"] = forecast
     _LAST["staff"] = res
     _LAST["meta"] = _meta(forecast, status=res["status"],
@@ -579,9 +768,13 @@ def optimize(
     kappa: float = 1.65,
     service_level: float = 0.95,
     weekly_budget_zar: Optional[float] = None,
+    current_weekly_cost_zar: Optional[float] = None,
+    current_mean_arrivals: Optional[float] = None,
 ) -> dict[str, Any]:
     """Run BOTH optimizations (used by the combined endpoint + Action Center)."""
-    run_staff(forecast, staff, kappa=kappa, weekly_budget_zar=weekly_budget_zar)
+    run_staff(forecast, staff, kappa=kappa, weekly_budget_zar=weekly_budget_zar,
+              current_weekly_cost_zar=current_weekly_cost_zar,
+              current_mean_arrivals=current_mean_arrivals)
     run_supply(forecast, items, service_level=service_level)
     return {
         "meta": _LAST["meta"], "forecast": forecast,
@@ -631,7 +824,11 @@ def compute_both(
 NB_DISPERSION = 1.4               # Chapter 5 calibrated negative-binomial dispersion
 CHAPTER6_TEST_MAPE = 0.126        # Chapter 6 XGBoost test-set MAPE (≈12.6%)
 SIM_HORIZON_DAYS = 60             # simulation length per policy per seed
-SIM_SEEDS = (42, 123, 456)        # common-random-numbers replications
+SIM_SEEDS = (42, 123, 456)        # common-random-numbers replications (tuner)
+# The weekly plan's headline saving is reported to a manager, so it is measured
+# on more replications than the tuner's relative ranking needs. Paired CRN keeps
+# the interval tight without a proportional cost in accuracy.
+REPORT_SEEDS = (42, 123, 456, 789, 1011, 1213, 1415, 1617, 1819, 2021)
 REVIEW_PERIOD_DAYS = 7            # weekly review for the dynamic and oracle arms
 NAIVE_BUFFER = 1.20              # naive orders +20% over expected monthly demand
 
@@ -1308,7 +1505,17 @@ def plan_orders_for_policy(
     breakdown_after = dict(breakdown_before)
 
     rng = np.random.default_rng(42)
+    paired_saving = np.zeros(len(REPORT_SEEDS), dtype=float)
+    cp_total = 0.0
+    cp_days = 0.0
+    cp_items = 0
     for it in items:
+        realised = it.get("total_cost_zar")
+        if realised is not None:
+            cp_total += float(realised)
+            cp_days = max(cp_days, float(it.get("observed_days") or OBSERVED_PERIOD_DAYS))
+            cp_items += 1
+
         d_avg = float(it.get("mean_daily_consumption") or 0)
         sd = float(it.get("sd_daily_consumption") or 0) or max(1.0, 0.3 * d_avg)
         L = max(1, int(round(float(it.get("lead_time_mean_days") or 5))))
@@ -1348,16 +1555,20 @@ def plan_orders_for_policy(
                     "daily_demand_avg": d_avg, "unit_cost": price,
                     "holding_rate": 0.25, "ordering_cost": K}
         b_cost = a_cost = 0.0
-        for seed in SIM_SEEDS:
+        n_rep = len(REPORT_SEEDS)
+        for si, seed in enumerate(REPORT_SEEDS):
             actual, fc = _demand_stream(seed, sim_item["sku"], d_avg)
             b = _simulate_item_policy(sim_item, actual, fc, "naive", lead_mean, lead_sd, z, seed)
             a = _simulate_item_policy(sim_item, actual, fc, policy, lead_mean, lead_sd, z, seed,
                                       params=params or None)
-            b_cost += b["total_cost"] / len(SIM_SEEDS)
-            a_cost += a["total_cost"] / len(SIM_SEEDS)
+            b_cost += b["total_cost"] / n_rep
+            a_cost += a["total_cost"] / n_rep
+            # Same seed = same demand stream for both arms, so this difference
+            # is paired and the spread across seeds is a real interval.
+            paired_saving[si] += b["total_cost"] - a["total_cost"]
             for kk in ("ordering", "holding", "stockout"):
-                breakdown_before[kk] += b[kk] / len(SIM_SEEDS)
-                breakdown_after[kk] += a[kk] / len(SIM_SEEDS)
+                breakdown_before[kk] += b[kk] / n_rep
+                breakdown_after[kk] += a[kk] / n_rep
         before_total += b_cost
         after_total += a_cost
 
@@ -1372,19 +1583,45 @@ def plan_orders_for_policy(
 
     before_a, after_a = before_total * annual, after_total * annual
     saving_a = max(0.0, before_a - after_a)
+    n_rep = len(REPORT_SEEDS)
+    half_width = (float(_Z95 * paired_saving.std(ddof=1) / math.sqrt(n_rep)) * annual
+                  if n_rep > 1 else 0.0)
+
+    # No current-practice comparison here: this arm simulator prices holding at a
+    # flat 25% rate and shortage at 5x unit cost, which is NOT the basis the
+    # recorded spend was measured on. Dividing one by the other would produce a
+    # confident-looking percentage that means nothing.
+    current_practice = None
+
     return {
         "policy": policy,
         "policy_label": DEPLOYABLE_POLICIES[policy]["label"],
         "service_level": service_level,
         "horizon_days": SIM_HORIZON_DAYS,
-        "n_reps": len(SIM_SEEDS),
+        "n_reps": n_rep,
         "cost": {
             "before_zar": round(before_a, 0),
             "after_zar": round(after_a, 0),
             "saving_zar": round(saving_a, 0),
             "saving_pct": round(saving_a / before_a * 100, 1) if before_a else 0.0,
-            "basis": "annualised expected total cost (arm simulation, naive baseline)",
+            "saving_half_width_zar": round(half_width, 0),
+            "saving_low_zar": round(max(0.0, saving_a - half_width), 0),
+            "saving_high_zar": round(saving_a + half_width, 0),
+            "basis": "annualised expected total cost (arm simulation, 95% CI from paired seeds)",
+            "cost_basis": "synthetic",  # flat 25% holding, 5x unit-cost shortage proxy
+            "engine": "arm_sim",
+            "comparable_with_mc_engine": False,
+            "comparison_caveat": ("Costs from the policy-arm simulator are on a synthetic "
+                                  "cost basis and are NOT comparable with the (s,S) "
+                                  "Monte-Carlo engine's rand figures or with recorded spend. "
+                                  "Compare arm-simulator policies only with each other."),
+            "baseline": "naive",
+            "baseline_label": "Textbook reference: flat monthly bulk order, no forecast",
+            "baseline_caveat": ("The naive arm ignores the forecast entirely, so it is a "
+                                "lower bound on sensible practice, not what the hospital "
+                                "does today. See current_practice."),
         },
+        "current_practice": current_practice,
         "cost_breakdown": {
             "before": {k: round(v * annual, 0) for k, v in breakdown_before.items()},
             "after": {k: round(v * annual, 0) for k, v in breakdown_after.items()},

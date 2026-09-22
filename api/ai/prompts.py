@@ -60,7 +60,7 @@ def optimization_explainer() -> str:
     return (
         GROUNDING + "\n\n"
         "TASK: Explain a forecast-driven optimization plan for next week in two "
-        "short paragraphs for a hospital manager. The plan is the cost-minimal "
+        "short paragraphs for a hospital manager. The plan is the cheapest "
         "LAWFUL nurse roster (every nurse capped at the legal 45h/week) plus a "
         "reorder plan.\n"
         "Paragraph 1 — the staffing reality: lead with the lawful coverage the "

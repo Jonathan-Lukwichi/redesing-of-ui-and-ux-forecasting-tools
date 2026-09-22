@@ -151,6 +151,26 @@ async def _load_staff() -> list[dict]:
     return _staff_records(df)
 
 
+async def _current_weekly_staff_cost() -> tuple[Optional[float], Optional[float]]:
+    """(mean recorded weekly staffing spend, mean recorded daily arrivals).
+
+    What the department pays today and the workload it paid it at — the second
+    matters, because a cost can only be compared with a plan built for a similar
+    demand level. Returns (None, None) if the history isn't available."""
+    try:
+        df = await simulation_data.load("staff_daily.csv")
+    except FileNotFoundError:
+        return None, None
+    col = "total_payroll_cost_zar"
+    if col not in df.columns or df.empty:
+        return None, None
+    daily_mean = float(df[col].mean())
+    if daily_mean <= 0:
+        return None
+    arrivals = ("total_arrivals" in df.columns) and float(df["total_arrivals"].mean()) or None
+    return daily_mean * 7.0, arrivals
+
+
 async def _load_items() -> list[dict]:
     try:
         items_df = await simulation_data.load("supply_items.csv")
@@ -172,7 +192,9 @@ async def run_staff(req: RunRequest) -> dict[str, Any]:
     """Run ONLY the staff (workforce IP) optimization."""
     forecast = await _get_week_forecast(req.model, req.start_date)
     staff = await _load_staff()
-    return await run_in_threadpool(engine.run_staff, forecast, staff, req.kappa, req.weekly_budget_zar)
+    current, observed = await _current_weekly_staff_cost()
+    return await run_in_threadpool(engine.run_staff, forecast, staff, req.kappa,
+                                   req.weekly_budget_zar, current, observed)
 
 
 @router.post("/supply")
@@ -243,9 +265,10 @@ async def run(req: RunRequest) -> dict[str, Any]:
     forecast = await _get_week_forecast(req.model, req.start_date)
     staff = await _load_staff()
     items = await _load_items()
+    current, observed = await _current_weekly_staff_cost()
     return await run_in_threadpool(
         engine.optimize, forecast, staff, items,
-        req.kappa, req.service_level, req.weekly_budget_zar,
+        req.kappa, req.service_level, req.weekly_budget_zar, current, observed,
     )
 
 

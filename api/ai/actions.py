@@ -47,7 +47,8 @@ def generate() -> dict[str, Any]:
     client = _client()
     content = (
         "Here are the live operational signals. The 'optimization' block is the "
-        "forecast-driven plan for next week (the cost-minimal lawful nurse roster "
+        "forecast-driven plan for next week (the cheapest lawful nurse roster that "
+        "covers the forecast "
         "and the reorder plan) — prefer it as the basis for concrete actions: the "
         "nurse shortfall and locum hours, the busiest under-covered shifts, and the "
         "specific items to reorder. Turn them into a ranked action list (most "
