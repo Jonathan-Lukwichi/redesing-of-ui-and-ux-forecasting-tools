@@ -700,7 +700,13 @@ def _order_row(it, on_hand, d_proj, L, safety, rop, order_up_to, order_qty, pric
 def _meta(forecast: dict, **kw) -> dict[str, Any]:
     m = {"solver": "CBC", "forecast_source": forecast.get("source"),
          "forecast_model": forecast.get("model"), "forecast_model_label": forecast.get("model_label"),
-         "forecast_accuracy_pct": forecast.get("accuracy_pct"), "forecast_mae": forecast.get("mae")}
+         "forecast_accuracy_pct": forecast.get("accuracy_pct"), "forecast_mae": forecast.get("mae"),
+         # Which error sized the safety buffers, and whether it came from a real
+         # backtest. A plan built on an unvalidated one-step error should say so.
+         "forecast_error_basis": forecast.get("error_basis", "one_step_holdout"),
+         "forecast_validated": bool(forecast.get("validated")),
+         "forecast_validation_summary": forecast.get("validation_summary"),
+         "forecast_mase": forecast.get("mase")}
     m.update(kw)
     return m
 

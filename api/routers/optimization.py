@@ -93,7 +93,17 @@ async def _compute_week_forecast(model: str, start_date: Optional[str]) -> dict[
                 "daily_total": [float(d["predicted"]) for d in days],
                 "lower": [float(d["lower"]) for d in days],
                 "upper": [float(d["upper"]) for d in days],
-                "mae": res.get("mae"),
+                # Prefer the rolling-origin, horizon-matched error when the
+                # engine has been backtested. The engine's own `mae` is a
+                # one-step figure, so using it to size a 7-day staffing buffer
+                # and safety stock understates the uncertainty being planned
+                # against. `error_basis` records which one was used, so the page
+                # and the assistant can say so rather than imply a backtest.
+                "mae": res.get("validated_mae") or res.get("mae"),
+                "error_basis": "rolling_origin" if res.get("validated_mae") else "one_step_holdout",
+                "validated": bool(res.get("validated")),
+                "validation_summary": res.get("validation_summary"),
+                "mase": res.get("validated_mase"),
                 "accuracy_pct": res.get("confidence_pct"),
                 "baseline_avg": res.get("avg_actual"),
                 "model": model,
@@ -125,6 +135,8 @@ async def _compute_week_forecast(model: str, start_date: Optional[str]) -> dict[
         "lower": [float(d["lower"]) for d in days],
         "upper": [float(d["upper"]) for d in days],
         "mae": res.get("mae"),
+        "error_basis": "one_step_holdout",
+        "validated": False,
         "accuracy_pct": round(max(0.0, 100.0 - float(res.get("mape") or 0)), 1),
         "baseline_avg": float(hist.mean()),
         "model": model,

@@ -2,13 +2,14 @@ import os
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Body
+from fastapi.concurrency import run_in_threadpool
 from typing import List, Dict, Any, Optional, Literal
 from pydantic import BaseModel
 import numpy as np
 import pandas as pd
 
 from core.forecasting import auto_forecast, run_arima_forecast, run_ml_forecast, WEATHER_FEATURES
-from core import prepare_registry, weather as live_weather
+from core import prepare_registry, weather as live_weather, validation
 
 router = APIRouter(prefix="/api/forecast", tags=["forecast"])
 
@@ -151,6 +152,53 @@ def _weather_frame(weather_df, dates, horizon: int):
     return None, None
 
 
+# ── Rolling-origin validation (on demand, cached) ────────────────────────────
+# Validation costs one model fit per fold, so it never runs on page load. The
+# Forecast page asks for it explicitly and the answer is cached per
+# (series fingerprint, engine, horizon) — the fingerprint changes whenever the
+# underlying data does, so a stale result can never be shown against new data.
+_VALIDATION_CACHE: Dict[str, Dict[str, Any]] = {}
+_VALIDATION_MAX = 24
+
+
+def _series_fingerprint(s: "pd.Series") -> str:
+    """Cheap identity for a series: length, endpoints and a rounded checksum."""
+    if s.empty:
+        return "empty"
+    return (f"{len(s)}:{s.index.min():%Y%m%d}:{s.index.max():%Y%m%d}:"
+            f"{float(np.nansum(s.to_numpy())):.1f}")
+
+
+def _validation_key(s: "pd.Series", model: str, horizon: int) -> str:
+    return f"{_series_fingerprint(s)}|{model}|{horizon}"
+
+
+def get_cached_validation(s: "pd.Series", model: str, horizon: int) -> Optional[Dict[str, Any]]:
+    return _VALIDATION_CACHE.get(_validation_key(s, model, horizon))
+
+
+def compute_validation(s: "pd.Series", model: str, horizon: int,
+                       n_folds: int = validation.DEFAULT_FOLDS) -> Optional[Dict[str, Any]]:
+    """Run (or return the cached) rolling-origin evaluation for this series."""
+    key = _validation_key(s, model, horizon)
+    if key in _VALIDATION_CACHE:
+        return _VALIDATION_CACHE[key]
+
+    def _engine(history, dates, h):
+        if model == "statistical":
+            return run_arima_forecast(history, dates, h)
+        return run_ml_forecast(history, dates, h)
+
+    result = validation.rolling_origin_evaluate(s, _engine, horizon=horizon, n_folds=n_folds)
+    if result is not None:
+        result["model"] = model
+        result["summary"] = validation.summarise(result)
+        if len(_VALIDATION_CACHE) >= _VALIDATION_MAX:
+            _VALIDATION_CACHE.pop(next(iter(_VALIDATION_CACHE)))
+        _VALIDATION_CACHE[key] = result
+    return result
+
+
 def _forecast_from_series(
     s: "pd.Series",
     model: str,
@@ -247,6 +295,23 @@ def _forecast_from_series(
     result["backtest"]            = backtest
 
     _attach_confidence(result, float(train.mean()))
+
+    # Rolling-origin validation, when it has been computed for this exact series
+    # + engine + horizon. This is the honest, horizon-matched accuracy: the
+    # engine's own `mae` is a one-step figure and does not describe the
+    # multi-step forecast above. Never computed here — that would fire a dozen
+    # model fits on a page load, which Plan C forbids.
+    cached = get_cached_validation(train, model, horizon)
+    result["validation"] = cached
+    result["validated"] = cached is not None
+    if cached:
+        result["validated_mae"] = cached.get("horizon_mae")
+        result["validated_mase"] = cached.get("mase")
+        result["validation_summary"] = cached.get("summary")
+        if cached.get("mape") is not None and not result.get("low_volume"):
+            result["confidence_pct"] = round(max(0.0, min(100.0, 100.0 - cached["mape"])), 1)
+            result["confidence_tier"] = _confidence_tier(result["confidence_pct"])
+            result["confidence_basis"] = "rolling_origin"
 
     # When we can compare to reality, confidence = how it ACTUALLY did on the
     # chosen window (the most honest measure available).
@@ -447,6 +512,54 @@ async def engine_accuracy(group: str = "g1", specialty: Optional[str] = None) ->
             out["engines"][model] = {"accuracy_pct": None, "mae": None, "error": str(e)}
     _ENGINE_CACHE[key] = out
     return out
+
+
+class ValidateRequest(BaseModel):
+    model: Literal["statistical", "ml"] = "ml"
+    horizon: int = 7
+    group: str = "g1"
+    specialty: Optional[str] = None
+    n_folds: int = validation.DEFAULT_FOLDS
+
+
+@router.post("/validate")
+async def validate_engine(req: ValidateRequest) -> Dict[str, Any]:
+    """Rolling-origin backtest for one engine at one horizon.
+
+    Runs on demand only (one model fit per fold). The result is cached, so every
+    later forecast at that engine + horizon carries its honest accuracy without
+    re-running, and the optimiser picks up the horizon-matched error from the
+    same cache.
+    """
+    if req.horizon not in _ALLOWED_HORIZONS:
+        raise HTTPException(400, f"horizon must be one of {_ALLOWED_HORIZONS} days.")
+    n_folds = max(2, min(int(req.n_folds), 12))
+    s_series, weekly = _series_for(req.group, req.specialty)
+    grain = s_series.resample("W").sum() if weekly else s_series
+    label = req.specialty or "Total ED arrivals"
+
+    result = await run_in_threadpool(compute_validation, grain, req.model, req.horizon, n_folds)
+    if result is None:
+        raise HTTPException(
+            422,
+            {"error": "series_too_short",
+             "message": ("Not enough history to backtest this horizon. At least 90 days "
+                         "of training data plus one full horizon is needed.")},
+        )
+    return {"target": label, "validation": result, "summary": result.get("summary")}
+
+
+@router.get("/validate/last")
+async def validation_index() -> Dict[str, Any]:
+    """Everything already backtested this session, so a page can show honest
+    accuracy without triggering a run."""
+    return {"results": [
+        {"model": v.get("model"), "horizon": v.get("horizon"), "n_folds": v.get("n_folds"),
+         "mae": v.get("horizon_mae"), "mase": v.get("mase"),
+         "beats_seasonal_naive": v.get("beats_seasonal_naive"),
+         "pi_coverage_pct": v.get("pi_coverage_pct"), "summary": v.get("summary")}
+        for v in _VALIDATION_CACHE.values()
+    ]}
 
 
 @router.get("/coverage")
