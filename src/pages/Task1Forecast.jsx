@@ -12,6 +12,7 @@
 // =============================================================================
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
+import ForecastTrust from '../components/ForecastTrust';
 import AiPanel from '../components/AiPanel';
 
 const C = {
@@ -126,6 +127,30 @@ export default function Task1Forecast({ onNavigate }) {
   };
 
   const engineMeta = ENGINES.find((e) => e.id === engine) || ENGINES[0];
+
+  // Backtest this engine at this horizon, then re-run so the result carries the
+  // honest accuracy. Explicit and user-triggered: a rolling-origin run is a
+  // dozen model fits, which must never happen on a page load.
+  const [validating, setValidating] = useState(false);
+  const runValidation = async () => {
+    setValidating(true);
+    try {
+      await api.forecast.validate({ model: engine, horizon: horizonDays(horizon) });
+      const res = await api.forecast.run({
+        model: engine,
+        horizon: horizonDays(horizon),
+        alias: engineMeta.name,
+        start_date: effectiveStart,
+      });
+      setResult({ ok: true, data: res, horizonId: horizon });
+    } catch (e) {
+      // A failed backtest must never look like a passed one: leave the result
+      // as it was, so the panel keeps saying "not yet backtested".
+      console.warn('backtest failed', e);
+    } finally {
+      setValidating(false);
+    }
+  };
 
   const run = async () => {
     setRunning(true); setResult(null);
@@ -246,7 +271,8 @@ export default function Task1Forecast({ onNavigate }) {
 
       {/* Result panel */}
       {result && (result.ok
-        ? <><ForecastResult data={result.data} horizonId={result.horizonId} badge="operational" />
+        ? <><ForecastResult data={result.data} horizonId={result.horizonId} badge="operational"
+            onValidate={runValidation} validating={validating} />
             <AiPanel context={result.data} /></>
         : <ForecastError result={result} onTryAnother={() => setResult(null)} onNavigate={onNavigate} />)}
 
@@ -451,7 +477,7 @@ function Banner({ color = 'amber', title, children }) {
   );
 }
 
-function ForecastResult({ data, horizonId, badge }) {
+function ForecastResult({ data, horizonId, badge, onValidate, validating }) {
   const days = data.forecast || [];
   const [selectedIdx, setSelectedIdx] = useState(0);
   if (!days.length) {
@@ -494,9 +520,7 @@ function ForecastResult({ data, horizonId, badge }) {
         <div style={{ textAlign: 'right' }}>
           {badge && <Badge badge={badge} size="lg" />}
           <div style={{ marginTop: 8 }}>
-            <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Forecast</div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: '#15803d' }}>Validated &amp; reliable</div>
-            <div style={{ fontSize: 10.5, color: C.muted, marginTop: 1 }}>plan with each day's likely range</div>
+            <ForecastTrust data={data} onValidate={onValidate} validating={validating} />
           </div>
         </div>
       </div>

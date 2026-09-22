@@ -619,6 +619,94 @@ is worth more commercially, and far more academically, than a large number nobod
 
 ---
 
+---
+
+## 8. Addendum — corrections from implementing Phase 1 (22 September 2026)
+
+Building the fixes tested the audit's own claims. Four need correcting, and
+three new findings came out of the work. Recorded here so the document stays
+trustworthy rather than tidy.
+
+### Corrections to this audit
+
+**C1 — The accuracy overstatement is real but smaller than implied.** Finding 8
+said the one-step error meant "systematically under-sized safety stock and
+under-staffed shifts". Measured on the recorded history with the new
+rolling-origin evaluator:
+
+| Engine | Horizon | Old self-reported MAE | Rolling-origin MAE | Understated by |
+|---|---|---|---|---|
+| Gradient Boosting | 7 | 8.60 | 7.98 | −7% (old was *pessimistic*) |
+| Gradient Boosting | 30 | 8.58 | 9.56 | 11% |
+| SARIMAX | 7 | 10.36 | 11.00 | 6% |
+| SARIMAX | 30 | 10.36 | 12.77 | 23% |
+
+The structural criticism holds — the old figure was **horizon-blind**, reporting
+essentially the same error at 7 and 30 days, and for the statistical engine it
+measured a different model. But at the 7-day horizon the optimiser actually uses,
+the ML engine's error was slightly *over*stated, not understated. The material
+error is SARIMAX at 30 days.
+
+**C2 — Which supply engine serves which endpoint was wrong.** Finding 4 said the
+Optimization page uses the arm simulator and the combined endpoint uses the
+Monte-Carlo engine. In fact `plan_orders_for_policy` routes the two default
+policies (`dynamic`, `ss_static`) straight back to `reorder_supply`; only `s_q`
+and `r_s` use the arm simulator. The problem is therefore **worse** than
+described: switching policy on the page also switches simulator. Measured on the
+same 30 items, the arm simulator's naive baseline is R135,791 a year and the
+Monte-Carlo engine's is R7,134,600 — a 52× difference in cost basis, invisible to
+anyone comparing the two policies on screen. Phase 1 tags each result with its
+cost basis and withholds the cross-basis comparison; collapsing to one engine
+remains Phase 2 item 9.
+
+**C3 — The category split is not currently shown to users.** Finding 11 said the
+UI renders `CATEGORY_WEIGHTS` output as per-category predictions. It does not —
+nothing in `src/` or `api/ai/` consumes the `categories` field. It is unused
+payload. The labelling added in Phase 1 is a guard against a future consumer, not
+a fix to a live misrepresentation.
+
+**C4 — "Cost-minimal" was reachable, not just wrong.** Finding 1 recommended
+adding the cost term "or stop calling it cost-minimal". Adding it turned out to
+be a small change with a verifiable effect, so the claim is now true — stated
+precisely as *the cheapest lawful roster that covers the forecast*, since cost is
+the last tie-breaker beneath coverage, skills mix and balance.
+
+### New findings from the implementation
+
+**N1 — SARIMAX is beaten by "same as last week" at 30 days.** Rolling-origin puts
+it at MASE 1.151, meaning a planner would do better assuming next week repeats
+last week. Nothing in the product could previously have detected this, because
+nothing compared the model to a naive baseline. The UI now says so explicitly
+when it happens.
+
+**N2 — The ML engine loses to seasonal naive on clean seasonal data.** On a
+synthetic pure weekly cycle it scores MASE 1.01–1.41 at every noise level,
+because the iterative multi-step loop feeds its own predictions back and
+accumulates error faster than the naive rule does. It wins on the real series
+(MASE 0.74) because real arrivals carry trend, holiday and level structure that
+seasonal naive cannot capture. Worth fixing properly with direct multi-horizon
+models (one model per step-ahead) rather than recursive feeding — added to
+Phase 4.
+
+**N3 — The prediction intervals are well calibrated.** The 95% bands caught
+95.2% of actuals on the recorded history (90–98% across engines and horizons).
+This is the one accuracy claim the product could always have made honestly and
+never did. It is now surfaced.
+
+**N4 — A budget can now only ever report an overrun, never cut spend.** Once cost
+is a tier of the objective, the unconstrained roster is already the cheapest that
+covers the forecast, so a cap below it cannot be met without reducing coverage —
+which the priority order forbids. This is the correct clinical behaviour and it
+is asserted by two tests, but it means "set a budget" is better labelled in the
+UI as "flag when the plan exceeds" than as a lever that reduces cost.
+
+**N5 — Staffing lawfully costs far more than the department currently spends.**
+At matched demand (~69 arrivals/day) the lawful plan costs R495,485 a week
+against R245,253 recorded — and still reaches only 49% lawful coverage. Framed as
+a "saving" this is a negative number; framed correctly it is the **funding gap**,
+which is the single most useful figure this product can give a public hospital.
+The engine now reports it with that interpretation attached.
+
 ## Sources consulted for external benchmarking
 
 - [NHS digital service manual — design system and service standard](https://service-manual.nhs.uk/design-system)

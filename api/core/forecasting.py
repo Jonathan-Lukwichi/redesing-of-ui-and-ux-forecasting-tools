@@ -5,6 +5,23 @@ from typing import List, Dict, Any, Tuple
 import warnings
 warnings.filterwarnings("ignore")
 
+# NOT a forecast. These are the historical case-mix proportions, applied to the
+# predicted daily TOTAL to give an indicative split. Nothing in the model
+# predicts a category: every day gets the same proportions, so the split cannot
+# capture a category moving against the total (a trauma-heavy weekend, a
+# respiratory winter). Anything consuming `categories` must label it as an
+# indicative historical mix — see CATEGORY_SPLIT_BASIS below. Forecasting
+# categories properly means running the engine per specialty off G3, which the
+# By-specialty page already does.
+CATEGORY_SPLIT_BASIS = {
+    "method": "historical_case_mix",
+    "is_forecast": False,
+    "label": "Indicative split, historical case mix",
+    "caveat": ("Each day's total is split using the long-run case mix, so these "
+               "are not per-category predictions. For a real per-category "
+               "forecast use the By specialty page."),
+}
+
 CATEGORY_WEIGHTS = {
     "respiratory": 0.264,
     "cardiac":     0.206,
@@ -187,6 +204,7 @@ def run_arima_forecast(
         "forecast":   forecast_days,
         "history":    hist_out,
         "interval_method": "model_pi",  # the model's own 95% prediction interval
+        "category_split_basis": CATEGORY_SPLIT_BASIS,
         "message":    f"Trained on {len(series)} days of data",
     }
 
@@ -326,6 +344,7 @@ def run_ml_forecast(
         "forecast":   forecast_days,
         "history":    hist_out,
         "interval_method": "empirical",  # middle 95% of the model's own past errors
+        "category_split_basis": CATEGORY_SPLIT_BASIS,
         "weather_used": use_weather,
         "n_features":  len(feature_cols),
         "message":    f"Trained on {len(df)} feature-engineered samples",

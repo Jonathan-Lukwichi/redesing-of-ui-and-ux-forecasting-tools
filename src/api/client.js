@@ -46,6 +46,15 @@ export const api = {
         method: 'POST',
         body: { model, horizon, alias, start_date },
       }),
+    // Rolling-origin backtest for one engine at one horizon. On demand only:
+    // it costs one model fit per fold, so nothing calls it on page load.
+    validate: ({ model = 'ml', horizon = 7, group = 'g1', specialty = null, n_folds = 6 } = {}) =>
+      request('/api/forecast/validate', {
+        method: 'POST',
+        body: { model, horizon, group, specialty, n_folds },
+      }),
+    validateLast: () => request('/api/forecast/validate/last'),
+
     specialty: ({ specialty, model = 'statistical', horizon = 7, alias = null, resolution = 'daily', start_date = null } = {}) =>
       request('/api/forecast/specialty', {
         method: 'POST',

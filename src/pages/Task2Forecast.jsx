@@ -13,6 +13,7 @@
 // =============================================================================
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
+import ForecastTrust from '../components/ForecastTrust';
 
 const C = {
   ink: '#0f172a', muted: '#64748b', line: '#eef0f3',
@@ -158,6 +159,33 @@ export default function Task2Forecast({ onNavigate }) {
     setStartDate(clampDate(addDays(base, n), minStart, futureStart));
   };
 
+  // Backtest this engine at this horizon for THIS specialty, then re-run so the
+  // panel shows the honest accuracy. User-triggered only.
+  const [validating, setValidating] = useState(false);
+  const runValidation = async () => {
+    setValidating(true);
+    try {
+      await api.forecast.validate({
+        model: engine, horizon: horizonCount(horizon), group: 'g3', specialty,
+      });
+      const res = await api.forecast.specialty({
+        specialty,
+        model: engine,
+        horizon: horizonCount(horizon),
+        alias: engineMeta.name,
+        resolution: isWeekly ? 'weekly' : 'daily',
+        start_date: effectiveStart,
+      });
+      setResult({ ok: true, data: res, horizonId: horizon, weekly: isWeekly });
+    } catch (e) {
+      // Leave the panel in its "not yet backtested" state rather than implying
+      // a check that did not succeed.
+      console.warn('backtest failed', e);
+    } finally {
+      setValidating(false);
+    }
+  };
+
   const run = async () => {
     setRunning(true); setResult(null);
     try {
@@ -300,7 +328,8 @@ export default function Task2Forecast({ onNavigate }) {
       )}
 
       {result && (result.ok
-        ? <ForecastResult data={result.data} horizonId={result.horizonId} weekly={result.weekly} badge="operational" />
+        ? <ForecastResult data={result.data} horizonId={result.horizonId} weekly={result.weekly}
+            badge="operational" onValidate={runValidation} validating={validating} />
         : <ForecastError result={result} onTryAnother={() => setResult(null)} onNavigate={onNavigate} />)}
 
       {/* Research models + their validation scores are admin/thesis material —
@@ -546,7 +575,7 @@ function Banner({ color = 'amber', title, children }) {
   );
 }
 
-function ForecastResult({ data, horizonId, weekly, badge }) {
+function ForecastResult({ data, horizonId, weekly, badge, onValidate, validating }) {
   const days = data.forecast || [];
   const [selectedIdx, setSelectedIdx] = useState(0);
   if (!days.length) {
@@ -591,9 +620,7 @@ function ForecastResult({ data, horizonId, weekly, badge }) {
         <div style={{ textAlign: 'right' }}>
           {badge && <Badge badge={badge} size="lg" />}
           <div style={{ marginTop: 8 }}>
-            <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Forecast</div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: '#15803d' }}>Validated &amp; reliable</div>
-            <div style={{ fontSize: 10.5, color: C.muted, marginTop: 1 }}>plan with each {unit}'s likely range</div>
+            <ForecastTrust data={data} onValidate={onValidate} validating={validating} />
           </div>
         </div>
       </div>
