@@ -198,7 +198,7 @@ export default function DataHub() {
       />
 
       {error && (
-        <div className="card" style={{ borderColor: '#dc2626', background: '#fef5f5' }}>
+        <div className="card" style={{ borderColor: 'var(--danger)', background: '#fef5f5' }}>
           <div className="card-body" style={{ color: '#991b1b' }}>
             <strong>Inventory error.</strong> {error}
           </div>
@@ -277,13 +277,13 @@ function DatasetTile({
   const borderStyle = isEmpty
     ? { border: '1.5px dashed #cbd5e1' }
     : isError
-      ? { border: '1.5px solid #dc2626' }
+      ? { border: '1.5px solid var(--danger)' }
       : selected
-        ? { border: '2px solid #1e6091' }
-        : { border: '1px solid #e4e7eb' };
+        ? { border: '2px solid var(--brand)' }
+        : { border: '1px solid var(--border)' };
 
   const background = isEmpty
-    ? '#fafbfc'
+    ? 'var(--surface-2)'
     : isError
       ? '#fef5f5'
       : selected
@@ -335,8 +335,8 @@ function DatasetTile({
 
       {isEmpty && (
         <div style={{
-          paddingTop: 10, borderTop: '1px dashed #e4e7eb',
-          fontSize: 11, color: '#94a3b8', textAlign: 'center', minWidth: 0,
+          paddingTop: 10, borderTop: '1px dashed var(--border)',
+          fontSize: 11, color: 'var(--text-4)', textAlign: 'center', minWidth: 0,
         }}>
           Expected file: <Card.FileLabel>{schema.source_filename_hint}</Card.FileLabel>
           <div style={{ marginTop: 2 }}>
@@ -411,7 +411,7 @@ function DatasetTile({
 function StatusBadge({ state, loaded, schemaValid }) {
   if (state === 'uploading') return <span className="tag tag-info" style={{ fontSize: 10 }}><span className="dot" /> Uploading</span>;
   if (state === 'error')     return <span className="tag tag-danger" style={{ fontSize: 10 }}><span className="dot" /> Wrong file</span>;
-  if (!loaded)               return <span className="tag" style={{ fontSize: 10, background: '#f1f5f9', color: '#64748b' }}>Empty</span>;
+  if (!loaded)               return <span className="tag" style={{ fontSize: 10, background: '#f1f5f9', color: 'var(--text-3)' }}>Empty</span>;
   if (schemaValid)           return <span className="tag tag-success" style={{ fontSize: 10 }}><span className="dot" /> Schema valid</span>;
   return <span className="tag tag-warning" style={{ fontSize: 10 }}><span className="dot" /> Schema drift</span>;
 }
@@ -447,7 +447,7 @@ function ErrorPanel({ uploadState, targetLabel, onSendToBestFit }) {
           <button
             className="btn btn-sm"
             onClick={() => onSendToBestFit(bestFit.id)}
-            style={{ background: '#0d9488', color: 'white', borderColor: '#0d9488', flexShrink: 0 }}
+            style={{ background: 'var(--accent)', color: 'white', borderColor: 'var(--accent)', flexShrink: 0 }}
           >
             <Icon name="check" size={12} /> Upload there
           </button>
@@ -482,11 +482,11 @@ function SectionHeader({ kicker, title, sub }) {
   return (
     <div style={{ marginTop: 8 }}>
       <div style={{
-        fontSize: 11, fontWeight: 700, color: '#1e6091',
+        fontSize: 11, fontWeight: 700, color: 'var(--brand)',
         textTransform: 'uppercase', letterSpacing: 1.2,
       }}>{kicker}</div>
-      <div style={{ fontSize: 16, fontWeight: 600, color: '#0f172a', marginTop: 2 }}>{title}</div>
-      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{sub}</div>
+      <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', marginTop: 2 }}>{title}</div>
+      <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{sub}</div>
     </div>
   );
 }
@@ -525,7 +525,7 @@ function PreviewPanel({ item, preview }) {
       <div className="card-body">
         {!metadata.schema_valid && <SchemaDetails metadata={metadata} />}
 
-        <div style={{ border: '1px solid #e4e7eb', borderRadius: 6, overflow: 'auto', maxHeight: 360 }}>
+        <div style={{ border: '1px solid var(--border)', borderRadius: 6, overflow: 'auto', maxHeight: 360 }}>
           <div className="table-scroll" role="region" tabIndex={0} aria-label="Data table (scrolls sideways on small screens)"><table className="tbl">
             <thead>
               <tr>{cols.map((c) => <th key={c}>{c}</th>)}</tr>
@@ -545,7 +545,7 @@ function PreviewPanel({ item, preview }) {
         </div>
 
         <div className="grid-kpi" style={{ marginTop: 16 }}>
-          <KpiTile label="Total rows" value={metadata.rows.toLocaleString()} color="#0f172a" />
+          <KpiTile label="Total rows" value={metadata.rows.toLocaleString()} color="var(--text)" />
           <KpiTile
             label="Expected rows"
             value={metadata.expected_rows_hint?.toLocaleString() || '—'}
@@ -554,12 +554,12 @@ function PreviewPanel({ item, preview }) {
           <KpiTile
             label="Missing required"
             value={metadata.missing_required?.length || 0}
-            color={(metadata.missing_required?.length || 0) === 0 ? '#16a34a' : '#dc2626'}
+            color={(metadata.missing_required?.length || 0) === 0 ? 'var(--success)' : 'var(--danger)'}
           />
           <KpiTile
             label="Extra columns"
             value={metadata.extra_columns?.length || 0}
-            color={(metadata.extra_columns?.length || 0) === 0 ? '#16a34a' : '#d97706'}
+            color={(metadata.extra_columns?.length || 0) === 0 ? 'var(--success)' : 'var(--warning)'}
           />
         </div>
       </div>
@@ -595,8 +595,8 @@ function SchemaDetails({ metadata }) {
 
 function KpiTile({ label, value, color }) {
   return (
-    <div style={{ padding: '10px 12px', background: '#fafbfc', border: '1px solid #eef0f3', borderRadius: 6 }}>
-      <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.4 }}>{label}</div>
+    <div style={{ padding: '10px 12px', background: 'var(--surface-2)', border: '1px solid var(--divider)', borderRadius: 6 }}>
+      <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 0.4 }}>{label}</div>
       <div className="tnum" style={{ fontSize: 18, fontWeight: 600, color, marginTop: 2 }}>{value}</div>
     </div>
   );

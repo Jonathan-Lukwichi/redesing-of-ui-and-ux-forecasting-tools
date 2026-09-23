@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import Icon from './Icon';
 import { api } from '../api/client';
+import { C } from '../styles/palette';
 
 /* Step 3 evidence card (Plan C2): the rostering-strategy comparison, moved
    from the Staff Planner. On demand only. Only the lawful forecast-driven
    roster is deployable (it is exactly what "Run staff optimization" builds);
    every unlawful strategy renders as a badged benchmark. Oracle is gone. */
 
-const C = { ink: '#0f172a', muted: '#64748b', teal: '#0d9488', navy: '#1e6091', red: '#dc2626', amber: '#d97706' };
 const zarShort = (n) => {
   if (n == null) return '—';
   if (n >= 1e6) return 'R ' + (n / 1e6).toFixed(2) + 'M';
@@ -22,8 +22,8 @@ const STRAT_LABEL = {
   forecast_stochastic: 'Forecast · safety-staffed',
 };
 const STRAT_COLOR = {
-  peak: '#94a3b8', mean: '#d97706', forecast_lawful: '#0d9488',
-  forecast_ot: '#7c3aed', forecast_stochastic: '#0ea5e9',
+  peak: 'var(--text-4)', mean: 'var(--warning)', forecast_lawful: 'var(--accent)',
+  forecast_ot: 'var(--purple)', forecast_stochastic: '#0ea5e9',
 };
 const ARRIVAL_CHOICES = [50, 64, 78, 90];
 
@@ -97,7 +97,7 @@ export default function StaffEvidence() {
               {ARRIVAL_CHOICES.map((a) => (
                 <button key={a} className="btn btn-sm" disabled={busy}
                   onClick={() => { setArrivals(a); run(a); }}
-                  style={arrivals === a ? { background: '#e8f1f8', color: C.navy, borderColor: C.navy } : {}}>
+                  style={arrivals === a ? { background: 'var(--brand-soft)', color: C.navy, borderColor: C.navy } : {}}>
                   {a}
                 </button>
               ))}
@@ -114,7 +114,7 @@ export default function StaffEvidence() {
                 const unlawful = d.bcea_breach_weeks_pct > 0;
                 return (
                   <div key={s} style={{
-                    border: `1px solid ${isRec ? C.teal : '#e4e7eb'}`,
+                    border: `1px solid ${isRec ? C.teal : 'var(--border)'}`,
                     borderStyle: isRec ? 'solid' : 'dashed',
                     borderRadius: 8, padding: '14px 14px',
                     background: isRec ? '#ecfeff' : 'white',
@@ -134,9 +134,9 @@ export default function StaffEvidence() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 8, fontSize: 12 }}>
                       <Row label="Lawful coverage" value={`${d.lawful_coverage_pct}%`} />
                       <Row label="Mean weekly hrs" value={`${d.mean_weekly_hours}h`}
-                        valueColor={d.mean_weekly_hours > strat.lawful_weekly_cap_h ? C.red : '#16a34a'} />
+                        valueColor={d.mean_weekly_hours > strat.lawful_weekly_cap_h ? C.red : 'var(--success)'} />
                       <Row label="BCEA breach wks" value={`${d.bcea_breach_weeks_pct}%`}
-                        valueColor={d.bcea_breach_weeks_pct > 0 ? C.amber : '#16a34a'} />
+                        valueColor={d.bcea_breach_weeks_pct > 0 ? C.amber : 'var(--success)'} />
                       <Row label="Overtime" value={zarShort(d.overtime_cost_zar)} />
                       <Row label="Locum" value={zarShort(d.locum_cost_zar)} />
                       <Row label="Shortfall" value={`${d.staffing_shortfall_nurses} nurses`} valueColor={C.muted} />
@@ -146,7 +146,7 @@ export default function StaffEvidence() {
               })}
             </div>
 
-            <div style={{ marginTop: 14, padding: '10px 12px', background: '#fafbfc', border: '1px solid #eef0f3', borderRadius: 8, fontSize: 12, color: '#475569', lineHeight: 1.6 }}>
+            <div style={{ marginTop: 14, padding: '10px 12px', background: 'var(--surface-2)', border: '1px solid var(--divider)', borderRadius: 8, fontSize: 12, color: '#475569', lineHeight: 1.6 }}>
               The <b>staffing shortfall is identical across every strategy</b> — it's set by demand,
               not by the roster: a <b>hiring problem</b>. The forecast's value is doing the coverage{' '}
               <i>lawfully and cheaply</i>; the benchmarks buy marginal coverage with unlawful overwork

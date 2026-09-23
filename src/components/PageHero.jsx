@@ -12,7 +12,7 @@ export default function PageHero({ title, sub, image, actions, kicker }) {
       flexShrink: 0,
       borderRadius: 'clamp(8px, 1vw, 14px)',
       overflow: 'hidden',
-      background: 'linear-gradient(110deg, #0f1729 0%, #1e3a5f 55%, #14545c 100%)',
+      background: 'linear-gradient(110deg, var(--sidebar-bg) 0%, #1e3a5f 55%, #14545c 100%)',
       color: 'white',
       padding: 'clamp(16px, 2.5vw, 36px) clamp(16px, 3vw, 44px)',
       display: 'flex',

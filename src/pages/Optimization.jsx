@@ -8,9 +8,9 @@ import { useSession } from '../auth/SessionContext';
 import PolicyEvidence from '../components/PolicyEvidence';
 import StaffEvidence from '../components/StaffEvidence';
 import { api } from '../api/client';
+import { C } from '../styles/palette';
 
-const C = { ink: '#0f172a', muted: '#64748b', teal: '#0d9488', navy: '#1e6091', red: '#dc2626', amber: '#d97706', green: '#15803d' };
-const SHIFT = { Day: '#f59e0b', Evening: '#1e6091', Night: '#6366f1' };
+const SHIFT = { Day: '#f59e0b', Evening: 'var(--brand)', Night: '#6366f1' };
 const CAT_SHORT = { 'Professional Nurse': 'PN', 'Enrolled Nurse': 'EN', 'Enrolled Nursing Auxiliary': 'ENA' };
 const zar = (n) => (n == null ? '—' : 'R ' + Math.round(n).toLocaleString('en-ZA'));
 const zarShort = (n) => {
@@ -282,7 +282,7 @@ export default function Optimization({ onNavigate }) {
               {st.shifts.map((s) => {
                 const cov = s.required ? Math.round(s.assigned / s.required * 100) : 100;
                 return (
-                  <div key={s.shift} style={{ border: '1px solid #eef0f3', borderRadius: 10, padding: '14px 16px' }}>
+                  <div key={s.shift} style={{ border: '1px solid var(--divider)', borderRadius: 10, padding: '14px 16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ width: 12, height: 12, borderRadius: 3, background: SHIFT[s.shift] || C.muted }} />
                       <strong style={{ color: C.ink }}>{s.shift}</strong>
@@ -506,7 +506,7 @@ function SectionHeader({ n, title, desc }) {
   return (
     <div style={{ margin: '22px 0 12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ width: 26, height: 26, borderRadius: '50%', background: '#1e6091', color: '#fff', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{n}</span>
+        <span style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--brand)', color: '#fff', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{n}</span>
         <span style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>{title}</span>
       </div>
       <div style={{ fontSize: 12.5, color: C.muted, marginTop: 5, marginLeft: 36 }}>{desc}</div>
@@ -538,5 +538,5 @@ function Box({ label, value, color, bg, sub, big }) {
 }
 
 function Arrow() {
-  return <span style={{ fontSize: 22, color: '#94a3b8', textAlign: 'center' }}>→</span>;
+  return <span style={{ fontSize: 22, color: 'var(--text-4)', textAlign: 'center' }}>→</span>;
 }

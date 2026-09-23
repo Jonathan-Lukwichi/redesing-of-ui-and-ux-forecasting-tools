@@ -25,6 +25,14 @@
 
   --success:      #16a34a;
   --success-soft: #e8f5ec;
+  /* A darker green used for text on light backgrounds, where --success
+     is too light to read comfortably. Distinct on purpose: the page
+     palettes have always used this value and folding it into --success
+     would shift every success colour in the app. */
+  --success-strong: #15803d;
+  /* Used by the forecast and explore pages to mark a third category
+     distinct from brand blue and accent teal. */
+  --accent-purple: #7c3aed;
   --warning:      #d97706;
   --warning-soft: #fdf3e3;
   --danger:       #dc2626;

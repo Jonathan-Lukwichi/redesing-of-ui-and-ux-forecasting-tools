@@ -10,12 +10,9 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { api } from '../api/client';
 import AiPanel from '../components/AiPanel';
+import { C } from '../styles/palette';
 
 // -- Design tokens (mirror the reference's :root vars) -----------------------
-const C = {
-  ink: '#0f172a', muted: '#64748b', line: '#eef0f3',
-  teal: '#0d9488', navy: '#1e6091', red: '#dc2626', amber: '#d97706', purple: '#7c3aed',
-};
 const fmt0 = (v) => Math.round(v).toLocaleString();
 
 // ----------------------------------------------------------------------------
@@ -42,7 +39,7 @@ const MIX_FALLBACK     = [
 const SHIFTS_FALLBACK  = [
   { label:'Day',     value:41, color:C.teal },
   { label:'Evening', value:41, color:C.navy },
-  { label:'Night',   value:18, color:'#0f1729' },
+  { label:'Night',   value:18, color:'var(--sidebar-bg)' },
 ];
 const DOW_FALLBACK     = [62,61,55,57,58,52,48];
 const HOUR_WD_FALLBACK = [0.8,0.6,0.5,0.4,0.5,0.9,1.6,2.4,3.1,3.6,4.1,4.3,4.2,4.0,3.6,3.2,2.9,2.6,2.3,2.0,1.7,1.4,1.1,0.9];
@@ -100,7 +97,7 @@ function Spark({ data, color }) {
 function KPI({ lab, val, u, delta, deltaDir, foot, color, spark }) {
   const up = deltaDir === 'up';
   const pillBg = up ? '#dcfce7' : '#fee2e2';
-  const pillC  = up ? '#16a34a' : '#dc2626';
+  const pillC  = up ? 'var(--success)' : 'var(--danger)';
   return (
     <div className="exp-kpi">
       <div className="exp-accent" style={{ background: color }} />
@@ -203,8 +200,8 @@ function AreaLine({ series, xLabels, yTicks = 5, height = 230, fill = true }) {
           </linearGradient>
         ))}
         <linearGradient id={sweepId} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%"   stopColor="#0d9488" stopOpacity="0.04" />
-          <stop offset="100%" stopColor="#1e6091" stopOpacity="0.00" />
+          <stop offset="0%"   stopColor="var(--accent)" stopOpacity="0.04" />
+          <stop offset="100%" stopColor="var(--brand)" stopOpacity="0.00" />
         </linearGradient>
         <filter id={glowId} x="-5%" y="-20%" width="110%" height="140%">
           <feGaussianBlur stdDeviation="1.6" result="blur" />
@@ -227,7 +224,7 @@ function AreaLine({ series, xLabels, yTicks = 5, height = 230, fill = true }) {
                 stroke={i === 0 ? '#d8dee7' : '#eef1f6'} strokeWidth="1" />
           <line x1={pad.l - 4} x2={pad.l} y1={Y(t)} y2={Y(t)} stroke="#cbd5e1" strokeWidth="1" />
           <text x={pad.l - 8} y={Y(t) + 3} fontSize="10"
-                fill="#94a3b8" textAnchor="end" fontFamily="JetBrains Mono">{Math.round(t)}</text>
+                fill="var(--text-4)" textAnchor="end" fontFamily="JetBrains Mono">{Math.round(t)}</text>
         </g>
       ))}
 
@@ -272,7 +269,7 @@ function AreaLine({ series, xLabels, yTicks = 5, height = 230, fill = true }) {
       {labelIdxs.map((i) => (
         <text key={i}
               x={pad.l + (i / Math.max(xLabels.length - 1, 1)) * plotW}
-              y={H - 10} fontSize="10" fill="#94a3b8" textAnchor="middle" fontFamily="JetBrains Mono">{xLabels[i]}</text>
+              y={H - 10} fontSize="10" fill="var(--text-4)" textAnchor="middle" fontFamily="JetBrains Mono">{xLabels[i]}</text>
       ))}
 
       {/* hover crosshair + tooltip */}
@@ -287,7 +284,7 @@ function AreaLine({ series, xLabels, yTicks = 5, height = 230, fill = true }) {
         return (
           <g key="hover" pointerEvents="none">
             <line x1={cx} x2={cx} y1={pad.t} y2={H - pad.b}
-                  stroke="#0f172a" strokeOpacity="0.35" strokeDasharray="2 3" strokeWidth="1" />
+                  stroke="var(--text)" strokeOpacity="0.35" strokeDasharray="2 3" strokeWidth="1" />
             {series.map((s, si) => {
               const v = s.data[i];
               if (v == null || Number.isNaN(v)) return null;
@@ -298,9 +295,9 @@ function AreaLine({ series, xLabels, yTicks = 5, height = 230, fill = true }) {
             })}
             <g>
               <rect x={ttX} y={ttY} width={ttW} height={ttH}
-                    rx="7" fill="#0f172a" opacity="0.94" />
+                    rx="7" fill="var(--text)" opacity="0.94" />
               <rect x={ttX} y={ttY} width={3} height={ttH}
-                    rx="1.5" fill={series[0]?.color || '#0d9488'} />
+                    rx="1.5" fill={series[0]?.color || 'var(--accent)'} />
               <text x={ttX + 10} y={ttY + 16} fontSize="11"
                     fontWeight="700" fill="#fff" fontFamily="Inter">{label}</text>
               {series.map((s, si) => {
@@ -340,9 +337,9 @@ function Bars({ data, labels, color = C.navy, height = 200, fmt = fmt0 }) {
           <rect x={pad.l + i * bw + bw * 0.16} y={Y(v)} width={bw * 0.68}
                 height={(H - pad.b) - Y(v)} rx="3" fill={color} />
           <text x={pad.l + i * bw + bw / 2} y={Y(v) - 4}
-                fontSize="9" fill="#64748b" textAnchor="middle">{fmt(v)}</text>
+                fontSize="9" fill="var(--text-3)" textAnchor="middle">{fmt(v)}</text>
           <text x={pad.l + i * bw + bw / 2} y={H - 7}
-                fontSize="9" fill="#94a3b8" textAnchor="middle">{labels[i]}</text>
+                fontSize="9" fill="var(--text-4)" textAnchor="middle">{labels[i]}</text>
         </g>
       ))}
     </svg>
@@ -368,8 +365,8 @@ function Donut({ slices, head, sub, size = 168, th = 26 }) {
           return el;
         })}
       </g>
-      <text x={c} y={c - 1} textAnchor="middle" fontSize="25" fontWeight="800" fill="#0f172a" fontFamily="Inter">{head}</text>
-      <text x={c} y={c + 16} textAnchor="middle" fontSize="10" fill="#64748b">{sub}</text>
+      <text x={c} y={c - 1} textAnchor="middle" fontSize="25" fontWeight="800" fill="var(--text)" fontFamily="Inter">{head}</text>
+      <text x={c} y={c + 16} textAnchor="middle" fontSize="10" fill="var(--text-3)">{sub}</text>
     </svg>
   );
 }
@@ -403,7 +400,7 @@ function Ranked({ rows, height }) {
         const rowY = i * rowH, barY = rowY + rowH * 0.46, barH = rowH * 0.32;
         return (
           <g key={i}>
-            <text x={4} y={rowY + 13} fontSize="11" fontWeight="600" fill="#0f172a">{r.category}</text>
+            <text x={4} y={rowY + 13} fontSize="11" fontWeight="600" fill="var(--text)">{r.category}</text>
             <rect x={pos ? mid : mid - len} y={barY} width={len} height={barH} rx="2" fill={color} />
             <text x={pos ? mid + len + 5 : mid - len - 5} y={barY + barH / 2 + 3.5}
                   fontSize="10" fontWeight="700" fill={color} textAnchor={pos ? 'start' : 'end'}>
@@ -421,7 +418,7 @@ function ImpactMatrix({ rows, cols, data, scale = 22 }) {
   return (
     <table style={{ borderCollapse: 'collapse', fontSize: 10.5, width: '100%' }}>
       <thead>
-        <tr><th></th>{cols.map((c) => <th key={c} style={{ padding: '5px 4px', color: '#64748b', fontWeight: 600 }}>{c}</th>)}</tr>
+        <tr><th></th>{cols.map((c) => <th key={c} style={{ padding: '5px 4px', color: 'var(--text-3)', fontWeight: 600 }}>{c}</th>)}</tr>
       </thead>
       <tbody>
         {data.map((row, ri) => (
@@ -433,7 +430,7 @@ function ImpactMatrix({ rows, cols, data, scale = 22 }) {
               return (
                 <td key={ci}
                     style={{ padding: '9px 5px', textAlign: 'center', background: bg,
-                             color: m > 0.5 ? '#fff' : '#0f172a', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                             color: m > 0.5 ? '#fff' : 'var(--text)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                   {v > 0 ? '+' : ''}{v}%
                 </td>
               );
@@ -451,7 +448,7 @@ const HEAT_LEVELS = [
   { c: '#7dd3fc', l: 'Quiet' },
   { c: '#22b8a6', l: 'Moderate' },
   { c: '#f59e0b', l: 'Busy' },
-  { c: '#dc2626', l: 'Peak' },
+  { c: 'var(--danger)', l: 'Peak' },
 ];
 const heatLevel = (v, max) => {
   const r = v / max;
@@ -463,7 +460,7 @@ function Heatmap({ matrix, rowLabels, colLabels }) {
     <div>
       {matrix.map((row, ri) => (
         <div key={ri} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-          <span style={{ width: 28, fontSize: 10, color: '#64748b', textAlign: 'right' }}>{rowLabels[ri]}</span>
+          <span style={{ width: 28, fontSize: 10, color: 'var(--text-3)', textAlign: 'right' }}>{rowLabels[ri]}</span>
           <div style={{ display: 'flex', flex: 1, height: 17, borderRadius: 4, overflow: 'hidden', gap: 1.5 }}>
             {row.map((v, ci) => (
               <div key={ci} title={`${v}/hr`}
@@ -474,7 +471,7 @@ function Heatmap({ matrix, rowLabels, colLabels }) {
       ))}
       <div style={{ display: 'flex', gap: 6, marginTop: 5 }}>
         <span style={{ width: 28 }} />
-        <div style={{ display: 'flex', flex: 1, justifyContent: 'space-between', fontSize: 9, color: '#94a3b8' }}>
+        <div style={{ display: 'flex', flex: 1, justifyContent: 'space-between', fontSize: 9, color: 'var(--text-4)' }}>
           {colLabels.map((c, i) => <span key={i}>{c}</span>)}
         </div>
       </div>
@@ -498,7 +495,7 @@ function Toggle({ opts, val, onChange, color = C.teal }) {
                   border: 0, fontFamily: 'inherit', fontSize: 11, fontWeight: 600, cursor: 'pointer',
                   padding: '4px 11px', borderRadius: 6,
                   background: val === o ? color : 'transparent',
-                  color: val === o ? '#fff' : '#94a3b8',
+                  color: val === o ? '#fff' : 'var(--text-4)',
                 }}>{o}</button>
       ))}
     </div>
@@ -570,12 +567,12 @@ function SpecVolumeCard({ rows }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {rows.map((s) => (
           <div key={s.name} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
-            <span style={{ width: 88, color: '#0f172a', fontWeight: 600 }}>{s.name}</span>
+            <span style={{ width: 88, color: 'var(--text)', fontWeight: 600 }}>{s.name}</span>
             <div style={{ flex: 1, height: 14, background: '#f1f4f7', borderRadius: 5, overflow: 'hidden' }}>
               <div style={{ width: `${(s.v / max) * 100}%`, height: '100%', background: s.color, borderRadius: 5 }} />
             </div>
-            <span style={{ width: 64, textAlign: 'right', fontWeight: 700, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
-              {fmtV(s.v)}<span style={{ color: '#94a3b8', fontWeight: 500 }}>/{PER_ABBR[per]}</span>
+            <span style={{ width: 64, textAlign: 'right', fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
+              {fmtV(s.v)}<span style={{ color: 'var(--text-4)', fontWeight: 500 }}>/{PER_ABBR[per]}</span>
             </span>
           </div>
         ))}
@@ -806,7 +803,7 @@ function PipelineGate({ onDone, onNavigate }) {
                   flex: 1, border: 0, cursor: 'pointer',
                   fontFamily: 'inherit', fontSize: 14, fontWeight: 700,
                   color: '#06231f', padding: '12px 14px', borderRadius: 10,
-                  background: 'linear-gradient(135deg,#5eead4,#0d9488)',
+                  background: 'linear-gradient(135deg,#5eead4,var(--accent))',
                   boxShadow: '0 8px 24px rgba(13,148,136,.35)',
                 }}>{fixStep.fix.label} →</button>
               )}
@@ -822,14 +819,14 @@ function PipelineGate({ onDone, onNavigate }) {
               width: '100%', border: 0, cursor: 'pointer',
               fontFamily: 'inherit', fontSize: 15, fontWeight: 700,
               color: '#06231f', padding: '14px', borderRadius: 12,
-              background: 'linear-gradient(135deg,#5eead4,#0d9488)',
+              background: 'linear-gradient(135deg,#5eead4,var(--accent))',
               boxShadow: '0 8px 24px rgba(13,148,136,.45)',
             }}>▶&nbsp;&nbsp;Start the analysis</button>
           ) : (
             <div style={{ height: 6, background: 'rgba(255,255,255,.08)', borderRadius: 3, overflow: 'hidden' }}>
               <div style={{
                 height: '100%', width: `${progress}%`,
-                background: 'linear-gradient(90deg,#5eead4,#0d9488)', transition: 'width .5s',
+                background: 'linear-gradient(90deg,#5eead4,var(--accent))', transition: 'width .5s',
               }} />
             </div>
           )}
@@ -895,7 +892,7 @@ function shiftSplit(hourlyRows) {
   return [
     { label: 'Day',     value: Math.round(day   / tot * 100), color: C.teal },
     { label: 'Evening', value: Math.round(eve   / tot * 100), color: C.navy },
-    { label: 'Night',   value: Math.round(night / tot * 100), color: '#0f1729' },
+    { label: 'Night',   value: Math.round(night / tot * 100), color: 'var(--sidebar-bg)' },
   ];
 }
 
@@ -1204,7 +1201,7 @@ function Dashboard({ onRerun }) {
   const yearlyLabels = yearly?.labels || YEARLY_X_FALLBACK;
 
   // --- mix donut ---
-  const SPEC_COLORS = [C.navy, C.teal, C.amber, C.purple, C.red, '#0f1729', '#16a34a'];
+  const SPEC_COLORS = [C.navy, C.teal, C.amber, C.purple, C.red, 'var(--sidebar-bg)', 'var(--success)'];
   const mixSlices = mix?.totals
     ? Object.entries(mix.totals).map(([label, value], i) => ({ label, value, color: SPEC_COLORS[i % SPEC_COLORS.length] }))
     : MIX_FALLBACK;
@@ -1429,7 +1426,7 @@ function Dashboard({ onRerun }) {
         <SpecVolumeCard rows={specVolumeRows} />
       </div>
 
-      <div style={{ marginTop: 24, fontSize: 11, color: '#94a3b8', textAlign: 'right' }}>
+      <div style={{ marginTop: 24, fontSize: 11, color: 'var(--text-4)', textAlign: 'right' }}>
         {stlDates && <span>{stlDates.length.toLocaleString()} daily points in the record</span>}
       </div>
     </div>

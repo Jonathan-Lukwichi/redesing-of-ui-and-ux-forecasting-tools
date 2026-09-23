@@ -14,15 +14,12 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import ForecastTrust from '../components/ForecastTrust';
 import AiPanel from '../components/AiPanel';
+import { C } from '../styles/palette';
 
-const C = {
-  ink: '#0f172a', muted: '#64748b', line: '#eef0f3',
-  teal: '#0d9488', navy: '#1e6091', red: '#dc2626', amber: '#d97706', purple: '#7c3aed',
-};
 
 // Badge color tokens by badge id (operational/planning/research)
 const BADGE = {
-  operational: { color: '#16a34a', soft: '#dcfce7', emoji: '🟢', label: 'Operational' },
+  operational: { color: 'var(--success)', soft: '#dcfce7', emoji: '🟢', label: 'Operational' },
   planning:    { color: C.amber,   soft: '#fef3c7', emoji: '🟡', label: 'Planning' },
   research:    { color: C.red,     soft: '#fee2e2', emoji: '🔴', label: 'Research preview' },
 };
@@ -41,7 +38,7 @@ const LABEL_STYLE = {
   peak: { bg: '#fee2e2', fg: '#b91c1c', dot: '#ef4444', word: 'Peak' },
   high: { bg: '#ffedd5', fg: '#c2410c', dot: '#f97316', word: 'High' },
   med:  { bg: '#fef9c3', fg: '#a16207', dot: '#eab308', word: 'Moderate' },
-  low:  { bg: '#dcfce7', fg: '#15803d', dot: '#22c55e', word: 'Low' },
+  low:  { bg: '#dcfce7', fg: 'var(--success-strong)', dot: '#22c55e', word: 'Low' },
 };
 
 const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -72,7 +69,7 @@ const ENGINES = [
 ];
 
 function Badge({ badge, size = 'sm' }) {
-  const b = BADGE[badge] || { color: '#64748b', soft: '#e2e8f0', emoji: '⚪', label: badge || '—' };
+  const b = BADGE[badge] || { color: 'var(--text-3)', soft: '#e2e8f0', emoji: '⚪', label: badge || '—' };
   const px = size === 'lg' ? '6px 12px' : '3px 9px';
   const fs = size === 'lg' ? 13 : 11;
   return (
@@ -360,7 +357,7 @@ function Section({ step, title, sub, children }) {
     <div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10 }}>
         <span style={{
-          fontSize: 10.5, fontWeight: 700, color: '#94a3b8',
+          fontSize: 10.5, fontWeight: 700, color: 'var(--text-4)',
           background: '#f1f4f7', padding: '3px 8px', borderRadius: 6,
         }}>STEP {step}</span>
         <h3 style={{ fontSize: 15, fontWeight: 700, color: C.ink, margin: 0 }}>{title}</h3>
@@ -404,7 +401,7 @@ function ResearchCatalogue({ models }) {
   const open = models.find((m) => m.alias === openAlias) || null;
   return (
     <details style={{
-      background: '#fafbfc', border: '1px solid #e9ecf1', borderRadius: 12, padding: '16px 20px',
+      background: 'var(--surface-2)', border: '1px solid #e9ecf1', borderRadius: 12, padding: '16px 20px',
     }}>
       <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, color: C.ink }}>
         The 6 research models behind this tool (thesis / technical) ▾
@@ -513,7 +510,7 @@ function ForecastResult({ data, horizonId, badge, onValidate, validating }) {
           </div>
           <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>
             {days.length} day{days.length > 1 ? 's' : ''} from {fmtDay(days[0].date).mon} {fmtDay(days[0].date).dom}
-            {' · '}engine: <strong style={{ color: '#334155' }}>{engineLabel}</strong>
+            {' · '}engine: <strong style={{ color: 'var(--text-2)' }}>{engineLabel}</strong>
             {data.last_actual_date && <> · latest data {data.last_actual_date}</>}
           </div>
         </div>
@@ -536,7 +533,7 @@ function ForecastResult({ data, horizonId, badge, onValidate, validating }) {
         <YearlySummary days={days} total={total} avg={avg} busiest={busiest} quietest={quietest} />
       ) : (
         <>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.8, margin: '18px 0 8px' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: 0.8, margin: '18px 0 8px' }}>
             Tap a day for detail
           </div>
           <div style={{
@@ -573,7 +570,7 @@ function ForecastResult({ data, horizonId, badge, onValidate, validating }) {
 }
 
 function BacktestBanner({ bt }) {
-  const fg = '#15803d', bg = '#ecfdf5', bd = '#a7f3d0';
+  const fg = 'var(--success-strong)', bg = '#ecfdf5', bd = '#a7f3d0';
   return (
     <div style={{
       marginTop: 16, background: bg, border: `1px solid ${bd}`, borderRadius: 12,
@@ -583,7 +580,7 @@ function BacktestBanner({ bt }) {
         <div style={{ fontSize: 11, fontWeight: 700, color: fg, textTransform: 'uppercase', letterSpacing: 0.8 }}>
           🎯 Checked against real numbers
         </div>
-        <div style={{ fontSize: 13, color: '#334155', marginTop: 3 }}>
+        <div style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 3 }}>
           The model predicted <strong>{bt.n_compared}</strong> day(s) it had never seen, then we compared to what actually happened.
         </div>
       </div>
@@ -633,7 +630,7 @@ function HeroDay({ day }) {
       ) : (
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Likely range</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: '#334155', marginTop: 4 }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-2)', marginTop: 4 }}>
             {Math.round(day.lower)} – {Math.round(day.upper)}
           </div>
           <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>where it should land</div>
@@ -685,7 +682,7 @@ function YearlySummary({ days, total, avg, busiest, quietest }) {
   const maxSum = Math.max(...rows.map((r) => r.sum), 1);
   return (
     <div style={{ marginTop: 18 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>
         Monthly outlook (predicted patient-days)
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -781,7 +778,7 @@ function AboutPanel({ m }) {
   const card = m.card || {};
   return (
     <div style={{
-      background: '#fafbfc', border: '1px solid #e9ecf1', borderRadius: 12,
+      background: 'var(--surface-2)', border: '1px solid #e9ecf1', borderRadius: 12,
       padding: '18px 22px', marginTop: 8,
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14 }}>
@@ -796,7 +793,7 @@ function AboutPanel({ m }) {
         <Badge badge={m.badge} size="lg" />
       </div>
 
-      <div style={{ marginTop: 14, fontSize: 13.5, color: '#334155', lineHeight: 1.6 }}>
+      <div style={{ marginTop: 14, fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.6 }}>
         {card.description}
       </div>
 
@@ -846,7 +843,7 @@ function StartBar({ ready, running, primaryLabel, onRun, summary }) {
   return (
     <div style={{
       background: ready
-        ? `linear-gradient(120deg, #0f1f33 0%, #0c2f3a 70%, #0d9488 200%)`
+        ? `linear-gradient(120deg, #0f1f33 0%, #0c2f3a 70%, var(--accent) 200%)`
         : '#f1f4f7',
       color: ready ? '#e6f6f4' : C.muted,
       borderRadius: 14, padding: '18px 22px',
@@ -856,7 +853,7 @@ function StartBar({ ready, running, primaryLabel, onRun, summary }) {
       <div style={{ flex: 1, minWidth: 220 }}>
         <div style={{
           fontSize: 11, fontWeight: 700,
-          color: ready ? '#5eead4' : '#94a3b8',
+          color: ready ? '#5eead4' : 'var(--text-4)',
           textTransform: 'uppercase', letterSpacing: 1.4,
         }}>
           Ready when you are
@@ -873,7 +870,7 @@ function StartBar({ ready, running, primaryLabel, onRun, summary }) {
         style={{
           cursor: running ? 'wait' : ready ? 'pointer' : 'not-allowed',
           background: ready
-            ? 'linear-gradient(135deg, #5eead4, #0d9488)'
+            ? 'linear-gradient(135deg, #5eead4, var(--accent))'
             : '#cbd5e1',
           color: ready ? '#06231f' : '#fff',
           border: 0,
@@ -892,7 +889,7 @@ function StartBar({ ready, running, primaryLabel, onRun, summary }) {
 function Stat({ label, val }) {
   return (
     <div style={{ background: '#fff', border: '1px solid #e9ecf1', borderRadius: 8, padding: '10px 12px' }}>
-      <div style={{ fontSize: 10.5, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+      <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
         {label}
       </div>
       <div style={{ fontSize: 16, fontWeight: 700, color: C.ink, fontVariantNumeric: 'tabular-nums', marginTop: 4 }}>

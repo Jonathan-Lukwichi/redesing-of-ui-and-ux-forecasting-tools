@@ -5,8 +5,8 @@ import Icon from '../components/Icon';
 import { LineChart } from '../components/Charts';
 import { api } from '../api/client';
 import AiPanel from '../components/AiPanel';
+import { C } from '../styles/palette';
 
-const C = { ink: '#0f172a', muted: '#64748b', teal: '#0d9488', navy: '#1e6091', red: '#dc2626', amber: '#d97706' };
 const zar = (n) => (n == null ? '—' : 'R ' + Math.round(n).toLocaleString('en-ZA'));
 const zarShort = (n) => {
   if (n == null) return '—';
@@ -15,7 +15,7 @@ const zarShort = (n) => {
   return 'R ' + Math.round(n);
 };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const SHIFT = { Day: '#f59e0b', Evening: '#1e6091', Night: '#6366f1' };
+const SHIFT = { Day: '#f59e0b', Evening: 'var(--brand)', Night: '#6366f1' };
 const CAT_SHORT = { 'Professional Nurse': 'PN', 'Enrolled Nurse': 'EN', 'Enrolled Nursing Auxiliary': 'ENA' };
 
 // Rostering strategy comparison — ordered by how each uses the demand forecast.
@@ -29,8 +29,8 @@ const STRAT_LABEL = {
   oracle:              'Oracle (perfect foresight)',
 };
 const STRAT_COLOR = {
-  peak: '#94a3b8', mean: '#d97706', forecast_lawful: '#0d9488',
-  forecast_ot: '#7c3aed', forecast_stochastic: '#0ea5e9', oracle: '#1e6091',
+  peak: 'var(--text-4)', mean: 'var(--warning)', forecast_lawful: 'var(--accent)',
+  forecast_ot: 'var(--purple)', forecast_stochastic: '#0ea5e9', oracle: 'var(--brand)',
 };
 const ARRIVAL_CHOICES = [50, 64, 78, 90];
 
@@ -51,12 +51,12 @@ export default function StaffPlanner() {
     <div className="content"><PageHero kicker="Operations · Staff" title="Staff Planner" sub="Scheduling simulation" />
       <div className="card notice-card notice-offline">
         <div style={{ fontWeight: 600, marginBottom: 6 }}>Live staffing data isn't reachable right now</div>
-        <div style={{ fontSize: 13, color: '#334155', marginBottom: 12 }}>
+        <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 12 }}>
           Your roster and cost figures couldn't be loaded. Try again below — if it keeps happening, pass the details to IT.
         </div>
         <button className="btn btn-primary" onClick={() => { setError(null); setData(null); setRetryToken((n) => n + 1); }}>Retry now</button>
         <details style={{ marginTop: 10 }}>
-          <summary style={{ cursor: 'pointer', fontSize: 12, color: '#64748b' }}>Details for IT</summary>
+          <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--text-3)' }}>Details for IT</summary>
           <pre>{error}</pre>
         </details>
       </div>
@@ -99,7 +99,7 @@ export default function StaffPlanner() {
       </div>
 
       {k && (
-        <div style={{ fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+        <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginBottom: 12 }}>
           Today's roster reaches <strong>{k.coverage_pct}% coverage</strong> only by working
           <strong> {k.mean_weekly_hours}h weeks</strong> ({k.overwork_pct}% of the legal 45h limit) — unsustainable.
           {' '}{k.n_active_staff} of {k.n_posts} nursing posts filled, rest vacant.
@@ -138,7 +138,7 @@ export default function StaffPlanner() {
           <div className="card-header"><div className="card-title">Shifts · demand & cost by time of day</div></div>
           <div className="card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(200px, 100%),1fr))', gap: 14 }}>
             {data.shifts.map((s) => (
-              <div key={s.shift} style={{ border: '1px solid #eef0f3', borderRadius: 10, padding: '14px 16px' }}>
+              <div key={s.shift} style={{ border: '1px solid var(--divider)', borderRadius: 10, padding: '14px 16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ width: 12, height: 12, borderRadius: 3, background: SHIFT[s.shift] || C.muted }} />
                   <strong style={{ color: C.ink }}>{s.shift}</strong>
@@ -182,7 +182,7 @@ export default function StaffPlanner() {
           <div style={{ display: 'flex', gap: 6 }}>
             {['All', ...cats].map((f) => (
               <button key={f} className="btn btn-sm" onClick={() => setCatFilter(f)}
-                style={catFilter === f ? { background: '#e8f1f8', color: C.navy, borderColor: C.navy } : {}}>
+                style={catFilter === f ? { background: 'var(--brand-soft)', color: C.navy, borderColor: C.navy } : {}}>
                 {f === 'All' ? 'All' : CAT_SHORT[f] || f}
               </button>
             ))}
@@ -218,8 +218,8 @@ export default function StaffPlanner() {
 function Row({ label, value, valueColor }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
-      <span style={{ color: '#94a3b8' }}>{label}</span>
-      <span style={{ fontWeight: 600, color: valueColor || '#0f172a', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+      <span style={{ color: 'var(--text-4)' }}>{label}</span>
+      <span style={{ fontWeight: 600, color: valueColor || 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
     </div>
   );
 }

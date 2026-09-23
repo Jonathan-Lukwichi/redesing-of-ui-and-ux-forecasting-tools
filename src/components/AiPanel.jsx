@@ -27,7 +27,7 @@ export default function AiPanel({ surface = 'forecast', context, fetchContext, l
     }
   };
 
-  const C = { ink: '#0f172a', muted: '#64748b', violet: '#7c3aed', soft: '#f5f3ff', border: '#ddd6fe' };
+  const C = { ink: 'var(--text)', muted: 'var(--text-3)', violet: 'var(--purple)', soft: '#f5f3ff', border: '#ddd6fe' };
 
   return (
     <div style={{

@@ -5,8 +5,8 @@ import { api } from '../api/client';
 import { aiApi } from '../api/aiClient';
 import { useSession } from '../auth/SessionContext';
 import SignIn from '../auth/SignIn';
+import { C } from '../styles/palette';
 
-const C = { ink: '#0f172a', muted: '#64748b', teal: '#0d9488', navy: '#1e6091', red: '#dc2626', amber: '#d97706', green: '#15803d', line: '#eef0f3' };
 
 // Real model identities (hidden from the public app; shown only here, to the
 // accountable admin — resolves the transparency vs. no-bias tension).

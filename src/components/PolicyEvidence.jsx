@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Icon from './Icon';
 import { LineChart } from './Charts';
 import { api } from '../api/client';
+import { C } from '../styles/palette';
 
 /* Step 2 of the Optimization page (Plan C): choose the STANDING reorder
    policy. Evidence (policy ladder + lead-time sweep) computes only on
@@ -9,7 +10,6 @@ import { api } from '../api/client';
    family can be parameter-tuned per item. Oracle is gone from the product;
    naive stays as the benchmark floor and is never adoptable. */
 
-const C = { ink: '#0f172a', muted: '#64748b', teal: '#0d9488', navy: '#1e6091', red: '#dc2626' };
 const zar = (n) => (n == null ? '—' : 'R ' + Math.round(n).toLocaleString('en-ZA'));
 
 const POLICY_ORDER = ['naive', 's_q', 'r_s', 'ss_static', 'dynamic'];
@@ -18,7 +18,7 @@ const POLICY_LABEL = {
   ss_static: 'Static (s, S)', dynamic: 'Forecast base-stock',
 };
 const POLICY_SHORT = { naive: 'Naive', s_q: '(s,Q)', r_s: '(R,S)', ss_static: '(s,S)', dynamic: 'Base-stock' };
-const POLICY_COLOR = { naive: '#94a3b8', s_q: '#7c3aed', r_s: '#0ea5e9', ss_static: '#d97706', dynamic: '#0d9488' };
+const POLICY_COLOR = { naive: 'var(--text-4)', s_q: 'var(--purple)', r_s: '#0ea5e9', ss_static: 'var(--warning)', dynamic: 'var(--accent)' };
 const DEPLOYABLE = ['s_q', 'r_s', 'ss_static', 'dynamic'];
 const LEAD_TIME_CHOICES = [3, 5, 7, 10, 14, 21, 30];
 
@@ -148,7 +148,7 @@ export default function PolicyEvidence({ onPolicyChange }) {
               {LEAD_TIME_CHOICES.map((L) => (
                 <button key={L} className="btn btn-sm" disabled={busy.compare}
                   onClick={() => { setCmpLead(L); runCompare(L); }}
-                  style={cmpLead === L ? { background: '#e8f1f8', color: C.navy, borderColor: C.navy } : {}}>
+                  style={cmpLead === L ? { background: 'var(--brand-soft)', color: C.navy, borderColor: C.navy } : {}}>
                   {L}d
                 </button>
               ))}
@@ -167,7 +167,7 @@ export default function PolicyEvidence({ onPolicyChange }) {
                 const delta = s.delta_vs_baseline_pct;
                 return (
                   <div key={p} style={{
-                    border: `1px solid ${isAdopted ? C.navy : isWinner ? C.teal : '#e4e7eb'}`,
+                    border: `1px solid ${isAdopted ? C.navy : isWinner ? C.teal : 'var(--border)'}`,
                     borderStyle: isBenchmark ? 'dashed' : 'solid',
                     borderRadius: 8, padding: '14px 14px',
                     background: isAdopted ? '#f0f6fc' : isWinner ? '#ecfeff' : 'white',
@@ -188,7 +188,7 @@ export default function PolicyEvidence({ onPolicyChange }) {
                       <Row label="Service" value={`${(s.service_level_mean * 100).toFixed(2)}%`} />
                       <Row label="Stockouts" value={s.stockouts_mean.toFixed(1)} />
                       <Row label="vs (s,S)" value={`${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`}
-                        valueColor={p === 'ss_static' ? C.muted : delta > 0 ? '#16a34a' : C.red} />
+                        valueColor={p === 'ss_static' ? C.muted : delta > 0 ? 'var(--success)' : C.red} />
                     </div>
                     {DEPLOYABLE.includes(p) && (
                       <button className="btn btn-sm" onClick={() => adopt(p)}
@@ -212,7 +212,7 @@ export default function PolicyEvidence({ onPolicyChange }) {
           {tune && (
             <span style={{ fontSize: 12, color: C.ink }}>
               Tuned per item across {tune.n_items} items:{' '}
-              <b style={{ color: '#16a34a' }}>{tune.saving_vs_default_pct}% cheaper</b> than textbook
+              <b style={{ color: 'var(--success)' }}>{tune.saving_vs_default_pct}% cheaper</b> than textbook
               parameters ({zar(tune.default_cost_mean)} → {zar(tune.tuned_cost_mean)}) ·
               service {tune.service_level_mean}%
             </span>
@@ -243,7 +243,7 @@ export default function PolicyEvidence({ onPolicyChange }) {
               />
               <div style={{ display: 'flex', gap: 14, marginTop: 10, flexWrap: 'wrap' }}>
                 {POLICY_ORDER.map((p) => (
-                  <span key={p} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#334155' }}>
+                  <span key={p} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--text-2)' }}>
                     <span style={{ width: 16, height: 3, background: POLICY_COLOR[p], borderRadius: 2 }} />
                     {POLICY_SHORT[p]}
                   </span>

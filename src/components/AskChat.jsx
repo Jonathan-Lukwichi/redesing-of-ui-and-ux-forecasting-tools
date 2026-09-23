@@ -71,7 +71,7 @@ export default function AskChat() {
           boxShadow: '0 20px 50px rgba(15,23,41,0.25)', display: 'flex', flexDirection: 'column',
           overflow: 'hidden',
         }}>
-          <div style={{ padding: '12px 16px', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ padding: '12px 16px', background: 'linear-gradient(135deg, var(--purple), #6d28d9)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <div>
               <div style={{ fontWeight: 800, fontSize: 14 }}>✦ Analyst Assistant</div>
               <div style={{ fontSize: 11, opacity: 0.9 }}>Explains the app & reads your live data</div>
@@ -86,7 +86,7 @@ export default function AskChat() {
 
           <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
             {msgs.length === 0 && (
-              <div style={{ color: '#64748b', fontSize: 13, lineHeight: 1.6 }}>
+              <div style={{ color: 'var(--text-3)', fontSize: 13, lineHeight: 1.6 }}>
                 Ask how the app works, what a page does, or about your live forecasts, staffing and supplies — in plain English.
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
                   {SUGGEST.map((s) => (
@@ -111,7 +111,7 @@ export default function AskChat() {
             ))}
           </div>
 
-          <div style={{ borderTop: '1px solid #eef0f3', padding: 10, display: 'flex', gap: 8 }}>
+          <div style={{ borderTop: '1px solid var(--divider)', padding: 10, display: 'flex', gap: 8 }}>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}

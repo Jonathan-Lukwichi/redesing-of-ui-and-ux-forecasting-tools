@@ -5,8 +5,8 @@ import Icon from '../components/Icon';
 import { LineChart } from '../components/Charts';
 import { api } from '../api/client';
 import AiPanel from '../components/AiPanel';
+import { C } from '../styles/palette';
 
-const C = { ink: '#0f172a', muted: '#64748b', teal: '#0d9488', navy: '#1e6091', red: '#dc2626', amber: '#d97706' };
 
 const zar = (n) => (n == null ? '—' : 'R ' + Math.round(n).toLocaleString('en-ZA'));
 const zarShort = (n) => {
@@ -20,7 +20,7 @@ const STATUS = {
   excess:   { tag: 'tag-warning', label: 'Excess' },
   ok:       { tag: 'tag-success', label: 'OK' },
 };
-const ABC = { A: '#dc2626', B: '#d97706', C: '#0d9488' };
+const ABC = { A: 'var(--danger)', B: 'var(--warning)', C: 'var(--accent)' };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // Forecast-value demonstration: six inventory policies, ordered as a ladder
@@ -38,12 +38,12 @@ const POLICY_SHORT = {
   naive: 'Naive', s_q: '(s,Q)', r_s: '(R,S)', ss_static: '(s,S)', dynamic: 'Dynamic', oracle: 'Oracle',
 };
 const POLICY_COLOR = {
-  naive:     '#94a3b8',
-  s_q:       '#7c3aed',
+  naive:     'var(--text-4)',
+  s_q:       'var(--purple)',
   r_s:       '#0ea5e9',
-  ss_static: '#d97706',
-  dynamic:   '#0d9488',
-  oracle:    '#1e6091',
+  ss_static: 'var(--warning)',
+  dynamic:   'var(--accent)',
+  oracle:    'var(--brand)',
 };
 // Deployable arms only (oracle is a benchmark ceiling; naive is the status-quo
 // floor) — used to pick the "best for you" recommendation.
@@ -113,7 +113,7 @@ export default function SupplyPlanner() {
       </div>
 
       {ci && (
-        <div style={{ fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+        <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginBottom: 12 }}>
           Figures are from one representative run. Across 30 simulation runs (95% CI):
           total cost {zarShort(ci.total_annual_cost_zar.mean)} [{zarShort(ci.total_annual_cost_zar.lo)}–{zarShort(ci.total_annual_cost_zar.hi)}] ·
           stockout incidence {ci.stockout_incidence_pct.mean}% [{ci.stockout_incidence_pct.lo}–{ci.stockout_incidence_pct.hi}] ·
@@ -129,7 +129,7 @@ export default function SupplyPlanner() {
           <div className="card-header"><div className="card-title">ABC analysis · cost & stock value by class</div></div>
           <div className="card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(220px, 100%),1fr))', gap: 14 }}>
             {data.by_abc.map((a) => (
-              <div key={a.abc_class} style={{ border: '1px solid #eef0f3', borderRadius: 10, padding: '12px 14px' }}>
+              <div key={a.abc_class} style={{ border: '1px solid var(--divider)', borderRadius: 10, padding: '12px 14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ width: 12, height: 12, borderRadius: 3, background: ABC[a.abc_class] }} />
                   <strong style={{ color: C.ink }}>Class {a.abc_class}</strong>
@@ -150,7 +150,7 @@ export default function SupplyPlanner() {
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {['All', 'At risk', 'A', 'B', 'C', ...cats].map((f) => (
               <button key={f} className="btn btn-sm" onClick={() => setFilter(f)}
-                style={filter === f ? { background: '#e8f1f8', color: C.navy, borderColor: C.navy } : {}}>
+                style={filter === f ? { background: 'var(--brand-soft)', color: C.navy, borderColor: C.navy } : {}}>
                 {f === 'A' || f === 'B' || f === 'C' ? `Class ${f}` : f}
               </button>
             ))}
@@ -236,8 +236,8 @@ function ItemDetail({ detail, onClose }) {
 function Row({ label, value, valueColor }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
-      <span style={{ color: '#94a3b8' }}>{label}</span>
-      <span style={{ fontWeight: 600, color: valueColor || '#0f172a', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+      <span style={{ color: 'var(--text-4)' }}>{label}</span>
+      <span style={{ fontWeight: 600, color: valueColor || 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
     </div>
   );
 }

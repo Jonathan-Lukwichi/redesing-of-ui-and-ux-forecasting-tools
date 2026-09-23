@@ -107,7 +107,7 @@ export default function PrepareData({ onNavigate }) {
       />
 
       {error && (
-        <div className="card" style={{ borderColor: '#dc2626', background: '#fef5f5' }}>
+        <div className="card" style={{ borderColor: 'var(--danger)', background: '#fef5f5' }}>
           <div className="card-body" style={{ color: '#991b1b' }}>
             <strong>Error.</strong> {error}
           </div>
@@ -160,14 +160,14 @@ function GroupCard({ item, buildState, selected, onBuild, onClear, onSelect }) {
   const isError = status === 'error';
 
   const borderStyle = isError
-    ? { border: '1.5px solid #dc2626' }
+    ? { border: '1.5px solid var(--danger)' }
     : selected
-      ? { border: '2px solid #1e6091' }
+      ? { border: '2px solid var(--brand)' }
       : built
         ? { border: '1px solid #c7d2db' }
         : { border: '1.5px dashed #cbd5e1' };
 
-  const background = isError ? '#fef5f5' : selected ? '#f8fafc' : built ? 'white' : '#fafbfc';
+  const background = isError ? '#fef5f5' : selected ? '#f8fafc' : built ? 'white' : 'var(--surface-2)';
 
   return (
     <Card
@@ -188,7 +188,7 @@ function GroupCard({ item, buildState, selected, onBuild, onClear, onSelect }) {
       </div>
 
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 }}>
+        <div style={{ fontSize: 10, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 }}>
           Sources · key {spec.key_columns.join(' + ')}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -207,7 +207,7 @@ function GroupCard({ item, buildState, selected, onBuild, onClear, onSelect }) {
 
       {built && metadata && (
         <div style={{
-          paddingTop: 10, borderTop: '1px solid #eef0f3',
+          paddingTop: 10, borderTop: '1px solid var(--divider)',
           display: 'flex', flexDirection: 'column', gap: 2,
         }}>
           <Card.MetricRow label="Rows" value={metadata.rows.toLocaleString()} />
@@ -216,11 +216,11 @@ function GroupCard({ item, buildState, selected, onBuild, onClear, onSelect }) {
             <Card.MetricRow
               label={`Zero-arrival ${spec.grain === 'daily' ? 'days' : 'hours'}`}
               value={metadata.zero_day_count.toLocaleString()}
-              valueColor={metadata.zero_day_count > 0 ? '#d97706' : '#16a34a'}
+              valueColor={metadata.zero_day_count > 0 ? 'var(--warning)' : 'var(--success)'}
             />
           )}
           {metadata.date_range && (
-            <div style={{ marginTop: 4, fontSize: 10, color: '#64748b' }}>
+            <div style={{ marginTop: 4, fontSize: 10, color: 'var(--text-3)' }}>
               {metadata.date_range.start} → {metadata.date_range.end}
             </div>
           )}
@@ -279,26 +279,26 @@ function GroupStatusBadge({ status, can_build }) {
   if (status === 'error')    return <span className="tag tag-danger" style={{ fontSize: 10 }}><span className="dot" /> Merge failed</span>;
   if (status === 'built')    return <span className="tag tag-success" style={{ fontSize: 10 }}><span className="dot" /> Merged</span>;
   if (!can_build)            return <span className="tag tag-warning" style={{ fontSize: 10 }}><span className="dot" /> Sources missing</span>;
-  return <span className="tag" style={{ fontSize: 10, background: '#f1f5f9', color: '#64748b' }}>Ready</span>;
+  return <span className="tag" style={{ fontSize: 10, background: '#f1f5f9', color: 'var(--text-3)' }}>Ready</span>;
 }
 
 function EmptyPipeline({ onGoToHub }) {
   return (
     <div className="card" style={{
-      padding: 32, textAlign: 'center', border: '1.5px dashed #cbd5e1', background: '#fafbfc',
+      padding: 32, textAlign: 'center', border: '1.5px dashed #cbd5e1', background: 'var(--surface-2)',
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8,
     }}>
       <div style={{
         width: 56, height: 56, borderRadius: 12,
-        background: '#eef2f6', color: '#94a3b8',
+        background: '#eef2f6', color: 'var(--text-4)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <Icon name="upload" size={26} />
       </div>
-      <div style={{ fontSize: 18, fontWeight: 600, color: '#0f172a' }}>
+      <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--text)' }}>
         No datasets in the pipeline yet
       </div>
-      <div style={{ fontSize: 13, color: '#64748b', maxWidth: 520, lineHeight: 1.5 }}>
+      <div style={{ fontSize: 13, color: 'var(--text-3)', maxWidth: 520, lineHeight: 1.5 }}>
         Upload the seven source files in <strong>Data Hub</strong> first.
         Once the hospital and external files are loaded, you can merge them here
         into the four analysis groups (G1 daily demand, G2 hourly demand,
@@ -353,10 +353,10 @@ function CleaningAudit({ audit }) {
       <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {audit.map((step, i) => (
           <div key={i} style={{
-            border: '1px solid #eef0f3', borderRadius: 6, padding: '8px 10px',
-            background: '#fafbfc',
+            border: '1px solid var(--divider)', borderRadius: 6, padding: '8px 10px',
+            background: 'var(--surface-2)',
           }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#0f172a' }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>
               {i + 1}. {step.step}
             </div>
             <AuditDetails step={step} />
@@ -375,9 +375,9 @@ function AuditDetails({ step }) {
       {entries.map(([k, v]) => (
         <span key={k} style={{
           fontSize: 10, color: '#475569', background: '#fff',
-          border: '1px solid #e4e7eb', borderRadius: 4, padding: '2px 6px',
+          border: '1px solid var(--border)', borderRadius: 4, padding: '2px 6px',
         }}>
-          <span style={{ color: '#94a3b8' }}>{k}:</span>{' '}
+          <span style={{ color: 'var(--text-4)' }}>{k}:</span>{' '}
           <span className="mono">{formatAuditValue(v)}</span>
         </span>
       ))}
@@ -401,7 +401,7 @@ function SchemaPreview({ preview }) {
     return (
       <div className="card">
         <div className="card-header"><div className="card-title">Schema preview</div></div>
-        <div className="card-body" style={{ color: '#64748b' }}>Loading preview…</div>
+        <div className="card-body" style={{ color: 'var(--text-3)' }}>Loading preview…</div>
       </div>
     );
   }
@@ -427,7 +427,7 @@ function SchemaPreview({ preview }) {
         <tbody>
           {rows.map((r) => (
             <tr key={r.column}>
-              <td className="mono" style={{ color: '#1e6091' }}>{r.column}</td>
+              <td className="mono" style={{ color: 'var(--brand)' }}>{r.column}</td>
               <td><span className="tag" style={{ fontSize: 10 }}>{r.dtype}</span></td>
               <td className="num">{r.non_null}</td>
               <td className="num">{r.unique ?? '—'}</td>
@@ -451,7 +451,7 @@ function MissingnessCard({ quality }) {
     return (
       <div className="card">
         <div className="card-header"><div className="card-title">Missingness</div></div>
-        <div className="card-body" style={{ color: '#64748b' }}>Loading…</div>
+        <div className="card-body" style={{ color: 'var(--text-3)' }}>Loading…</div>
       </div>
     );
   }
@@ -460,7 +460,7 @@ function MissingnessCard({ quality }) {
     return (
       <div className="card">
         <div className="card-header"><div className="card-title">Missingness</div></div>
-        <div className="card-body" style={{ color: '#16a34a', fontSize: 13 }}>
+        <div className="card-body" style={{ color: 'var(--success)', fontSize: 13 }}>
           ✓ No missing values across all {quality.columns} columns.
         </div>
       </div>
@@ -478,12 +478,12 @@ function MissingnessCard({ quality }) {
         {rows.map((r) => (
           <div key={r.column}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
-              <span className="mono" style={{ color: '#334155', fontSize: 11 }}>{r.column}</span>
-              <span className="tnum" style={{ color: r.pct > 5 ? '#dc2626' : r.pct > 1 ? '#d97706' : '#16a34a', fontWeight: 600 }}>
+              <span className="mono" style={{ color: 'var(--text-2)', fontSize: 11 }}>{r.column}</span>
+              <span className="tnum" style={{ color: r.pct > 5 ? 'var(--danger)' : r.pct > 1 ? 'var(--warning)' : 'var(--success)', fontWeight: 600 }}>
                 {r.pct}% ({r.missing.toLocaleString()})
               </span>
             </div>
-            <div className="bar"><div className="bar-fill" style={{ width: Math.min(100, r.pct * 2) + '%', background: r.pct > 5 ? '#dc2626' : r.pct > 1 ? '#d97706' : '#94a3b8' }} /></div>
+            <div className="bar"><div className="bar-fill" style={{ width: Math.min(100, r.pct * 2) + '%', background: r.pct > 5 ? 'var(--danger)' : r.pct > 1 ? 'var(--warning)' : 'var(--text-4)' }} /></div>
           </div>
         ))}
       </div>
@@ -507,12 +507,12 @@ function RegimeCard({ quality, grain }) {
         </div>
       </div>
       <div className="card-body">
-        <BarChart data={data} labels={labels} height={170} color="#0d9488" />
+        <BarChart data={data} labels={labels} height={170} color="var(--accent)" />
         <div style={{ marginTop: 8, fontSize: 12, color: '#475569' }}>
           {order.map((k) => (
             <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
               <span style={{ textTransform: 'capitalize' }}>{k}-COVID</span>
-              <span className="mono tnum" style={{ color: '#0f172a', fontWeight: 600 }}>
+              <span className="mono tnum" style={{ color: 'var(--text)', fontWeight: 600 }}>
                 {(regimes[k] || 0).toLocaleString()}
               </span>
             </div>
@@ -526,21 +526,21 @@ function RegimeCard({ quality, grain }) {
 function ValidationCard({ quality, grain }) {
   if (!quality) return null;
   const rows = [
-    ['Total rows',          quality.rows.toLocaleString(),       '#0f172a'],
+    ['Total rows',          quality.rows.toLocaleString(),       'var(--text)'],
     ['Date coverage',       quality.date_range
                               ? `${quality.date_range.start} → ${quality.date_range.end}`
-                              : '—',                              '#0f172a'],
+                              : '—',                              'var(--text)'],
     [`Zero-arrival ${grain === 'daily' ? 'days' : 'hours'}`,
                             quality.zero_day_count != null
                               ? quality.zero_day_count.toLocaleString()
                               : '—',
-                            quality.zero_day_count > 0 ? '#d97706' : '#16a34a'],
+                            quality.zero_day_count > 0 ? 'var(--warning)' : 'var(--success)'],
     ['Columns with missing', `${quality.missingness_total_columns} / ${quality.columns}`,
-                            quality.missingness_total_columns === 0 ? '#16a34a' : '#d97706'],
+                            quality.missingness_total_columns === 0 ? 'var(--success)' : 'var(--warning)'],
     ['Duplicate keys',      quality.duplicate_keys?.count?.toLocaleString() || '0',
-                            (quality.duplicate_keys?.count || 0) === 0 ? '#16a34a' : '#dc2626'],
+                            (quality.duplicate_keys?.count || 0) === 0 ? 'var(--success)' : 'var(--danger)'],
     ['Schema eras present', quality.era_counts ? Object.keys(quality.era_counts).length : '—',
-                            '#0f172a'],
+                            'var(--text)'],
   ];
 
   return (
@@ -548,13 +548,13 @@ function ValidationCard({ quality, grain }) {
       <div className="card-header"><div className="card-title">Validation summary</div></div>
       <div style={{ padding: '8px 16px 16px' }}>
         {rows.map(([l, v, c]) => (
-          <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #eef0f3', fontSize: 13 }}>
+          <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--divider)', fontSize: 13 }}>
             <span style={{ color: '#475569' }}>{l}</span>
             <span className="mono" style={{ color: c, fontWeight: 600 }}>{v}</span>
           </div>
         ))}
         {quality.era_counts && (
-          <div style={{ marginTop: 8, fontSize: 11, color: '#64748b' }}>
+          <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-3)' }}>
             Era breakdown: {Object.entries(quality.era_counts).map(([k, v]) => `Era ${k}: ${v.toLocaleString()}`).join(' · ')}
           </div>
         )}
@@ -568,9 +568,9 @@ function ValidationCard({ quality, grain }) {
 function SectionHeader({ kicker, title, sub }) {
   return (
     <div style={{ marginTop: 8 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: '#1e6091', textTransform: 'uppercase', letterSpacing: 1.2 }}>{kicker}</div>
-      <div style={{ fontSize: 16, fontWeight: 600, color: '#0f172a', marginTop: 2 }}>{title}</div>
-      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{sub}</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--brand)', textTransform: 'uppercase', letterSpacing: 1.2 }}>{kicker}</div>
+      <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', marginTop: 2 }}>{title}</div>
+      <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{sub}</div>
     </div>
   );
 }

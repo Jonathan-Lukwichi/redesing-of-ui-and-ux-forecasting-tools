@@ -119,7 +119,7 @@ export default function Dashboard({ onNavigate }) {
       {dashState === 'empty' && (
         <div className="card notice-card notice-empty">
           <div style={{ fontWeight: 600, marginBottom: 6 }}>No arrival history loaded for this hospital yet</div>
-          <div style={{ fontSize: 13, color: '#64748b', marginBottom: 16, maxWidth: '52ch', marginInline: 'auto' }}>
+          <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 16, maxWidth: '52ch', marginInline: 'auto' }}>
             Forecasts need G1 · Daily demand built first — two columns, date and count, is enough to start.
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -132,12 +132,12 @@ export default function Dashboard({ onNavigate }) {
       {dashState === 'offline' && (
         <div className="card notice-card notice-offline">
           <div style={{ fontWeight: 600, marginBottom: 6 }}>Live data isn't reachable right now</div>
-          <div style={{ fontSize: 13, color: '#334155', marginBottom: 12 }}>
+          <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 12 }}>
             The forecast couldn't be loaded. Your other pages and cached plans are unaffected — try again below.
           </div>
           <button className="btn btn-primary" onClick={retry}>Retry now</button>
           <details style={{ marginTop: 10 }}>
-            <summary style={{ cursor: 'pointer', fontSize: 12, color: '#64748b' }}>Details for IT</summary>
+            <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--text-3)' }}>Details for IT</summary>
             <pre>{error}</pre>
           </details>
         </div>
@@ -177,7 +177,7 @@ export default function Dashboard({ onNavigate }) {
             </button>
           </div>
           {reportMsg && (
-            <div style={{ marginTop: 10, fontSize: 12.5, color: reportMsg.ok ? '#0d9488' : '#dc2626' }}>
+            <div style={{ marginTop: 10, fontSize: 12.5, color: reportMsg.ok ? 'var(--accent)' : 'var(--danger)' }}>
               {reportMsg.text}
             </div>
           )}
@@ -192,13 +192,13 @@ export default function Dashboard({ onNavigate }) {
         <div className="grid-kpi">
           <KPI loading={dashState === 'loading'} label="Tomorrow's forecast" value={tomorrow ? Math.round(tomorrow.predicted) : '—'} unit="patients"
             foot={tomorrow ? `${wd(tomorrow.date)} · range ${Math.round(tomorrow.lower)}–${Math.round(tomorrow.upper)}` : ''}
-            spark={histVals.slice(-14)} sparkColor="#1e6091" />
+            spark={histVals.slice(-14)} sparkColor="var(--brand)" />
           <KPI loading={dashState === 'loading'} label="Next 7 days" value={next7Total ? Math.round(next7Total).toLocaleString() : '—'} unit="patients"
             foot={`avg ${days.length ? Math.round(next7Total / days.length) : '—'}/day`}
-            spark={days.map((d) => d.predicted)} sparkColor="#0d9488" />
+            spark={days.map((d) => d.predicted)} sparkColor="var(--accent)" />
           <KPI loading={dashState === 'loading'} label="Peak day" value={busiest ? Math.round(busiest.predicted) : '—'} unit={busiest ? wd(busiest.date) : ''}
             foot={busiest ? `${MONTH3[new Date(busiest.date + 'T00:00:00').getMonth()]} ${new Date(busiest.date + 'T00:00:00').getDate()}` : ''}
-            spark={days.map((d) => d.predicted)} sparkColor="#d97706" />
+            spark={days.map((d) => d.predicted)} sparkColor="var(--warning)" />
           <KPI loading={dashState === 'loading'} label="Forecast" value={fc ? 'Reliable' : '—'} unit=""
             foot={fc ? 'validated · plan with the range' : ''} />
         </div>
@@ -211,9 +211,9 @@ export default function Dashboard({ onNavigate }) {
                 <div className="card-title">Patient arrivals — history + 7-day forecast</div>
                 <div className="card-sub">{hist.length} days history · live {fc?.requested_model === 'ml' ? 'best ML model' : 'best statistical model'} · likely range shaded</div>
               </div>
-              <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#64748b' }}>
+              <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--text-3)' }}>
                 <span><span className="dot" style={{ color: '#475569' }} /> Historical</span>
-                <span><span className="dot" style={{ color: '#0d9488' }} /> Forecast</span>
+                <span><span className="dot" style={{ color: 'var(--accent)' }} /> Forecast</span>
               </div>
             </div>
             <div className="card-body">
@@ -227,7 +227,7 @@ export default function Dashboard({ onNavigate }) {
                 <LineChart
                   series={[
                     { data: histSeries, color: '#475569' },
-                    { data: fcLine, color: '#0d9488', band: { upper: fcUpper, lower: fcLower } },
+                    { data: fcLine, color: 'var(--accent)', band: { upper: fcUpper, lower: fcLower } },
                   ]}
                   xLabels={['−30d', '−20', '−10', 'Today', '+7d']}
                   height={260}
@@ -243,8 +243,8 @@ export default function Dashboard({ onNavigate }) {
             <div className="card-body">
               {dashState === 'loading'
                 ? <div className="skel" style={{ height: 180 }} />
-                : <BarChart data={dowAvg} labels={['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']} color="#1e6091" height={220} />}
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 8 }}>Average daily arrivals by weekday · from your history</div>
+                : <BarChart data={dowAvg} labels={['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']} color="var(--brand)" height={220} />}
+              <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 8 }}>Average daily arrivals by weekday · from your history</div>
             </div>
           </div>
         </div>
@@ -254,7 +254,7 @@ export default function Dashboard({ onNavigate }) {
       <div className="grid-3">
         <div className="card">
           <div className="card-header"><div className="card-title">Supply</div>
-            <a style={{ fontSize: 12, color: '#1e6091', cursor: 'pointer' }} onClick={() => onNavigate('supply')}>Open →</a></div>
+            <a style={{ fontSize: 12, color: 'var(--brand)', cursor: 'pointer' }} onClick={() => onNavigate('supply')}>Open →</a></div>
           <div className="card-body">
             <SnapRow label="Items at risk" value={supply ? supply.items_at_risk : '—'} danger={supply?.items_at_risk > 0} />
             <SnapRow label="Total cost" value={sk ? zarShort(sk.total_cost_zar) : '—'} />
@@ -264,7 +264,7 @@ export default function Dashboard({ onNavigate }) {
         </div>
         <div className="card">
           <div className="card-header"><div className="card-title">Staffing</div>
-            <a style={{ fontSize: 12, color: '#1e6091', cursor: 'pointer' }} onClick={() => onNavigate('staff')}>Open →</a></div>
+            <a style={{ fontSize: 12, color: 'var(--brand)', cursor: 'pointer' }} onClick={() => onNavigate('staff')}>Open →</a></div>
           <div className="card-body">
             <SnapRow label="Coverage (lawful hrs)" value={tk ? Math.round(tk.lawful_coverage_pct) + '%' : '—'} danger={tk?.lawful_coverage_pct < 90} />
             <SnapRow label="Staffing shortfall" value={tk ? tk.staffing_shortfall + ' nurses' : '—'} danger={tk?.staffing_shortfall > 0} />
@@ -275,7 +275,7 @@ export default function Dashboard({ onNavigate }) {
         <div className="card">
           <div className="card-header"><div className="card-title">Recommended actions</div></div>
           <div className="card-body">
-            <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.6 }}>
+            <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6 }}>
               The Action Center turns the live forecast, staffing, and supply signals into a ranked, plain-English to-do list.
             </div>
             <button className="btn btn-sm" style={{ width: '100%', justifyContent: 'center', marginTop: 12 }} onClick={() => onNavigate('actions')}>
@@ -291,8 +291,8 @@ export default function Dashboard({ onNavigate }) {
 function SnapRow({ label, value, danger, hint }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #f1f5f9', fontSize: 13 }}>
-      <span title={hint} style={hint ? { color: '#64748b', cursor: 'help', textDecoration: 'underline dotted', textUnderlineOffset: 3 } : { color: '#64748b' }}>{label}</span>
-      <strong style={{ color: danger ? '#dc2626' : '#0f172a' }}>{value}</strong>
+      <span title={hint} style={hint ? { color: 'var(--text-3)', cursor: 'help', textDecoration: 'underline dotted', textUnderlineOffset: 3 } : { color: 'var(--text-3)' }}>{label}</span>
+      <strong style={{ color: danger ? 'var(--danger)' : 'var(--text)' }}>{value}</strong>
     </div>
   );
 }

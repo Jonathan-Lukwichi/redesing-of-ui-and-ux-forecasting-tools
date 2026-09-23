@@ -31,10 +31,10 @@ function thinStride(count, availPx, pxPerLabel = 60) {
 }
 
 const CATEGORY_TOKEN = {
-  risk:   { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', label: 'Risk' },
-  watch:  { color: '#d97706', bg: '#fffbeb', border: '#fde68a', label: 'Watch' },
-  stable: { color: '#0d9488', bg: '#ecfeff', border: '#a5f3fc', label: 'Stable' },
-  trend:  { color: '#1e6091', bg: '#eff6ff', border: '#bfdbfe', label: 'Trend' },
+  risk:   { color: 'var(--danger)', bg: '#fef2f2', border: '#fecaca', label: 'Risk' },
+  watch:  { color: 'var(--warning)', bg: '#fffbeb', border: '#fde68a', label: 'Watch' },
+  stable: { color: 'var(--accent)', bg: '#ecfeff', border: '#a5f3fc', label: 'Stable' },
+  trend:  { color: 'var(--brand)', bg: '#eff6ff', border: '#bfdbfe', label: 'Trend' },
 };
 
 // Editorial serif stack — used on hero numbers and card titles to give the
@@ -79,29 +79,29 @@ export function KPICard({ label, value, unit, deltaPct, deltaLabel, sparkline, a
   const showDelta = deltaPct !== undefined && deltaPct !== null;
   return (
     <div style={{
-      background: 'white', border: '1px solid #e4e7eb', borderRadius: 10,
+      background: 'white', border: '1px solid var(--border)', borderRadius: 10,
       padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8,
       minHeight: 110, boxShadow: '0 1px 2px rgba(15, 23, 41, 0.04)',
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
         <span style={{
-          fontSize: 10, fontWeight: 700, color: '#94a3b8',
+          fontSize: 10, fontWeight: 700, color: 'var(--text-4)',
           textTransform: 'uppercase', letterSpacing: 1.2,
         }}>{label}</span>
         {showDelta && <DeltaPill value={deltaPct} polarity={polarity} />}
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
         <span style={{
-          fontSize: 30, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.5px',
+          fontSize: 30, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.5px',
           fontVariantNumeric: 'tabular-nums', lineHeight: 1,
           fontFamily: SERIF,
         }}>{typeof value === 'number' ? formatNum(value) : value}</span>
-        {unit && <span style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>{unit}</span>}
+        {unit && <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 500 }}>{unit}</span>}
       </div>
       {sparkline && sparkline.length > 1 && (
         <Sparkline data={sparkline} color={sparklineColor || tok.color} width={180} height={30} fill={true} />
       )}
-      {deltaLabel && <div style={{ fontSize: 10, color: '#94a3b8' }}>{deltaLabel}</div>}
+      {deltaLabel && <div style={{ fontSize: 10, color: 'var(--text-4)' }}>{deltaLabel}</div>}
     </div>
   );
 }
@@ -117,11 +117,11 @@ function DeltaPill({ value, polarity = 'normal' }) {
     color = '#475569'; bg = '#f1f5f9';
   } else if (polarity === 'inverse') {
     const bad = value >= 0;
-    color = bad ? '#d97706' : '#16a34a';
+    color = bad ? 'var(--warning)' : 'var(--success)';
     bg    = bad ? '#fef3c7' : '#dcfce7';
   } else {
     const good = value >= 0;
-    color = good ? '#16a34a' : '#dc2626';
+    color = good ? 'var(--success)' : 'var(--danger)';
     bg    = good ? '#dcfce7' : '#fee2e2';
   }
   return (
@@ -135,7 +135,7 @@ function DeltaPill({ value, polarity = 'normal' }) {
   );
 }
 
-export function ProgressRing({ value, max = 100, size = 56, thickness = 6, color = '#0d9488', trackColor = '#eef0f3' }) {
+export function ProgressRing({ value, max = 100, size = 56, thickness = 6, color = 'var(--accent)', trackColor = 'var(--divider)' }) {
   const pct = Math.max(0, Math.min(1, (Number(value) || 0) / (Number(max) || 1)));
   const r = size / 2 - thickness / 2;
   const c = Math.PI * 2 * r;
@@ -151,7 +151,7 @@ export function ProgressRing({ value, max = 100, size = 56, thickness = 6, color
         position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
         justifyContent: 'center', flexDirection: 'column',
       }}>
-        <span style={{ fontSize: Math.round(size * 0.22), fontWeight: 700, color: '#0f172a' }}>
+        <span style={{ fontSize: Math.round(size * 0.22), fontWeight: 700, color: 'var(--text)' }}>
           {Math.round(pct * 100)}%
         </span>
       </div>
@@ -165,12 +165,12 @@ export function ValueLegend({ items, format = formatNum }) {
       {items.map((it) => (
         <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ width: 10, height: 10, borderRadius: 3, background: it.color, flexShrink: 0 }} />
-          <span style={{ fontSize: 12, color: '#334155', flex: 1, lineHeight: 1.3 }}>{it.label}</span>
+          <span style={{ fontSize: 12, color: 'var(--text-2)', flex: 1, lineHeight: 1.3 }}>{it.label}</span>
           {it.sub && (
-            <span style={{ fontSize: 10, color: '#94a3b8' }}>{it.sub}</span>
+            <span style={{ fontSize: 10, color: 'var(--text-4)' }}>{it.sub}</span>
           )}
           <span style={{
-            fontSize: 13, fontWeight: 700, color: '#0f172a',
+            fontSize: 13, fontWeight: 700, color: 'var(--text)',
             fontVariantNumeric: 'tabular-nums', minWidth: 48, textAlign: 'right',
           }}>{typeof it.value === 'number' ? format(it.value) : it.value}</span>
         </div>
@@ -200,7 +200,7 @@ export function HeroStat({ value, label, sub, category = 'stable', size = 'lg', 
         fontSize, fontWeight: 700, color: tok.color, lineHeight: 1.05, letterSpacing: '-1px',
         fontVariantNumeric: 'tabular-nums', marginTop: 4,
       }}>{value}</div>
-      <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', marginTop: 4, lineHeight: 1.3 }}>{label}</div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginTop: 4, lineHeight: 1.3 }}>{label}</div>
       {sub && <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.5 }}>{sub}</div>}
     </div>
   );
@@ -211,11 +211,11 @@ export function ActionPanel({ mechanism, action }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {mechanism && (
         <div style={{
-          padding: '12px 14px', background: '#fafbfc',
-          border: '1px solid #eef0f3', borderRadius: 8,
+          padding: '12px 14px', background: 'var(--surface-2)',
+          border: '1px solid var(--divider)', borderRadius: 8,
           fontSize: 12, color: '#475569', lineHeight: 1.6,
         }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 4 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 4 }}>
             Mechanism
           </div>
           {mechanism}
@@ -224,10 +224,10 @@ export function ActionPanel({ mechanism, action }) {
       {action && (
         <div style={{
           padding: '12px 14px', background: '#ecfeff',
-          border: '1px solid #a5f3fc', borderRadius: 8, borderLeft: '3px solid #0d9488',
-          fontSize: 13, color: '#0f172a', lineHeight: 1.6,
+          border: '1px solid #a5f3fc', borderRadius: 8, borderLeft: '3px solid var(--accent)',
+          fontSize: 13, color: 'var(--text)', lineHeight: 1.6,
         }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#0d9488', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 4 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 4 }}>
             Recommended action
           </div>
           {action}
@@ -261,14 +261,14 @@ export function RankedBars({ rows, valueKey = 'pct_deviation', labelKey = 'categ
         const v = Number(r[valueKey]) || 0;
         const widthPx = Math.max(2, (Math.abs(v) / maxAbs) * (innerW / 2));
         const isAccent = highlightThreshold !== 0 && Math.abs(v) >= highlightThreshold;
-        const fill = isAccent ? '#dc2626' : (v >= 0 ? '#0d9488' : '#94a3b8');
+        const fill = isAccent ? 'var(--danger)' : (v >= 0 ? 'var(--accent)' : 'var(--text-4)');
         const x = v >= 0 ? xZero : xZero - widthPx;
         const y = pad.t + i * rowH + (rowH - bh) / 2;
         const valueLabel = `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
         return (
           <g key={i}>
             <text x={pad.l - 12} y={y + bh / 2 + 4} textAnchor="end" fontSize="12"
-              fill="#334155" fontWeight={isAccent ? 700 : 500}>
+              fill="var(--text-2)" fontWeight={isAccent ? 700 : 500}>
               {r[labelKey]}
             </text>
             <rect x={x} y={y} width={widthPx} height={bh} fill={fill} rx="3" />
@@ -276,7 +276,7 @@ export function RankedBars({ rows, valueKey = 'pct_deviation', labelKey = 'categ
               x={v >= 0 ? x + widthPx + 6 : x - 6}
               y={y + bh / 2 + 4}
               textAnchor={v >= 0 ? 'start' : 'end'}
-              fontSize="12" fill={isAccent ? '#dc2626' : '#0f172a'} fontWeight="700"
+              fontSize="12" fill={isAccent ? 'var(--danger)' : 'var(--text)'} fontWeight="700"
             >
               {valueLabel}
             </text>
@@ -302,11 +302,11 @@ export function MonthlyIndexBars({ rows, baselineLabel = 'Annual mean', height =
     <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {[60, 80, 100, 110].map((v) => (
         <g key={v}>
-          <line x1={pad.l} x2={w - pad.r} y1={y(v)} y2={y(v)} stroke={v === 100 ? '#cbd5e1' : '#eef0f3'} strokeDasharray={v === 100 ? '4 4' : '0'} />
-          <text x={pad.l - 8} y={y(v) + 4} textAnchor="end" fontSize="11" fill="#94a3b8">{v}</text>
+          <line x1={pad.l} x2={w - pad.r} y1={y(v)} y2={y(v)} stroke={v === 100 ? '#cbd5e1' : 'var(--divider)'} strokeDasharray={v === 100 ? '4 4' : '0'} />
+          <text x={pad.l - 8} y={y(v) + 4} textAnchor="end" fontSize="11" fill="var(--text-4)">{v}</text>
         </g>
       ))}
-      <text x={w - pad.r} y={y(100) - 4} textAnchor="end" fontSize="10" fill="#94a3b8" fontStyle="italic">{baselineLabel}</text>
+      <text x={w - pad.r} y={y(100) - 4} textAnchor="end" fontSize="10" fill="var(--text-4)" fontStyle="italic">{baselineLabel}</text>
       {rows.map((r, i) => {
         const cx = pad.l + (i + 0.5) * (innerW / rows.length);
         const v = r.index ?? 100;
@@ -315,8 +315,8 @@ export function MonthlyIndexBars({ rows, baselineLabel = 'Annual mean', height =
         const isMax = v === max;
         // Cool teal for above-baseline, soft red for below-baseline, brighter for extremes.
         const fill = pct >= 0
-          ? (isMax ? '#0d9488' : '#5eead4')
-          : (isMin ? '#dc2626' : '#fca5a5');
+          ? (isMax ? 'var(--accent)' : '#5eead4')
+          : (isMin ? 'var(--danger)' : '#fca5a5');
         // Minimum bar height so months near the mean stay visible (4px).
         const bh = Math.max(4, Math.abs(y(v) - y(100)));
         const yTop = pct >= 0 ? y(100) - bh : y(100);
@@ -326,12 +326,12 @@ export function MonthlyIndexBars({ rows, baselineLabel = 'Annual mean', height =
             <rect x={cx - bw / 2} y={yTop} width={bw} height={bh} fill={fill} rx="3" />
             {showLabel && (
               <text x={cx} y={pct >= 0 ? yTop - 6 : yTop + bh + 12} textAnchor="middle"
-                fontSize="10" fill={isMin ? '#dc2626' : isMax ? '#0d9488' : '#475569'} fontWeight="700">
+                fontSize="10" fill={isMin ? 'var(--danger)' : isMax ? 'var(--accent)' : '#475569'} fontWeight="700">
                 {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
               </text>
             )}
             <text x={cx} y={h - 8} textAnchor="middle" fontSize="11"
-              fill={isMin || isMax ? '#0f172a' : '#94a3b8'}
+              fill={isMin || isMax ? 'var(--text)' : 'var(--text-4)'}
               fontWeight={isMin || isMax ? 700 : 400}>{r.label}</text>
           </g>
         );
@@ -369,14 +369,14 @@ export function DonutWithCenter({ slices, size = 200, thickness = 30, centerHead
         {centerHeadline && (
           <div style={{
             fontSize: Math.max(22, Math.round(size * 0.18)),
-            fontWeight: 700, color: '#0f172a', letterSpacing: '-0.5px',
+            fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.5px',
             fontFamily: SERIF, fontVariantNumeric: 'tabular-nums',
           }}>
             {centerHeadline}
           </div>
         )}
         {centerSub && (
-          <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 4 }}>
+          <div style={{ fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 4 }}>
             {centerSub}
           </div>
         )}
@@ -387,7 +387,7 @@ export function DonutWithCenter({ slices, size = 200, thickness = 30, centerHead
 
 // ---- Existing primitives -----------------------------------------------------
 
-export function Sparkline({ data, color = '#1e6091', width = 80, height = 28, fill = true }) {
+export function Sparkline({ data, color = 'var(--brand)', width = 80, height = 28, fill = true }) {
   if (!data || data.length < 2) return null;
   const max = Math.max(...data);
   const min = Math.min(...data);
@@ -448,7 +448,7 @@ export function LineChart({ series, height = 220, xLabels, showGrid = true, fill
       {showGrid && tickVals.map((v, i) => (
         <g key={'h' + i}>
           <line x1={pad.l} x2={w - pad.r} y1={y(v)} y2={y(v)} stroke="#eef2f7" strokeWidth="1" />
-          <text x={pad.l - 9} y={y(v) + 4} textAnchor="end" fontSize="11" fill="#94a3b8" fontFamily="inherit">{Math.round(v)}</text>
+          <text x={pad.l - 9} y={y(v) + 4} textAnchor="end" fontSize="11" fill="var(--text-4)" fontFamily="inherit">{Math.round(v)}</text>
         </g>
       ))}
       {/* vertical grid at x-label positions */}
@@ -459,7 +459,7 @@ export function LineChart({ series, height = 220, xLabels, showGrid = true, fill
       <line x1={pad.l} x2={w - pad.r} y1={y(min)} y2={y(min)} stroke="#e2e8f0" strokeWidth="1.25" />
 
       {shownLabels && shownLabels.map((lbl, i) => (
-        <text key={i} x={x(xIdx[i])} y={h - 6} textAnchor="middle" fontSize="11" fill="#94a3b8" fontFamily="inherit">{lbl}</text>
+        <text key={i} x={x(xIdx[i])} y={h - 6} textAnchor="middle" fontSize="11" fill="var(--text-4)" fontFamily="inherit">{lbl}</text>
       ))}
 
       {series.map((s, si) => {
@@ -494,7 +494,7 @@ export function LineChart({ series, height = 220, xLabels, showGrid = true, fill
       {/* Sparse emphasis: only the single peak point glows, not every mark. */}
       {peakIndex != null && series[series.length - 1]?.data[peakIndex] != null && (
         <g filter={`url(#${uid}-peakglow)`}>
-          <circle cx={x(peakIndex)} cy={y(series[series.length - 1].data[peakIndex])} r="4.5" fill="#dc2626" />
+          <circle cx={x(peakIndex)} cy={y(series[series.length - 1].data[peakIndex])} r="4.5" fill="var(--danger)" />
           {peakLabel && (
             <text x={x(peakIndex)} y={y(series[series.length - 1].data[peakIndex]) - 12}
               textAnchor="middle" fontSize="10.5" fontWeight="600" fill="#9f1239" fontFamily="var(--font-mono)">
@@ -507,7 +507,7 @@ export function LineChart({ series, height = 220, xLabels, showGrid = true, fill
   );
 }
 
-export function BarChart({ data, height = 200, color = '#1e6091', labels, valueFmt = (v) => v, rotateLabels }) {
+export function BarChart({ data, height = 200, color = 'var(--brand)', labels, valueFmt = (v) => v, rotateLabels }) {
   // Auto-rotate x-axis labels when there are many labels OR any label is long.
   const longestLabel = Math.max(0, ...(labels || []).map((l) => String(l || '').length));
   const shouldRotate = rotateLabels ?? (data.length > 6 || longestLabel > 8);
@@ -523,7 +523,7 @@ export function BarChart({ data, height = 200, color = '#1e6091', labels, valueF
   return (
     <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {[0, 0.25, 0.5, 0.75, 1].map((t, i) => (
-        <line key={i} x1={pad.l} x2={w - pad.r} y1={pad.t + innerH * (1 - t)} y2={pad.t + innerH * (1 - t)} stroke="#eef0f3" />
+        <line key={i} x1={pad.l} x2={w - pad.r} y1={pad.t + innerH * (1 - t)} y2={pad.t + innerH * (1 - t)} stroke="var(--divider)" />
       ))}
       {data.map((v, i) => {
         const cx = pad.l + (i + 0.5) * (innerW / data.length);
@@ -536,8 +536,8 @@ export function BarChart({ data, height = 200, color = '#1e6091', labels, valueF
             {i % lblStride === 0 && (shouldRotate
               ? <text x={cx} y={pad.t + innerH + 14} textAnchor="end" fontSize="11" fill="#475569"
                   transform={`rotate(-35 ${cx} ${pad.t + innerH + 14})`}>{label}</text>
-              : <text x={cx} y={h - 6} textAnchor="middle" fontSize="12" fill="#94a3b8">{label}</text>)}
-            {showValues && <text x={cx} y={baseY - 6} textAnchor="middle" fontSize="11" fill="#334155" fontWeight="600">{valueFmt(v)}</text>}
+              : <text x={cx} y={h - 6} textAnchor="middle" fontSize="12" fill="var(--text-4)">{label}</text>)}
+            {showValues && <text x={cx} y={baseY - 6} textAnchor="middle" fontSize="11" fill="var(--text-2)" fontWeight="600">{valueFmt(v)}</text>}
           </g>
         );
       })}
@@ -569,7 +569,7 @@ export function Donut({ data, size = 180, thickness = 28 }) {
   );
 }
 
-export function StemPlot({ data, height = 200, color = '#1e6091', confidenceBand, labels }) {
+export function StemPlot({ data, height = 200, color = 'var(--brand)', confidenceBand, labels }) {
   const [svgRef, w] = useMeasuredWidth(720);
   const h = height, pad = { l: 48, r: 16, t: 16, b: 30 };
   if (!data || !data.length) return null;
@@ -582,9 +582,9 @@ export function StemPlot({ data, height = 200, color = '#1e6091', confidenceBand
     <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {confidenceBand != null && (
         <g>
-          <rect x={pad.l} y={y(confidenceBand)} width={innerW} height={Math.max(0, y(-confidenceBand) - y(confidenceBand))} fill="#1e6091" opacity="0.08" />
-          <line x1={pad.l} x2={w - pad.r} y1={y(confidenceBand)} y2={y(confidenceBand)} stroke="#94a3b8" strokeDasharray="3 3" strokeWidth="1" />
-          <line x1={pad.l} x2={w - pad.r} y1={y(-confidenceBand)} y2={y(-confidenceBand)} stroke="#94a3b8" strokeDasharray="3 3" strokeWidth="1" />
+          <rect x={pad.l} y={y(confidenceBand)} width={innerW} height={Math.max(0, y(-confidenceBand) - y(confidenceBand))} fill="var(--brand)" opacity="0.08" />
+          <line x1={pad.l} x2={w - pad.r} y1={y(confidenceBand)} y2={y(confidenceBand)} stroke="var(--text-4)" strokeDasharray="3 3" strokeWidth="1" />
+          <line x1={pad.l} x2={w - pad.r} y1={y(-confidenceBand)} y2={y(-confidenceBand)} stroke="var(--text-4)" strokeDasharray="3 3" strokeWidth="1" />
         </g>
       )}
       <line x1={pad.l} x2={w - pad.r} y1={yZero} y2={yZero} stroke="#cbd5e1" strokeWidth="1" />
@@ -596,13 +596,13 @@ export function StemPlot({ data, height = 200, color = '#1e6091', confidenceBand
       ))}
       {labels && labels.length > 1 && labels.map((lbl, i) => (
         i % thinStride(labels.length, innerW, 70) !== 0 ? null :
-        <text key={i} x={x(Math.round((i / (labels.length - 1)) * (data.length - 1)))} y={h - 6} textAnchor="middle" fontSize="11" fill="#94a3b8">{lbl}</text>
+        <text key={i} x={x(Math.round((i / (labels.length - 1)) * (data.length - 1)))} y={h - 6} textAnchor="middle" fontSize="11" fill="var(--text-4)">{lbl}</text>
       ))}
     </svg>
   );
 }
 
-export function BoxPlot({ data, labels, height = 220, color = '#1e6091' }) {
+export function BoxPlot({ data, labels, height = 220, color = 'var(--brand)' }) {
   // data: [{ min, q1, median, q3, max, whisker_low?, whisker_high?, mean? }, ...]
   const [svgRef, w] = useMeasuredWidth(720);
   const h = height, pad = { l: 48, r: 16, t: 16, b: 30 };
@@ -622,8 +622,8 @@ export function BoxPlot({ data, labels, height = 220, color = '#1e6091' }) {
         const yv = yMin + t * (yMax - yMin);
         return (
           <g key={i}>
-            <line x1={pad.l} x2={w - pad.r} y1={y(yv)} y2={y(yv)} stroke="#eef0f3" strokeWidth="1" />
-            <text x={pad.l - 8} y={y(yv) + 4} textAnchor="end" fontSize="11" fill="#94a3b8">{Math.round(yv)}</text>
+            <line x1={pad.l} x2={w - pad.r} y1={y(yv)} y2={y(yv)} stroke="var(--divider)" strokeWidth="1" />
+            <text x={pad.l - 8} y={y(yv) + 4} textAnchor="end" fontSize="11" fill="var(--text-4)">{Math.round(yv)}</text>
           </g>
         );
       })}
@@ -638,8 +638,8 @@ export function BoxPlot({ data, labels, height = 220, color = '#1e6091' }) {
             <line x1={cx - cw / 3} x2={cx + cw / 3} y1={y(wl)} y2={y(wl)} stroke={color} strokeWidth="1.2" />
             <line x1={cx - cw / 3} x2={cx + cw / 3} y1={y(wh)} y2={y(wh)} stroke={color} strokeWidth="1.2" />
             <rect x={cx - cw / 2} y={y(d.q3)} width={cw} height={Math.max(1, y(d.q1) - y(d.q3))} fill={color} opacity="0.22" stroke={color} />
-            <line x1={cx - cw / 2} x2={cx + cw / 2} y1={y(d.median)} y2={y(d.median)} stroke="#0f172a" strokeWidth="2" />
-            {labels && <text x={cx} y={h - 6} textAnchor="middle" fontSize="11" fill="#94a3b8">{labels[i]}</text>}
+            <line x1={cx - cw / 2} x2={cx + cw / 2} y1={y(d.median)} y2={y(d.median)} stroke="var(--text)" strokeWidth="2" />
+            {labels && <text x={cx} y={h - 6} textAnchor="middle" fontSize="11" fill="var(--text-4)">{labels[i]}</text>}
           </g>
         );
       })}
@@ -676,7 +676,7 @@ export function StackedArea({ series, dates, colors, height = 220 }) {
       {paths.map((p) => <path key={p.label} d={p.path} fill={p.color} opacity="0.8" />)}
       <line x1={pad.l} x2={w - pad.r} y1={pad.t + innerH} y2={pad.t + innerH} stroke="#cbd5e1" />
       {[0, 0.5, 1].map((t, i) => (
-        <text key={i} x={x((n - 1) * t)} y={h - 6} textAnchor="middle" fontSize="11" fill="#94a3b8">
+        <text key={i} x={x((n - 1) * t)} y={h - 6} textAnchor="middle" fontSize="11" fill="var(--text-4)">
           {dates[Math.round((n - 1) * t)]}
         </text>
       ))}
@@ -684,7 +684,7 @@ export function StackedArea({ series, dates, colors, height = 220 }) {
   );
 }
 
-const COLOR_CYCLE = ['#1e6091', '#0d9488', '#d97706', '#7c3aed', '#dc2626', '#16a34a', '#475569', '#f59e0b'];
+const COLOR_CYCLE = ['var(--brand)', 'var(--accent)', 'var(--warning)', 'var(--purple)', 'var(--danger)', 'var(--success)', '#475569', '#f59e0b'];
 
 export function ScatterPlot({ points, height = 240, xLabels = [], colorMap = {} }) {
   // points: [{ x: index, y: number, category, regime }] OR [{ date, value, category }]
@@ -698,23 +698,23 @@ export function ScatterPlot({ points, height = 240, xLabels = [], colorMap = {} 
   const x = (i) => pad.l + (i / Math.max(1, points.length - 1)) * innerW;
   const y = (v) => pad.t + innerH - ((v - yMin) / (yMax - yMin)) * innerH;
   const DEFAULT_COLORS = {
-    normal: '#1e6091', high: '#d97706', peak: '#dc2626', zero: '#94a3b8', missing: '#e4e7eb',
+    normal: 'var(--brand)', high: 'var(--warning)', peak: 'var(--danger)', zero: 'var(--text-4)', missing: 'var(--border)',
   };
   return (
     <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {[0, 0.25, 0.5, 0.75, 1].map((t, i) => (
-        <line key={i} x1={pad.l} x2={w - pad.r} y1={pad.t + innerH * (1 - t)} y2={pad.t + innerH * (1 - t)} stroke="#eef0f3" />
+        <line key={i} x1={pad.l} x2={w - pad.r} y1={pad.t + innerH * (1 - t)} y2={pad.t + innerH * (1 - t)} stroke="var(--divider)" />
       ))}
       {points.map((p, i) => {
         const v = p.y ?? p.value;
         if (v == null) return null;
         const cat = p.category || 'normal';
-        const color = colorMap[cat] || DEFAULT_COLORS[cat] || '#1e6091';
+        const color = colorMap[cat] || DEFAULT_COLORS[cat] || 'var(--brand)';
         return <circle key={i} cx={x(i)} cy={y(v)} r={cat === 'peak' ? 3 : 1.6} fill={color} opacity={cat === 'normal' ? 0.45 : 0.9} />;
       })}
       {xLabels.length > 1 && xLabels.map((lbl, i) => (
         i % thinStride(xLabels.length, innerW, 80) !== 0 ? null :
-        <text key={i} x={pad.l + (i / (xLabels.length - 1)) * innerW} y={h - 6} textAnchor="middle" fontSize="11" fill="#94a3b8">{lbl}</text>
+        <text key={i} x={pad.l + (i / (xLabels.length - 1)) * innerW} y={h - 6} textAnchor="middle" fontSize="11" fill="var(--text-4)">{lbl}</text>
       ))}
     </svg>
   );
@@ -757,7 +757,7 @@ export function DivergingMatrix({ rows, columns, data, height = 280, max: maxOve
                 width={cellW - 2} height={cellH - 2} fill={fill} stroke="white" strokeWidth="0.5" rx="2" />
               {Math.abs(t) > 0.15 && cellW > 36 && (
                 <text x={pad.l + (ci + 0.5) * cellW} y={pad.t + (ri + 0.6) * cellH} textAnchor="middle"
-                  fontSize="10" fill={Math.abs(t) > 0.5 ? 'white' : '#0f172a'} fontWeight="600">
+                  fontSize="10" fill={Math.abs(t) > 0.5 ? 'white' : 'var(--text)'} fontWeight="600">
                   {Math.round(v)}
                 </text>
               )}
@@ -779,11 +779,11 @@ export function Heatmap({ data, rows, cols, height = 200, max: maxProp }) {
   return (
     <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {rows.map((rl, ri) => (
-        <text key={'r' + ri} x={pad.l - 8} y={pad.t + (ri + 0.65) * cellH} textAnchor="end" fontSize="12" fill="#64748b">{rl}</text>
+        <text key={'r' + ri} x={pad.l - 8} y={pad.t + (ri + 0.65) * cellH} textAnchor="end" fontSize="12" fill="var(--text-3)">{rl}</text>
       ))}
       {cols.map((cl, ci) => (
         ci % thinStride(cols.length, w - pad.l - pad.r, 34) !== 0 ? null :
-        <text key={'c' + ci} x={pad.l + (ci + 0.5) * cellW} y={h - 6} textAnchor="middle" fontSize="12" fill="#64748b">{cl}</text>
+        <text key={'c' + ci} x={pad.l + (ci + 0.5) * cellW} y={h - 6} textAnchor="middle" fontSize="12" fill="var(--text-3)">{cl}</text>
       ))}
       {data.map((row, ri) =>
         row.map((v, ci) => {
