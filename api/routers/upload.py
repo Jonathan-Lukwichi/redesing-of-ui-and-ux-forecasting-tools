@@ -39,7 +39,7 @@ def _detect_arrivals_col(df: pd.DataFrame) -> str | None:
 
 @router.post("/patient")
 async def upload_patient_data(file: UploadFile = File(...),
-                              _user=security.PlannerAccess) -> Dict[str, Any]:
+                              _user=security.DataWriteAccess) -> Dict[str, Any]:
     content = await file.read()
     try:
         df = pd.read_csv(io.BytesIO(content))
@@ -78,7 +78,7 @@ async def upload_patient_data(file: UploadFile = File(...),
 
 @router.post("/inventory")
 async def upload_inventory_data(file: UploadFile = File(...),
-                                _user=security.PlannerAccess) -> Dict[str, Any]:
+                                _user=security.DataWriteAccess) -> Dict[str, Any]:
     content = await file.read()
     try:
         df = pd.read_csv(io.BytesIO(content))

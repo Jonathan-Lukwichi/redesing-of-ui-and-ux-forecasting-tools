@@ -203,7 +203,7 @@ async def _load_items() -> list[dict]:
 
 @router.post("/staff")
 async def run_staff(req: RunRequest, _rl=Depends(security.rate_limit("heavy")),
-                    _user=security.PlannerAccess) -> dict[str, Any]:
+                    _user=security.StaffPlanAccess) -> dict[str, Any]:
     """Run ONLY the staff (workforce IP) optimization."""
     forecast = await _get_week_forecast(req.model, req.start_date)
     staff = await _load_staff()
@@ -214,7 +214,7 @@ async def run_staff(req: RunRequest, _rl=Depends(security.rate_limit("heavy")),
 
 @router.post("/supply")
 async def run_supply(req: RunRequest, _rl=Depends(security.rate_limit("heavy")),
-                     _user=security.PlannerAccess) -> dict[str, Any]:
+                     _user=security.SupplyPlanAccess) -> dict[str, Any]:
     """Run ONLY the supply optimization — under the requested policy family,
     or the standing policy when none is given (Plan C)."""
     forecast = await _get_week_forecast(req.model, req.start_date)
@@ -239,7 +239,7 @@ async def get_policy() -> dict[str, Any]:
 
 
 @router.put("/policy")
-async def put_policy(req: PolicyRequest, _user=security.PlannerAccess) -> dict[str, Any]:
+async def put_policy(req: PolicyRequest, _user=security.SupplyPlanAccess) -> dict[str, Any]:
     """Adopt a standing policy family (untuned: textbook parameters apply
     until /policy/tune is run)."""
     try:
@@ -251,7 +251,7 @@ async def put_policy(req: PolicyRequest, _user=security.PlannerAccess) -> dict[s
 
 @router.post("/policy/tune")
 async def tune_policy(req: PolicyRequest, _rl=Depends(security.rate_limit("heavy")),
-                      _user=security.PlannerAccess) -> dict[str, Any]:
+                      _user=security.SupplyPlanAccess) -> dict[str, Any]:
     """Grid-search the family's parameters per item on the shared simulator
     (on demand — nothing runs on page load)."""
     items = await _load_items()
@@ -278,7 +278,7 @@ async def tune_last() -> dict[str, Any]:
 
 @router.post("/run")
 async def run(req: RunRequest, _rl=Depends(security.rate_limit("heavy")),
-              _user=security.PlannerAccess) -> dict[str, Any]:
+              _user=security.BothPlanAccess) -> dict[str, Any]:
     """Run BOTH optimizations (combined; used by the Action Center)."""
     forecast = await _get_week_forecast(req.model, req.start_date)
     staff = await _load_staff()

@@ -53,6 +53,59 @@ TOOL_SCHEMAS = [
 ]
 
 
+# ── Territory ────────────────────────────────────────────────────────────────
+# Which scope each live-data tool reads from. `lookup_knowledge` is deliberately
+# absent: teaching content explains a CONCEPT and leaks no hospital number, so
+# every role gets it. The rest read live operational data and are filtered to
+# the caller's territory — otherwise the page gate is theatre, because a stock
+# manager who cannot open the Staffing page could simply ask the chat box for
+# the nurse shortfall and get it.
+TOOL_SCOPE = {
+    "get_forecast":      "forecast:read",
+    "get_supply_status": "supply:read",
+    "get_staff_status":  "staff:read",
+    "get_optimization":  None,      # split per half at execution time
+    "lookup_knowledge":  None,      # universal
+}
+
+
+def schemas_for(user) -> list[dict]:
+    """The tool schemas this caller may use. Filtering the SCHEMA (not just the
+    result) matters: a tool the model cannot see is one it cannot promise the
+    user an answer from and then fail to deliver."""
+    if user is None:
+        return list(TOOL_SCHEMAS)
+    out = []
+    for schema in TOOL_SCHEMAS:
+        scope = TOOL_SCOPE.get(schema["name"])
+        if scope is None or user.can(scope):
+            out.append(schema)
+    return out
+
+
+def _filter_optimization(payload: dict, user) -> dict:
+    """The optimisation plan holds both halves. A manager sees their own."""
+    if user is None:
+        return payload
+    see_staff = user.can("staff:read")
+    see_supply = user.can("supply:read")
+    if see_staff and see_supply:
+        return payload
+    out = dict(payload)
+    if not see_staff:
+        for k in ("staff", "staff_by_shift", "staff_cost_before_after_saving_zar"):
+            out.pop(k, None)
+    if not see_supply:
+        for k in ("supply", "orders_now", "supply_cost_before_after_saving_zar",
+                  "supply_plan_policy", "standing_supply_policy",
+                  "policy_parameters_tuned"):
+            out.pop(k, None)
+    out["_scope_note"] = (
+        f"Some of this plan is outside your area ({'staffing' if not see_staff else 'supply'}) "
+        "and has been left out.")
+    return out
+
+
 def _window_note(days: list[dict]) -> str | None:
     """Flag when the whole forecast window lies in the past, so the assistant
     tells the user it is a historical run/backtest — not the week ahead."""
@@ -80,8 +133,19 @@ def _post(path: str, body: dict) -> dict:
         return r.json() if r.headers.get("content-type", "").startswith("application/json") else {"error": r.text[:300]}
 
 
-def execute(name: str, inp: dict[str, Any]) -> dict[str, Any]:
-    """Run a tool, return a compact result dict (or an error explaining the fix)."""
+def execute(name: str, inp: dict[str, Any], user=None) -> dict[str, Any]:
+    """Run a tool, return a compact result dict (or an error explaining the fix).
+
+    `user` is the authenticated caller, or None when identity is unavailable
+    (the Action Center generator calls these internally). When a user is given,
+    the tool is refused unless they hold its scope — enforced HERE as well as in
+    `schemas_for`, because a model can name a tool it was never offered."""
+    scope = TOOL_SCOPE.get(name)
+    if user is not None and scope is not None and not user.can(scope):
+        return {"error": (f"Out of scope: your role ({user.role}) does not cover this. "
+                          "Tell the user plainly that this area is not theirs to see, "
+                          "and suggest who would have it."),
+                "out_of_scope": True}
     try:
         if name == "get_forecast":
             # The engines are not perfectly deterministic, so a fresh run would
@@ -178,7 +242,7 @@ def execute(name: str, inp: dict[str, Any]) -> dict[str, Any]:
             staff = d.get("staff") or {}; supply = d.get("supply") or {}
             sk = staff.get("kpis") or {}; sc = staff.get("cost") or {}
             uk = supply.get("kpis") or {}; uc = supply.get("cost") or {}
-            return {
+            return _filter_optimization({
                 **policy_info,
                 "supply_plan_policy": supply.get("policy_label"),
                 "week_starting": (d.get("forecast") or {}).get("week_starting"),
@@ -197,7 +261,8 @@ def execute(name: str, inp: dict[str, Any]) -> dict[str, Any]:
                 "orders_now": [{"item": o["item_name"], "qty": o["order_qty"],
                                 "abc": o["abc_class"], "cost_zar": o["order_cost_zar"]}
                                for o in (supply.get("orders") or []) if o["status"] == "order_now"][:8],
-            }
+            }, user)
+
     except Exception as e:
         return {"error": f"tool failed: {type(e).__name__}: {e}"}
     return {"error": f"unknown tool {name}"}

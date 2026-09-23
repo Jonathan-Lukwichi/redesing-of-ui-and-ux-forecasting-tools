@@ -124,7 +124,7 @@ class ReportEmailRequest(BaseModel):
 
 @router.post("/email")
 def email_report(body: ReportEmailRequest,
-                 user=security.PlannerAccess,
+                 user=security.ReportSendAccess,
                  _rl=Depends(security.rate_limit("email"))) -> dict[str, Any]:
     """Email this week's report.
 

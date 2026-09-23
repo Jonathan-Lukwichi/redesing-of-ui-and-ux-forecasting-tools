@@ -4,6 +4,7 @@ import KPI from '../components/KPI';
 import Icon from '../components/Icon';
 import { LineChart } from '../components/Charts';
 import AiPanel from '../components/AiPanel';
+import { useSession } from '../auth/SessionContext';
 import PolicyEvidence from '../components/PolicyEvidence';
 import StaffEvidence from '../components/StaffEvidence';
 import { api } from '../api/client';
@@ -20,6 +21,16 @@ const zarShort = (n) => {
 };
 
 export default function Optimization({ onNavigate }) {
+  // Two territories on one page. A staffing manager and a stock manager each
+  // see only their half — and the server refuses the other half's endpoints
+  // regardless, so this is layout, not security.
+  const { can } = useSession();
+  const seeStaff = can('staff:read');
+  const seeSupply = can('supply:read');
+  const runStaffOk = can('staff:plan');
+  const runSupplyOk = can('supply:plan');
+  let step = 1;
+
   const [data, setData] = useState({});           // merged {forecast, staff, supply, impact, meta}
   const [busy, setBusy] = useState({});            // { staff, supply, compare } booleans
   const [error, setError] = useState(null);
@@ -108,7 +119,7 @@ export default function Optimization({ onNavigate }) {
       />
 
       {/* STEP 1 — which forecast drives the optimization */}
-      <SectionHeader n="1" title="Choose the forecast engine" desc="The demand signal everything downstream consumes." />
+      <SectionHeader n={step++} title="Choose the forecast engine" desc="The demand signal everything downstream consumes." />
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
           <div className="card-title">Which forecast should drive the optimization?</div>
@@ -175,8 +186,10 @@ export default function Optimization({ onNavigate }) {
       {cmp && <ForecastComparison cmp={cmp} onUse={selectModel} />}
 
       {/* STEP 2 — the standing reorder policy (Plan C) */}
-      <SectionHeader n="2" title="Choose the standing reorder policy" desc="Your default ordering rule. Compare the families on evidence, adopt one, tune its parameters — the supply run then optimizes within it." />
+      {seeSupply && <>
+      <SectionHeader n={step++} title="Choose the standing reorder policy" desc="Your default ordering rule. Compare the families on evidence, adopt one, tune its parameters — the supply run then optimizes within it." />
       <PolicyEvidence onPolicyChange={setPolicyState} />
+      </>}
 
       {error && (
         <div className="card"><div className="card-body" style={{ color: C.red }}>
@@ -208,12 +221,15 @@ export default function Optimization({ onNavigate }) {
       {anyRun && <AiPanel surface="optimization" context={data} label="Read this plan for me" />}
 
       {/* ════════════════ STAFF ════════════════ */}
-      <SectionHeader n="3" title="Staff cost optimization" desc="Cost-minimal lawful roster (integer programme) — staff to the forecast instead of to the busy day. The strategy evidence explains why lawful is the only deployable regime." />
+      {seeStaff && <>
+      <SectionHeader n={step++} title="Staff cost optimization" desc="Cost-minimal lawful roster (integer programme) — staff to the forecast instead of to the busy day. The strategy evidence explains why lawful is the only deployable regime." />
       <StaffEvidence />
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
           <div className="card-title">Workforce scheduling model</div>
-          <button className="btn btn-primary" onClick={() => runStaff()} disabled={busy.staff}>
+          <button className="btn btn-primary" onClick={() => runStaff()}
+            disabled={busy.staff || !runStaffOk}
+            title={runStaffOk ? undefined : 'Running the staffing plan is not part of your area'}>
             <Icon name={busy.staff ? 'refresh' : 'bolt'} size={14} />
             {busy.staff ? 'Optimizing…' : st ? 'Re-run staff optimization' : 'Run staff optimization'}
           </button>
@@ -315,12 +331,17 @@ export default function Optimization({ onNavigate }) {
       )}
 
       {/* ════════════════ SUPPLY ════════════════ */}
-      <SectionHeader n="4" title="Supply cost optimization"
+      </>}
+
+      {seeSupply && <>
+      <SectionHeader n={step++} title="Supply cost optimization"
         desc={`This week's order plan under your standing policy${policyState?.label ? `: ${policyState.label}` : ''} — order the right amount now to avoid expensive stockouts later.`} />
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
           <div className="card-title">Inventory reorder model</div>
-          <button className="btn btn-primary" onClick={() => runSupply()} disabled={busy.supply}>
+          <button className="btn btn-primary" onClick={() => runSupply()}
+            disabled={busy.supply || !runSupplyOk}
+            title={runSupplyOk ? undefined : 'Running the supply plan is not part of your area'}>
             <Icon name={busy.supply ? 'refresh' : 'bolt'} size={14} />
             {busy.supply ? 'Optimizing…' : sup ? 'Re-run supply optimization' : 'Run supply optimization'}
           </button>
@@ -399,10 +420,36 @@ export default function Optimization({ onNavigate }) {
         </div>
       )}
 
+      </>}
+
+      {(seeStaff || seeSupply) && !runStaffOk && !runSupplyOk && (
+        <div className="card" style={{ maxWidth: 620, marginBottom: 16 }}>
+          <div className="card-body" style={{ fontSize: 'var(--step--1)', color: 'var(--text-3)', lineHeight: 1.65 }}>
+            You can review the plans here, but running one is not part of your area.
+            Press <strong>Load last plan</strong> to see what was last decided.
+          </div>
+        </div>
+      )}
+
+      {!seeStaff && !seeSupply && (
+        <div className="card" style={{ maxWidth: 560 }}>
+          <div className="card-body" style={{ fontSize: 'var(--step--1)', color: 'var(--text-3)', lineHeight: 1.65 }}>
+            You can see the forecast that drives these plans, but running one is not part of
+            your area. Staffing plans belong to the staffing manager and reorder plans to the
+            stock manager.
+          </div>
+        </div>
+      )}
+
       <div style={{ fontSize: 11.5, color: C.muted, marginBottom: 24, lineHeight: 1.6, maxWidth: 760 }}>
-        The 45-hour weekly cap is a hard constraint, so any demand that can't be met lawfully is costed as agency locum, not illegal
-        overtime. Staffing demand includes a safety buffer from the forecast's residual error. Salaries are the DPSA-scale figures in the
-        staff master. Supply "before" cost is the modelled stockout penalty those items would incur if their reorder points went unmanaged.
+        {seeStaff && (<>
+          The 45-hour weekly cap is a hard constraint, so any demand that can't be met lawfully is costed as agency locum, not illegal
+          overtime. Staffing demand includes a safety buffer from the forecast's residual error. Salaries are the DPSA-scale figures in the
+          staff master.{' '}
+        </>)}
+        {seeSupply && (<>
+          Supply "before" cost is the modelled stockout penalty those items would incur if their reorder points went unmanaged.
+        </>)}
       </div>
     </div>
   );

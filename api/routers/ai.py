@@ -7,7 +7,7 @@
 from __future__ import annotations
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
@@ -150,7 +150,8 @@ class ChatRequest(BaseModel):
 
 
 @router.post("/chat")
-async def chat(req: ChatRequest,
+async def chat(request: Request,
+               req: ChatRequest,
                _rl=Depends(security.rate_limit("ai")),
                _user=security.ReadAccess):
     if not config.configured():
@@ -159,6 +160,11 @@ async def chat(req: ChatRequest,
     if telemetry.over_budget():
         return _err(429, "budget_exhausted", "Daily budget reached.")
 
+    # The assistant answers on every page for every role, but its LIVE-DATA
+    # tools are filtered to the caller's territory: a role gate you can walk
+    # around by typing a question into the chat box is not a gate. Teaching
+    # content stays universal.
+    caller = security.current_user(request)
     msgs = [{"role": m.role, "content": m.content} for m in req.messages]
     last_user = next((m["content"] for m in reversed(msgs) if m["role"] == "user"), "")
 
@@ -166,7 +172,7 @@ async def chat(req: ChatRequest,
         in_tok = out_tok = 0
         parts: list[str] = []
         try:
-            for kind, payload in ai_chat.stream_chat(msgs):
+            for kind, payload in ai_chat.stream_chat(msgs, user=caller):
                 if kind == "delta":
                     parts.append(payload)
                     yield payload
@@ -185,7 +191,8 @@ async def chat(req: ChatRequest,
 
 
 @router.get("/actions")
-async def actions(_rl=Depends(security.rate_limit("ai")),
+async def actions(request: Request,
+                  _rl=Depends(security.rate_limit("ai")),
                   _user=security.ReadAccess):
     if not config.configured():
         return _err(503, "ai_not_configured",
@@ -210,6 +217,19 @@ async def actions(_rl=Depends(security.rate_limit("ai")),
     # stable id, so each one is matched back to its stored decision by content.
     # Without this the page would keep re-raising something already dismissed.
     out["actions"] = action_store.apply_decisions(out.get("actions", []))
+
+    # Territory filter. A stock manager gets supply and capacity items; a
+    # staffing manager gets staff and capacity. Done server-side, so hiding a
+    # row is not something the browser is trusted to do.
+    caller = security.current_user(request)
+    if caller is not None:
+        allowed = caller.action_categories
+        if allowed:
+            hidden = [a for a in out["actions"] if a.get("category") not in allowed]
+            out["actions"] = [a for a in out["actions"] if a.get("category") in allowed]
+            out["hidden_by_role"] = len(hidden)
+        out["can_decide"] = caller.can("actions:decide")
+        out["categories"] = sorted(allowed)
     out["summary"] = action_store.summary()
     return out
 

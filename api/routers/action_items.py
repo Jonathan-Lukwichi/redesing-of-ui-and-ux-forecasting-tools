@@ -53,7 +53,7 @@ class DecisionRequest(BaseModel):
 
 
 @router.post("/decision")
-async def decide(body: DecisionRequest, user=security.PlannerAccess) -> dict[str, Any]:
+async def decide(body: DecisionRequest, user=security.DecideAccess) -> dict[str, Any]:
     """Record a decision.
 
     `decided_by` comes from the SESSION, never from the request body: an audit
@@ -68,6 +68,12 @@ async def decide(body: DecisionRequest, user=security.PlannerAccess) -> dict[str
             "error": "key_mismatch",
             "message": ("The action key does not match its title and category. "
                         "Reload the Action Center and try again."),
+        })
+    if body.category not in user.action_categories:
+        raise HTTPException(403, {
+            "error": "out_of_scope",
+            "message": (f"Your role ({user.role}) does not cover "
+                        f"{body.category} actions."),
         })
     if body.status == "snoozed" and not body.snooze_hours:
         raise HTTPException(400, {"error": "snooze_hours_required",

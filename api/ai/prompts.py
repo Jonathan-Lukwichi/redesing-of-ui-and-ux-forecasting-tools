@@ -183,3 +183,46 @@ def action_ranker() -> str:
         "an urgency (high/medium/low). Rank by real operational urgency, merge "
         "duplicates, and never invent numbers. Be concise and concrete."
     )
+
+
+def scope_note(user) -> str:
+    """Appended to the system prompt so the assistant knows whose desk it is on.
+
+    Without this the model would hit bare 'out of scope' tool errors and either
+    apologise vaguely or, worse, guess. Told the territory up front, it can
+    answer what it can and hand off the rest by name — which is what a helpful
+    colleague does, and is the difference between a role gate that feels
+    designed and one that feels broken.
+    """
+    if user is None:
+        return ("\n\nTHE PERSON IS NOT SIGNED IN. Answer from the knowledge cards and "
+                "anything already on their screen. If they ask for live operational "
+                "numbers, tell them to sign in first.\n")
+
+    areas = []
+    if user.can("staff:read"):
+        areas.append("staffing")
+    if user.can("supply:read"):
+        areas.append("supply")
+    if user.can("forecast:read"):
+        areas.append("the arrivals forecast")
+    covered = ", ".join(areas) if areas else "nothing operational"
+
+    missing = []
+    if not user.can("staff:read"):
+        missing.append("staffing and rosters (ask the staffing manager)")
+    if not user.can("supply:read"):
+        missing.append("stock and reordering (ask the stock manager)")
+
+    out = (f"\n\nTHE PERSON YOU ARE HELPING: role '{user.role}'. "
+           f"Their area covers {covered}.\n")
+    if missing:
+        out += ("OUTSIDE THEIR AREA: " + "; ".join(missing) + ". "
+                "You have no tools for it and must not guess a number for it. "
+                "If they ask, say plainly that it sits with another role, name who, "
+                "and offer what you CAN help with instead. Never imply the data does "
+                "not exist — only that it is not theirs.\n")
+    out += ("TEACHING IS ALWAYS ALLOWED: explaining a method or concept "
+            "(lookup_knowledge) leaks nothing and is offered to everyone, whatever "
+            "their area.\n")
+    return out

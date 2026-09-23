@@ -18,15 +18,43 @@ The app previously had **no authentication at all**:
 - nothing was rate limited, so the model-backed endpoints could be driven by
   anyone who found the URL.
 
-## Roles
+## Roles are territory, not rank
 
-Ordered; a route asks for a minimum.
+The first version of this ranked roles on a ladder (`viewer < planner < admin`).
+That is the wrong shape for a hospital: a stock manager is not *less than* a
+staffing manager, they are **sideways** — different territory, comparable
+authority inside it. So a role is a **set of scopes**, and each route names the
+one capability it needs.
 
-| Role | May |
-|---|---|
-| `viewer` | Read forecasts, plans, Explore, the action list |
-| `planner` | Everything a viewer may, plus run optimisations and backtests, upload and prepare data, email reports, and record Action Center decisions |
-| `admin` | Everything a planner may, plus real model identities, accuracy figures, the AI audit log and spend, and the user list |
+| Role | Pages | May run | Decisions | Accuracy / audit / users | Data pipeline |
+|---|---|---|---|---|---|
+| `admin` | All | Both plans | All | ✅ | ✅ |
+| `director` | All operational | — (reviews plans) | All, incl. alerts | ❌ | ❌ |
+| `staff_manager` | Dashboard, Forecast, Staffing, Optimization, Actions | Staffing plan | Staff + capacity | ❌ | ❌ |
+| `stock_manager` | Dashboard, Forecast, Supply, Optimization, Actions | Supply plan | Supply + capacity | ❌ | ❌ |
+| `viewer` | All operational, read-only | — | None | ❌ | ❌ |
+| `planner` | *Legacy* — the old middle rung, kept so existing `AUTH_USERS` entries keep working | Both | All | ❌ | ✅ |
+
+Two distinctions the ladder could not express, and which the code now enforces:
+
+- **Seeing a plan and running one are different rights.** The Optimization page
+  opens for anyone who may *read* either territory — a director reviewing what
+  the managers decided, a visitor on the public demo pressing "Load last plan" —
+  while each Run button needs the matching `:plan` scope.
+- **The combined run needs both.** `POST /api/optimization/run` does the roster
+  and the reorder plan together, so holding one territory is not enough.
+
+The `capacity` action category is cross-cutting (a surge affects both halves), so
+both managers see it. Nothing else crosses the line.
+
+### Scopes
+
+`forecast:read` · `data:read` · `data:write` · `staff:read` · `staff:plan` ·
+`supply:read` · `supply:plan` · `actions:read` · `actions:decide` ·
+`reports:send` · `admin` · `assistant`
+
+An unknown scope always denies — a typo in a route's requirement must never wave
+everyone through, and `require_scope` refuses to import with one.
 
 ## Enforcement posture — `AUTH_MODE`
 
@@ -133,14 +161,37 @@ unconditionally lets one attacker present as unlimited distinct clients. Set
 `TRUST_PROXY=1` only where a proxy really does overwrite the header (Render does);
 leave it unset when the app is reachable directly.
 
+## The assistant is everywhere, but not a side door
+
+The AI assistant renders on every page for every role. What it may *say* is
+split in two:
+
+- **Teaching content is universal.** All the knowledge cards — what safety stock
+  is, why MASE, how an integer programme works — go to everyone. Explaining a
+  concept leaks no hospital number.
+- **Live numbers follow the caller's territory.** A stock manager is not offered
+  the staffing tool, and the optimisation plan is split so they see only their
+  half.
+
+The reasoning: if a stock manager cannot open the Staffing page but can type
+*"what's our nurse shortfall?"* into the chat box and get the answer, the role
+gate is theatre. Enforcement is in two places — the tool *schemas* are filtered
+so the model is never offered what it cannot use, and `execute()` refuses again
+on its own, because a model can name a tool it was never shown.
+
+The system prompt tells the assistant whose desk it is on, so out-of-area
+questions get *"that sits with the staffing manager — here's what I can help
+with"* rather than a blank refusal or, worse, a guess.
+
 ## What is NOT covered yet
 
 Stated plainly rather than implied:
 
 - **No SSO.** `authenticate()` and `user_from_token()` are the two seams where
   an OIDC provider slots in without touching any route. Hospitals will want this.
-- **No per-user data partitioning.** Every signed-in user sees the same
-  department's data; roles gate actions, not rows.
+- **No per-user data partitioning.** Roles gate pages, actions and the
+  assistant's tools, but not rows: two staffing managers see the same
+  department's data as each other.
 - **No password rotation, lockout or MFA.** Lockout is partly covered by the
   login rate limit, not by an account-level policy.
 - **The Action Center decision store is SQLite on local disk.** On a container

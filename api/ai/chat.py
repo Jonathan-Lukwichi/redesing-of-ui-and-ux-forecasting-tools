@@ -159,10 +159,25 @@ CHAT_SYSTEM = (
 _SYSTEM_BLOCKS = [{"type": "text", "text": CHAT_SYSTEM,
                    "cache_control": {"type": "ephemeral"}}]
 
+
+def _system_blocks(user) -> list[dict]:
+    """Static policy first (cached), the caller's territory appended after it.
+
+    Order matters for the prompt cache: `cache_control` marks the END of the
+    cacheable prefix, so a per-user block placed AFTER it varies freely without
+    invalidating the shared prefix. The tool schemas do vary by role and render
+    before the system block, so the cache is effectively per-role rather than
+    global — with five roles that still gives every conversation hits from its
+    second round on, which is what the breakpoint is for."""
+    note = prompts.scope_note(user)
+    if not note:
+        return _SYSTEM_BLOCKS
+    return _SYSTEM_BLOCKS + [{"type": "text", "text": note}]
+
 _MAX_TOOL_ROUNDS = 4  # retrieval rounds before the answer is forced
 
 
-def stream_chat(messages: list[dict]) -> Iterator[tuple[str, object]]:
+def stream_chat(messages: list[dict], user=None) -> Iterator[tuple[str, object]]:
     """messages: [{role:'user'|'assistant', content:str}]. Yields ('delta', text)
     chunks then ('usage', {in,out})."""
     client = _client()
@@ -176,8 +191,8 @@ def stream_chat(messages: list[dict]) -> Iterator[tuple[str, object]]:
             # the user must never get an empty reply.
             forced = round_no == _MAX_TOOL_ROUNDS
             kwargs: dict = dict(
-                model=model, max_tokens=1100, system=_SYSTEM_BLOCKS,
-                tools=tools.TOOL_SCHEMAS, messages=convo,
+                model=model, max_tokens=1100, system=_system_blocks(user),
+                tools=tools.schemas_for(user), messages=convo,
             )
             if forced:
                 kwargs["tool_choice"] = {"type": "none"}
@@ -196,7 +211,7 @@ def stream_chat(messages: list[dict]) -> Iterator[tuple[str, object]]:
                 results = []
                 for block in resp.content:
                     if block.type == "tool_use":
-                        out = tools.execute(block.name, block.input or {})
+                        out = tools.execute(block.name, block.input or {}, user=user)
                         results.append({
                             "type": "tool_result",
                             "tool_use_id": block.id,

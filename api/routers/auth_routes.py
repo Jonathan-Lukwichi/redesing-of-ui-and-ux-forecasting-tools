@@ -57,10 +57,31 @@ def me(request: Request) -> dict[str, Any]:
     right surfaces instead of guessing or hiding things client-side."""
     user = security.current_user(request)
     return {
-        "user": None if user is None else {"username": user.username, "role": user.role},
+        "user": None if user is None else {
+            "username": user.username,
+            "role": user.role,
+            # The UI renders territory from these. They are a CONVENIENCE for
+            # the browser, never the control: every route checks the same scope
+            # server-side, so a tampered response buys nothing.
+            "scopes": sorted(user.scopes),
+            "action_categories": sorted(user.action_categories),
+        },
         "auth_mode": security.auth_mode(),
         "auth_configured": auth.auth_configured(),
         "roles": list(auth.ROLES),
+        # What this deployment grants WITHOUT a session. In `protected` mode
+        # reads are open, so a visitor to the public demo still sees the
+        # read-only pages; in `strict` mode it is empty. The UI mirrors this
+        # rather than hardcoding its own idea of anonymous access, so the
+        # sidebar can never offer a page the server would then refuse.
+        "anonymous_scopes": (
+            [] if security.auth_mode() == "strict"
+            else sorted(auth.ROLE_SCOPES["viewer"])
+        ),
+        "anonymous_action_categories": (
+            [] if security.auth_mode() == "strict"
+            else sorted(auth.ROLE_ACTION_CATEGORIES["viewer"])
+        ),
     }
 
 

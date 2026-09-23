@@ -13,11 +13,16 @@ import { api } from '../api/client';
 
 const SessionContext = createContext(null);
 
-const ROLE_RANK = { viewer: 0, planner: 1, admin: 2 };
-
 export function SessionProvider({ children }) {
+  // Seeded with the read-only set so the sidebar does not flash empty on the
+  // first paint. The server's answer replaces it a moment later and is
+  // authoritative; this is only about avoiding a visible blink.
+  const OPTIMISTIC_READ = ['forecast:read', 'data:read', 'staff:read',
+                           'supply:read', 'actions:read', 'assistant'];
   const [state, setState] = useState({
-    status: 'loading', user: null, mode: 'protected', configured: false,
+    status: 'loading', user: null, scopes: OPTIMISTIC_READ,
+    actionCategories: ['staff', 'supply', 'capacity'],
+    mode: 'protected', configured: false,
   });
 
   const refresh = useCallback(async () => {
@@ -26,13 +31,22 @@ export function SessionProvider({ children }) {
       setState({
         status: 'ready',
         user: me.user,
+        // Signed in: your role's scopes. Not signed in: whatever this
+        // deployment grants anonymously, straight from the server.
+        scopes: me.user?.scopes || me.anonymous_scopes || [],
+        actionCategories: me.user?.action_categories
+          || me.anonymous_action_categories || [],
         mode: me.auth_mode,
         configured: me.auth_configured,
       });
     } catch {
       // The backend is unreachable. Treat it as signed-out rather than
       // guessing — an optimistic guess would show controls that then fail.
-      setState({ status: 'offline', user: null, mode: 'protected', configured: false });
+      // Backend unreachable. Keep the read-only shape so the shell still
+      // renders and each page can show its own offline state, rather than
+      // collapsing the whole navigation.
+      setState({ status: 'offline', user: null, scopes: OPTIMISTIC_READ,
+                 actionCategories: [], mode: 'protected', configured: false });
     }
   }, []);
 
@@ -53,10 +67,15 @@ export function SessionProvider({ children }) {
     signIn,
     signOut,
     refresh,
-    // In `open` mode the server treats every caller as an admin, so the UI
-    // must not hide things the server will happily serve.
-    can: (role) => state.mode === 'open'
-      || (ROLE_RANK[state.user?.role] ?? -1) >= (ROLE_RANK[role] ?? 99),
+    // Roles are territory, not rank: ask for the SCOPE a surface needs, never
+    // for a role name. Hiding a control here is a courtesy — the server gates
+    // the same scope independently and refuses a forged request regardless.
+    //
+    // In `open` mode the server treats every caller as an admin, so the UI must
+    // not hide things the server will happily serve.
+    can: (scope) => state.mode === 'open' || (state.scopes || []).includes(scope),
+    seesCategory: (category) => state.mode === 'open'
+      || (state.actionCategories || []).includes(category),
   }), [state, signIn, signOut, refresh]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

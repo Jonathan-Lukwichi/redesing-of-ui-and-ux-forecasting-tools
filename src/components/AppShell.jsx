@@ -19,29 +19,51 @@ function useIsMobile() {
   return isMobile;
 }
 
+/* Each page declares the SCOPE it needs. The sidebar then renders a person's
+ * territory rather than the whole system: a stock manager does not scroll past
+ * four staffing pages to reach theirs.
+ *
+ * This is presentation only. Every route enforces the same scope server-side,
+ * so typing the URL directly gets a 403 — the nav is a courtesy, not the gate.
+ */
 const NAV_ITEMS = [
   { section: 'Overview', items: [
-    { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+    { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', scope: 'forecast:read' },
   ]},
   { section: 'Data', items: [
-    { id: 'upload', label: 'Data Hub', icon: 'upload' },
-    { id: 'prepare', label: 'Prepare', icon: 'table' },
-    { id: 'explore', label: 'Explore', icon: 'chart' },
+    { id: 'upload',  label: 'Data Hub', icon: 'upload', scope: 'data:write' },
+    { id: 'prepare', label: 'Prepare',  icon: 'table',  scope: 'data:write' },
+    { id: 'explore', label: 'Explore',  icon: 'chart',  scope: 'data:read' },
   ]},
   { section: 'Forecasting', items: [
-    { id: 'forecast-total',     label: 'Total ED',     icon: 'forecast' },
-    { id: 'forecast-specialty', label: 'By specialty', icon: 'chart' },
+    { id: 'forecast-total',     label: 'Total ED',     icon: 'forecast', scope: 'forecast:read' },
+    { id: 'forecast-specialty', label: 'By specialty', icon: 'chart',    scope: 'forecast:read' },
   ]},
   { section: 'Operations', items: [
-    { id: 'staff',    label: 'Staffing',      icon: 'users' },
-    { id: 'supply',   label: 'Supply',        icon: 'box' },
-    { id: 'optimize', label: 'Optimization',  icon: 'bolt' },
-    { id: 'actions',  label: 'Action Center', icon: 'bolt' },
+    { id: 'staff',    label: 'Staffing',      icon: 'users',  scope: 'staff:read' },
+    { id: 'supply',   label: 'Supply',        icon: 'box',    scope: 'supply:read' },
+    // Optimization holds both halves. VIEWING a plan and RUNNING one are
+    // different rights: the page is open to anyone who may read either
+    // territory, and the Run buttons inside it need the matching :plan scope.
+    { id: 'optimize', label: 'Optimization',  icon: 'bolt',   anyScope: ['staff:read', 'supply:read'] },
+    { id: 'actions',  label: 'Action Center', icon: 'alert',  scope: 'actions:read' },
   ]},
   { section: 'Governance', items: [
-    { id: 'admin', label: 'Admin', icon: 'settings' },
+    { id: 'admin', label: 'Admin', icon: 'settings', scope: 'admin' },
   ]},
 ];
+
+/* Drop items outside the person's territory, then drop sections left empty. */
+function visibleNav(can) {
+  return NAV_ITEMS
+    .map((sec) => ({
+      ...sec,
+      items: sec.items.filter((it) => (
+        it.anyScope ? it.anyScope.some((sc) => can(sc)) : can(it.scope)
+      )),
+    }))
+    .filter((sec) => sec.items.length > 0);
+}
 
 const CRUMB_MAP = {
   dashboard: ['Overview', 'Dashboard'],
@@ -72,6 +94,8 @@ function ToggleBtn({ collapsed, onToggle }) {
 }
 
 function Sidebar({ active, onNavigate, collapsed, onToggle, mobileOpen, sidebarRef, badges = {} }) {
+  const { can } = useSession();
+  const sections = visibleNav(can);
   return (
     <aside id="app-sidebar" ref={sidebarRef} tabIndex={-1}
       className={'sidebar' + (mobileOpen ? ' mobile-open' : '')}>
@@ -91,7 +115,7 @@ function Sidebar({ active, onNavigate, collapsed, onToggle, mobileOpen, sidebarR
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-        {NAV_ITEMS.map((sec) => (
+        {sections.map((sec) => (
           <div key={sec.section}>
             {collapsed ? <div style={{ height: 12 }} /> : <div className="sidebar-section">{sec.section}</div>}
             <nav className="sidebar-nav" aria-label={sec.section}>

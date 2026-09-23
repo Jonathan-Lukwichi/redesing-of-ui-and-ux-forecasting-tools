@@ -13,19 +13,22 @@ import SupplyPlanner from './pages/SupplyPlanner';
 import Optimization from './pages/Optimization';
 import ActionCenter from './pages/ActionCenter';
 import Admin from './pages/Admin';
+import RequireScope from './auth/RequireScope';
 
+/* Each page names the scope it needs, so the guard and the sidebar read from
+ * the same contract. Server-side enforcement is independent of both. */
 const PAGES = {
-  dashboard:            Dashboard,
-  upload:               DataHub,
-  prepare:              PrepareData,
-  explore:              ExploreData,
-  'forecast-total':     Task1Forecast,
-  'forecast-specialty': Task2Forecast,
-  staff:                StaffPlanner,
-  supply:               SupplyPlanner,
-  optimize:             Optimization,
-  actions:              ActionCenter,
-  admin:                Admin,
+  dashboard:            { C: Dashboard,     scope: 'forecast:read' },
+  upload:               { C: DataHub,       scope: 'data:write' },
+  prepare:              { C: PrepareData,   scope: 'data:write' },
+  explore:              { C: ExploreData,   scope: 'data:read' },
+  'forecast-total':     { C: Task1Forecast, scope: 'forecast:read' },
+  'forecast-specialty': { C: Task2Forecast, scope: 'forecast:read' },
+  staff:                { C: StaffPlanner,  scope: 'staff:read' },
+  supply:               { C: SupplyPlanner, scope: 'supply:read' },
+  optimize:             { C: Optimization,  anyScope: ['staff:read', 'supply:read'] },
+  actions:              { C: ActionCenter,  scope: 'actions:read' },
+  admin:                { C: Admin,         scope: 'admin' },
 };
 
 // Deep-linking: /#dashboard, /#staff, ... open that page directly.
@@ -44,11 +47,14 @@ export default function App() {
   if (page === 'landing') return <Landing onNavigate={setPage} />;
   if (page === 'welcome') return <Welcome onNavigate={setPage} />;
 
-  const PageComponent = PAGES[page] || Dashboard;
+  const entry = PAGES[page] || PAGES.dashboard;
+  const PageComponent = entry.C;
 
   return (
     <AppShell active={page} onNavigate={setPage}>
-      <PageComponent onNavigate={setPage} />
+      <RequireScope scope={entry.scope} anyScope={entry.anyScope}>
+        <PageComponent onNavigate={setPage} />
+      </RequireScope>
     </AppShell>
   );
 }

@@ -175,13 +175,37 @@ def current_user(request: Request) -> Optional[User]:
     return User(username=claimed.username, role=current_role)
 
 
-def require_role(minimum: str) -> Callable:
-    """Dependency factory: `Depends(require_role("planner"))`.
+# Plain-English names for each scope, so a 403 tells the person what territory
+# they are standing outside of rather than printing an internal token at them.
+_SCOPE_LABEL = {
+    "forecast:read":  "view forecasts",
+    "data:read":      "view the data pages",
+    "data:write":     "upload or prepare data",
+    "staff:read":     "view staffing",
+    "staff:plan":     "run the staffing plan",
+    "supply:read":    "view supply",
+    "supply:plan":    "run the supply plan",
+    "actions:read":   "view recommended actions",
+    "actions:decide": "act on recommended actions",
+    "reports:send":   "email reports",
+    "admin":          "see accuracy figures, model identities and the audit log",
+    "assistant":      "use the assistant",
+}
 
-    In `open` mode every request is treated as an admin, which is only
-    reachable with DEMO_INSECURE=1 (see auth_mode)."""
-    if minimum not in auth.ROLES:
-        raise ValueError(f"unknown role {minimum!r}")
+
+def require_scope(scope: str) -> Callable:
+    """Dependency factory: `Depends(require_scope("staff:plan"))`.
+
+    Roles are territory, not rank, so a route names the one capability it needs
+    rather than a minimum rank. A staffing manager and a stock manager are peers
+    who simply hold different scopes.
+
+    In `open` mode every request is treated as an admin, which is only reachable
+    with DEMO_INSECURE=1 (see auth_mode)."""
+    if scope not in auth.SCOPES:
+        # Fail at import, not at request time: a typo'd scope that silently
+        # denied everyone would look exactly like a working gate.
+        raise ValueError(f"unknown scope {scope!r}")
 
     def _dep(request: Request) -> User:
         if auth_mode() == "open":
@@ -200,11 +224,30 @@ def require_role(minimum: str) -> Callable:
                 })
             raise HTTPException(401, {"error": "not_authenticated",
                                       "message": "Sign in to continue."})
-        if not user.can(minimum):
+        if not user.can(scope):
             raise HTTPException(403, {
-                "error": "insufficient_role",
-                "message": f"This needs the '{minimum}' role; you have '{user.role}'.",
+                "error": "out_of_scope",
+                "scope": scope,
+                "message": (f"Your role ({user.role}) cannot "
+                            f"{_SCOPE_LABEL.get(scope, scope)}."),
             })
+        return user
+    return _dep
+
+
+def require_all_scopes(*scopes: str) -> Callable:
+    """For a route that does two territories' work at once — the combined
+    optimisation runs both the roster and the reorder plan, so only someone who
+    could have run each half separately may run it together."""
+    for sc in scopes:
+        if sc not in auth.SCOPES:
+            raise ValueError(f"unknown scope {sc!r}")
+    deps = [require_scope(sc) for sc in scopes]
+
+    def _dep(request: Request) -> User:
+        user = None
+        for dep in deps:
+            user = dep(request)      # raises 401/403 on the first one that fails
         return user
     return _dep
 
@@ -213,9 +256,20 @@ def require_read(request: Request) -> Optional[User]:
     """Read routes: open in `protected` mode, gated in `strict` mode."""
     if auth_mode() != "strict":
         return current_user(request)
-    return require_role("viewer")(request)
+    return require_scope("forecast:read")(request)
 
 
 ReadAccess = Depends(require_read)
-PlannerAccess = Depends(require_role("planner"))
-AdminAccess = Depends(require_role("admin"))
+AdminAccess = Depends(require_scope("admin"))
+
+# Territory-specific gates, named after what the route actually does.
+StaffPlanAccess  = Depends(require_scope("staff:plan"))
+SupplyPlanAccess = Depends(require_scope("supply:plan"))
+DataWriteAccess  = Depends(require_scope("data:write"))
+ReportSendAccess = Depends(require_scope("reports:send"))
+DecideAccess     = Depends(require_scope("actions:decide"))
+BothPlanAccess   = Depends(require_all_scopes("staff:plan", "supply:plan"))
+
+# Kept so nothing that still imports it breaks mid-migration. It maps to the
+# broadest "can change something" scope, which is what the old name implied.
+PlannerAccess = DataWriteAccess

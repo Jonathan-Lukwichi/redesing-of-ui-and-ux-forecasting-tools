@@ -81,8 +81,87 @@ _SCRYPT_MAXMEM = 128 * _SCRYPT_N * _SCRYPT_R * 2
 # to one guess at a time.
 _HASH_LOCK = threading.Lock()
 
-ROLES = ("viewer", "planner", "admin")
-_ROLE_RANK = {r: i for i, r in enumerate(ROLES)}
+# ── Roles as TERRITORY, not rank ─────────────────────────────────────────────
+# The first version of this file ranked roles on a ladder (viewer < planner <
+# admin), where each role contained the one below. That is the wrong shape for a
+# hospital: a stock manager is not "less than" a staffing manager, they are
+# sideways — different territory, comparable authority inside it. So a role is a
+# SET of scopes, and a route asks for the one scope it needs.
+#
+# Scope vocabulary (verb-scoped so read and act are separable):
+SCOPES = (
+    "forecast:read",    # the forecasts and the dashboard
+    "data:read",        # Explore, dataset and group listings
+    "data:write",       # upload, build groups, run backtests
+    "staff:read",       # staffing pages and rosters
+    "staff:plan",       # run the staff optimisation
+    "supply:read",      # supply pages and stock history
+    "supply:plan",      # run the supply optimisation, set the standing policy
+    "actions:read",     # see the recommended action list
+    "actions:decide",   # approve / snooze / dismiss an action
+    "reports:send",     # email the operations report
+    "admin",            # users, AI audit log, model identities, accuracy figures
+    "assistant",        # use the AI assistant
+)
+
+_ALL = frozenset(SCOPES)
+
+# Everything a person can look at, without authority to change anything.
+_READ_ONLY = frozenset({
+    "forecast:read", "data:read", "staff:read", "supply:read",
+    "actions:read", "assistant",
+})
+
+ROLE_SCOPES: dict[str, frozenset[str]] = {
+    # System administrator. Also owns the data pipeline: the analyst role was
+    # deliberately folded in here rather than kept separate.
+    "admin": _ALL,
+
+    # Hospital director: every page and every operational number, plus the
+    # decisions and the alerts. NOT accuracy figures, model identities or the
+    # AI audit log — those stay with `admin`, per the governance rule that
+    # accuracy is kept out of the front-line app. Reads the data pages but does
+    # not run the pipeline.
+    "director": _READ_ONLY | {"actions:decide", "reports:send"},
+
+    # Workforce / nursing management.
+    "staff_manager": frozenset({
+        "forecast:read", "staff:read", "staff:plan",
+        "actions:read", "actions:decide", "reports:send", "assistant",
+    }),
+
+    # Pharmacy / stores.
+    "stock_manager": frozenset({
+        "forecast:read", "supply:read", "supply:plan",
+        "actions:read", "actions:decide", "reports:send", "assistant",
+    }),
+
+    # Read-only. Keeps the public demo working without handing anyone authority.
+    "viewer": _READ_ONLY,
+
+    # Legacy: the ladder's middle rung. Kept so existing AUTH_USERS entries
+    # continue to work unchanged after the model changed shape underneath them.
+    "planner": _READ_ONLY | {
+        "data:write", "staff:plan", "supply:plan",
+        "actions:decide", "reports:send",
+    },
+}
+
+ROLES = tuple(ROLE_SCOPES)
+
+# Which Action Center categories a role may see and decide on. The generator
+# already tags every action staff | supply | capacity, so this needs no new data
+# model. `capacity` is cross-cutting (a surge affects both), so both managers
+# get it; nothing else crosses the line.
+_ALL_CATEGORIES = frozenset({"staff", "supply", "capacity"})
+ROLE_ACTION_CATEGORIES: dict[str, frozenset[str]] = {
+    "admin": _ALL_CATEGORIES,
+    "director": _ALL_CATEGORIES,
+    "planner": _ALL_CATEGORIES,
+    "viewer": _ALL_CATEGORIES,           # may read all, may decide none
+    "staff_manager": frozenset({"staff", "capacity"}),
+    "stock_manager": frozenset({"supply", "capacity"}),
+}
 
 SESSION_COOKIE = "hf_session"
 DEFAULT_TTL_SECONDS = 12 * 3600          # one shift
@@ -93,8 +172,18 @@ class User:
     username: str
     role: str
 
-    def can(self, minimum: str) -> bool:
-        return _ROLE_RANK.get(self.role, -1) >= _ROLE_RANK[minimum]
+    @property
+    def scopes(self) -> frozenset[str]:
+        return ROLE_SCOPES.get(self.role, frozenset())
+
+    def can(self, scope: str) -> bool:
+        """True if this role holds `scope`. An unknown scope is always False —
+        a typo in a route's requirement must deny, never wave everyone through."""
+        return scope in self.scopes
+
+    @property
+    def action_categories(self) -> frozenset[str]:
+        return ROLE_ACTION_CATEGORIES.get(self.role, frozenset())
 
 
 # ── Password hashing ─────────────────────────────────────────────────────────
