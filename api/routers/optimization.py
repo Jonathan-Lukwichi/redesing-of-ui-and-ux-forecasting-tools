@@ -14,13 +14,15 @@ from __future__ import annotations
 from typing import Any, Optional
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
 from core import simulation_data, optimization_engine as engine
 from core.forecasting import run_arima_forecast, run_ml_forecast
 from routers.forecast import _forecast_from_series, _series_for
+
+from core import security
 
 router = APIRouter(prefix="/api/optimization", tags=["optimization"])
 
@@ -200,7 +202,8 @@ async def _load_items() -> list[dict]:
 
 
 @router.post("/staff")
-async def run_staff(req: RunRequest) -> dict[str, Any]:
+async def run_staff(req: RunRequest, _rl=Depends(security.rate_limit("heavy")),
+                    _user=security.PlannerAccess) -> dict[str, Any]:
     """Run ONLY the staff (workforce IP) optimization."""
     forecast = await _get_week_forecast(req.model, req.start_date)
     staff = await _load_staff()
@@ -210,7 +213,8 @@ async def run_staff(req: RunRequest) -> dict[str, Any]:
 
 
 @router.post("/supply")
-async def run_supply(req: RunRequest) -> dict[str, Any]:
+async def run_supply(req: RunRequest, _rl=Depends(security.rate_limit("heavy")),
+                     _user=security.PlannerAccess) -> dict[str, Any]:
     """Run ONLY the supply optimization — under the requested policy family,
     or the standing policy when none is given (Plan C)."""
     forecast = await _get_week_forecast(req.model, req.start_date)
@@ -235,7 +239,7 @@ async def get_policy() -> dict[str, Any]:
 
 
 @router.put("/policy")
-async def put_policy(req: PolicyRequest) -> dict[str, Any]:
+async def put_policy(req: PolicyRequest, _user=security.PlannerAccess) -> dict[str, Any]:
     """Adopt a standing policy family (untuned: textbook parameters apply
     until /policy/tune is run)."""
     try:
@@ -246,7 +250,8 @@ async def put_policy(req: PolicyRequest) -> dict[str, Any]:
 
 
 @router.post("/policy/tune")
-async def tune_policy(req: PolicyRequest) -> dict[str, Any]:
+async def tune_policy(req: PolicyRequest, _rl=Depends(security.rate_limit("heavy")),
+                      _user=security.PlannerAccess) -> dict[str, Any]:
     """Grid-search the family's parameters per item on the shared simulator
     (on demand — nothing runs on page load)."""
     items = await _load_items()
@@ -272,7 +277,8 @@ async def tune_last() -> dict[str, Any]:
 
 
 @router.post("/run")
-async def run(req: RunRequest) -> dict[str, Any]:
+async def run(req: RunRequest, _rl=Depends(security.rate_limit("heavy")),
+              _user=security.PlannerAccess) -> dict[str, Any]:
     """Run BOTH optimizations (combined; used by the Action Center)."""
     forecast = await _get_week_forecast(req.model, req.start_date)
     staff = await _load_staff()

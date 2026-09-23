@@ -7,12 +7,14 @@
 from __future__ import annotations
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
 from ai import config, client as ai_client, context, prompts, telemetry, chat as ai_chat, actions as ai_actions, redact, audit
+
+from core import action_store, security
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -37,7 +39,7 @@ async def health() -> dict[str, Any]:
 
 
 @router.get("/usage")
-async def usage() -> dict[str, Any]:
+async def usage(_user=security.AdminAccess) -> dict[str, Any]:
     return telemetry.summary()
 
 
@@ -76,7 +78,9 @@ def _stream(surface: str, system: str, content: str):
 
 
 @router.post("/explain/forecast")
-async def explain_forecast(req: ExplainForecastRequest):
+async def explain_forecast(req: ExplainForecastRequest,
+                           _rl=Depends(security.rate_limit("ai")),
+                           _user=security.ReadAccess):
     return _explain("forecast", req.forecast)
 
 
@@ -111,7 +115,9 @@ def _explain(surface: str, data: dict[str, Any]):
 
 
 @router.post("/explain")
-async def explain(req: ExplainRequest):
+async def explain(req: ExplainRequest,
+                  _rl=Depends(security.rate_limit("ai")),
+                  _user=security.ReadAccess):
     return _explain(req.surface, req.context)
 
 
@@ -120,7 +126,9 @@ class BriefingRequest(BaseModel):
 
 
 @router.post("/briefing")
-async def briefing(req: BriefingRequest):
+async def briefing(req: BriefingRequest,
+                   _rl=Depends(security.rate_limit("ai")),
+                   _user=security.ReadAccess):
     if not config.configured():
         return _err(503, "ai_not_configured",
                     "Set ANTHROPIC_API_KEY in api/.env to enable the assistant.")
@@ -142,7 +150,9 @@ class ChatRequest(BaseModel):
 
 
 @router.post("/chat")
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest,
+               _rl=Depends(security.rate_limit("ai")),
+               _user=security.ReadAccess):
     if not config.configured():
         return _err(503, "ai_not_configured",
                     "Set ANTHROPIC_API_KEY in api/.env to enable the assistant.")
@@ -175,7 +185,8 @@ async def chat(req: ChatRequest):
 
 
 @router.get("/actions")
-async def actions():
+async def actions(_rl=Depends(security.rate_limit("ai")),
+                  _user=security.ReadAccess):
     if not config.configured():
         return _err(503, "ai_not_configured",
                     "Set ANTHROPIC_API_KEY in api/.env to enable the assistant.")
@@ -194,15 +205,21 @@ async def actions():
     import json as _json
     audit.log_event("actions", config.model_fast(), "live forecast/staff/supply/optimization signals",
                     _json.dumps(out.get("actions", []), default=str), in_t, out_t)
+
+    # The list is regenerated on every call and the generator gives items no
+    # stable id, so each one is matched back to its stored decision by content.
+    # Without this the page would keep re-raising something already dismissed.
+    out["actions"] = action_store.apply_decisions(out.get("actions", []))
+    out["summary"] = action_store.summary()
     return out
 
 
 @router.get("/audit")
-async def audit_log(n: int = 50) -> dict[str, Any]:
+async def audit_log(n: int = 50, _user=security.AdminAccess) -> dict[str, Any]:
     """Durable AI audit trail (most-recent-first) for the admin/governance view."""
     return {"events": audit.recent(n), "stats": audit.stats()}
 
 
 @router.get("/audit/stats")
-async def audit_stats() -> dict[str, Any]:
+async def audit_stats(_user=security.AdminAccess) -> dict[str, Any]:
     return audit.stats()

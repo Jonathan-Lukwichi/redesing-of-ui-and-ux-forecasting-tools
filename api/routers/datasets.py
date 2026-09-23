@@ -10,7 +10,7 @@ from dataclasses import asdict
 from typing import Any
 
 import pandas as pd
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile, Depends
 
 from core import registry, prepare_registry, data_source
 from core.datasets import (
@@ -21,6 +21,8 @@ from core.datasets import (
 )
 from core.joins import GROUPS
 
+
+from core import security
 
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
 
@@ -160,7 +162,7 @@ def _best_fit(df: pd.DataFrame, exclude_id: str) -> dict[str, Any] | None:
 # -- routes ---------------------------------------------------------------------
 
 @router.delete("")
-async def clear_all() -> dict[str, Any]:
+async def clear_all(_user=security.PlannerAccess) -> dict[str, Any]:
     """Wipe every loaded dataset from the in-memory registry. Also invalidates
     every built prepare group, since they all depend on these datasets."""
     ids = registry.loaded_ids()
@@ -236,7 +238,8 @@ def _ingest_csv(schema: DatasetSchema, raw: bytes, filename: str) -> dict[str, A
 
 
 @router.post("/{dataset_id}/upload")
-async def upload(dataset_id: str, file: UploadFile = File(...)) -> dict[str, Any]:
+async def upload(dataset_id: str, file: UploadFile = File(...),
+                 _user=security.PlannerAccess) -> dict[str, Any]:
     schema = get_schema(dataset_id)
     if schema is None:
         raise HTTPException(404, f"Unknown dataset id '{dataset_id}'. "
@@ -252,7 +255,7 @@ async def source_status() -> dict[str, Any]:
 
 
 @router.post("/{dataset_id}/fetch")
-async def fetch_from_source(dataset_id: str) -> dict[str, Any]:
+async def fetch_from_source(dataset_id: str, _user=security.PlannerAccess) -> dict[str, Any]:
     """Pull this dataset's CSV from the configured private data repo and run it
     through the same validation/storage path as an upload."""
     schema = get_schema(dataset_id)
@@ -304,7 +307,7 @@ async def preview(dataset_id: str, n: int = 10) -> dict[str, Any]:
 
 
 @router.delete("/{dataset_id}")
-async def clear(dataset_id: str) -> dict[str, Any]:
+async def clear(dataset_id: str, _user=security.PlannerAccess) -> dict[str, Any]:
     if get_schema(dataset_id) is None:
         raise HTTPException(404, f"Unknown dataset id '{dataset_id}'.")
     cleared = registry.clear(dataset_id)

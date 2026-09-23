@@ -1394,3 +1394,31 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
   background: var(--sidebar-bg, #0f1729); color: #cbd5e1; padding: 12px 14px;
   border-radius: var(--r-md); overflow-x: auto; font-size: 12px; margin-top: 8px;
 }
+
+/* Visually hidden but available to screen readers. Used for form labels whose
+   visual role is carried by a placeholder — a placeholder is not a label, and
+   removing it leaves the field unnamed for anyone not looking at the screen. */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Inline text button — used where an action sits inside a sentence (e.g. the
+   "history" toggle on an action's audit line) and a full .btn would break the
+   line's rhythm. Still a real <button>, so it is keyboard reachable. */
+.btn-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--brand);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.btn-link:hover { color: var(--brand-2); }

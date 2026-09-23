@@ -3,42 +3,54 @@ import PageHero from '../components/PageHero';
 import Icon from '../components/Icon';
 import { api } from '../api/client';
 import { aiApi } from '../api/aiClient';
+import { useSession } from '../auth/SessionContext';
+import SignIn from '../auth/SignIn';
 
 const C = { ink: '#0f172a', muted: '#64748b', teal: '#0d9488', navy: '#1e6091', red: '#dc2626', amber: '#d97706', green: '#15803d', line: '#eef0f3' };
-
-// NOTE: client-side gate only — a deliberate placeholder. Production must replace
-// this with real authentication / role-based access control (RBAC).
-const ADMIN_CODE = 'hf-admin-2026';
 
 // Real model identities (hidden from the public app; shown only here, to the
 // accountable admin — resolves the transparency vs. no-bias tension).
 const REAL_NAME = { ml: 'Gradient Boosting (XGBoost-family)', statistical: 'SARIMAX' };
 
 export default function Admin() {
-  const [code, setCode] = useState('');
-  const [ok, setOk] = useState(false);
+  const { user, can, status, configured, mode } = useSession();
 
-  if (!ok) {
+  // The gate is the SERVER's. This branch only decides what to render: the
+  // admin endpoints below enforce the role themselves and return 403 to a
+  // forged request, so rewriting this component in the console gains nothing.
+  if (status === 'loading') {
     return (
       <div className="content">
         <PageHero kicker="Restricted · Governance" title="Admin & AI Governance"
-          sub="Authorised users only. Real model identities, performance figures and the AI audit trail live here." image="/images/dashboard-bg.jpg" />
-        <div className="card" style={{ maxWidth: 460 }}>
-          <div className="card-body">
-            <div style={{ fontSize: 13, color: C.muted, marginBottom: 12, lineHeight: 1.6 }}>
-              This area exposes information kept out of the public app (exact model names, accuracy, and the AI audit log). Enter the admin code to continue.
+          sub="Checking your session…" image="/images/dashboard-bg.jpg" />
+      </div>
+    );
+  }
+
+  if (!can('admin')) {
+    return (
+      <div className="content">
+        <PageHero kicker="Restricted · Governance" title="Admin & AI Governance"
+          sub="Real model identities, performance figures and the AI audit trail live here."
+          image="/images/dashboard-bg.jpg" />
+        {user ? (
+          <div className="card" style={{ maxWidth: 520 }}>
+            <div className="card-body">
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>Admin role required</div>
+              <div style={{ fontSize: 'var(--step--1)', color: 'var(--text-3)', lineHeight: 1.6 }}>
+                You are signed in as <strong>{user.username}</strong> ({user.role}).
+                This area needs the admin role. Ask an operator to change it.
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input type="password" value={code} onChange={(e) => setCode(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && setOk(code === ADMIN_CODE)}
-                placeholder="Admin code" className="input"
-                style={{ flex: 1, border: '1px solid #cbd5e1', borderRadius: 8, padding: '9px 11px', fontSize: 13, fontFamily: 'inherit' }} />
-              <button className="btn btn-primary" onClick={() => setOk(code === ADMIN_CODE)}>Unlock</button>
-            </div>
-            {code && code !== ADMIN_CODE && <div style={{ color: C.red, fontSize: 12, marginTop: 8 }}>Incorrect code.</div>}
-            <div style={{ fontSize: 11, color: C.muted, marginTop: 12 }}>Demo gate only — replace with real authentication in production.</div>
           </div>
-        </div>
+        ) : (
+          <SignIn
+            title="Sign in to continue"
+            sub={configured || mode === 'open'
+              ? 'This area exposes exact model names, accuracy figures and the AI audit log — all kept out of the public app.'
+              : undefined}
+          />
+        )}
       </div>
     );
   }
@@ -141,7 +153,7 @@ function AdminContent() {
       </div>
 
       <div style={{ fontSize: 11, color: C.muted, margin: '14px 0 24px', lineHeight: 1.6, maxWidth: 760 }}>
-        The audit log records only aggregate operational content and confidentiality-scrubbed responses — no patient data and no hospital identity. For a real deployment, sign Anthropic's data-processing agreement, enable Zero Data Retention, set data residency, move the API key to a secrets manager, and replace this demo gate with proper authentication.
+        The audit log records only aggregate operational content and confidentiality-scrubbed responses — no patient data and no hospital identity. For a real deployment, sign Anthropic's data-processing agreement, enable Zero Data Retention, set data residency, move the API key to a secrets manager, and set AUTH_MODE=strict so every page requires a session (this area already does).
       </div>
     </div>
   );

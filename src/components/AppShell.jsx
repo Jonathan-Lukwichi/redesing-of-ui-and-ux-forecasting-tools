@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Icon from './Icon';
 import AskChat from './AskChat';
 import { api } from '../api/client';
+import { useSession } from '../auth/SessionContext';
 
 const MOBILE_QUERY = '(max-width: 820px)';
 
@@ -130,17 +131,39 @@ function Sidebar({ active, onNavigate, collapsed, onToggle, mobileOpen, sidebarR
           <Icon name="home" size={14} />
           {!collapsed && <span>Home</span>}
         </button>
-        <button
-          className="sidebar-footer-btn sidebar-footer-btn-danger"
-          onClick={() => { if (window.confirm('Sign out of HealthForecast AI?')) onNavigate('welcome'); }}
-          title="Sign out"
-          style={collapsed ? { justifyContent: 'center' } : undefined}
-        >
-          <Icon name="logout" size={14} />
-          {!collapsed && <span>Sign out</span>}
-        </button>
+        <SignOutButton collapsed={collapsed} onNavigate={onNavigate} />
       </div>
     </aside>
+  );
+}
+
+/* Sign out really ends the session: it clears the server-side cookie rather
+ * than only navigating away, which previously left a valid session behind on a
+ * shared ward computer for anyone who pressed Back. */
+function SignOutButton({ collapsed, onNavigate }) {
+  const { user, signOut } = useSession();
+  const [busy, setBusy] = useState(false);
+  const label = user ? `Sign out (${user.username})` : 'Sign out';
+
+  const click = async () => {
+    if (!window.confirm('Sign out of HealthForecast AI?')) return;
+    setBusy(true);
+    try { await signOut(); } catch { /* the navigation below still applies */ }
+    setBusy(false);
+    onNavigate('welcome');
+  };
+
+  return (
+    <button
+      className="sidebar-footer-btn sidebar-footer-btn-danger"
+      onClick={click}
+      disabled={busy}
+      title={label}
+      style={collapsed ? { justifyContent: 'center' } : undefined}
+    >
+      <Icon name="logout" size={14} />
+      {!collapsed && <span>{busy ? 'Signing out…' : label}</span>}
+    </button>
   );
 }
 

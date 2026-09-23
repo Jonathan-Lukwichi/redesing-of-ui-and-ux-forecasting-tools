@@ -23,7 +23,10 @@ class NumpyJSONResponse(ORJSONResponse):
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 _SERVE_FRONTEND = _STATIC_DIR.is_dir()
 
-from routers import forecast, staff, supply, kpis, upload, actions, datasets, prepare, explore, task1, task2, ai, optimization, reports
+from core import auth as core_auth, security
+from routers import (forecast, staff, supply, upload, datasets, prepare, explore,
+                     task1, task2, ai, optimization, reports, auth_routes,
+                     action_items)
 
 app = FastAPI(
     title="HealthForecast AI — Backend API",
@@ -48,19 +51,25 @@ async def _trim_after_heavy(request, call_next):
         gc.collect()
     return response
 
+# CORS was allow_origins=["*"] with no authentication, so any page on the
+# internet could call this API with a visitor's browser. Production serves the
+# built frontend from this same process (same origin, no CORS needed), so the
+# default list covers local development only. allow_credentials is required for
+# the session cookie to travel in dev, and a wildcard origin is forbidden
+# alongside it by the CORS spec — which is exactly the mistake being fixed.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # tighten in production
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=security.allowed_origins(),
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
+app.include_router(auth_routes.router)
 app.include_router(forecast.router)
 app.include_router(staff.router)
 app.include_router(supply.router)
-app.include_router(kpis.router)
 app.include_router(upload.router)
-app.include_router(actions.router)
 app.include_router(datasets.router)
 app.include_router(prepare.router)
 app.include_router(explore.router)
@@ -69,6 +78,7 @@ app.include_router(task2.router)
 app.include_router(ai.router)
 app.include_router(optimization.router)
 app.include_router(reports.router)
+app.include_router(action_items.router)
 
 
 @app.on_event("startup")
@@ -78,6 +88,45 @@ async def _bootstrap_groups() -> None:
     import asyncio
     from core import bootstrap
     asyncio.create_task(bootstrap.ensure_g1())
+
+
+# Strict mode is enforced here rather than by decorating every read route.
+# A choke point cannot be forgotten: a route added next month is covered the
+# moment it exists, whereas a missed `Depends(require_read)` is an open door
+# nobody notices. Write and admin routes keep their own explicit dependencies,
+# so they stay closed in every mode regardless of this.
+_STRICT_EXEMPT = ("/api/auth/", "/health", "/docs", "/openapi.json", "/redoc")
+
+
+@app.middleware("http")
+async def _enforce_strict_mode(request, call_next):
+    if security.auth_mode() == "strict" and request.url.path.startswith("/api/"):
+        if not request.url.path.startswith(_STRICT_EXEMPT):
+            if security.current_user(request) is None:
+                return NumpyJSONResponse(
+                    status_code=401,
+                    content={"detail": {"error": "not_authenticated",
+                                        "message": "Sign in to continue."}},
+                )
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def _security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "same-origin")
+    return response
+
+
+@app.get("/health")
+def health():
+    """Liveness plus the security posture, so a deployment can be checked from
+    outside without reading its environment."""
+    return {"status": "ok",
+            "auth_mode": security.auth_mode(),
+            "auth_configured": core_auth.auth_configured()}
 
 
 @app.get("/")
@@ -109,9 +158,6 @@ def root():
             "POST /api/supply/sweep",
             "GET  /api/supply/compare-demo",
             "GET  /api/supply/sweep-demo",
-            "GET  /api/kpis/demo",
-            "GET  /api/actions/demo",
-            "POST /api/actions",
             "POST /api/upload/patient",
             "POST /api/upload/inventory",
         ],
@@ -122,12 +168,31 @@ def root():
 if _SERVE_FRONTEND:
     app.mount("/assets", StaticFiles(directory=_STATIC_DIR / "assets"), name="assets")
 
+    _STATIC_ROOT = _STATIC_DIR.resolve()
+
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_fallback(full_path: str):
-        candidate = _STATIC_DIR / full_path
-        if full_path and ".." not in full_path and candidate.is_file():
-            return FileResponse(candidate)
-        return FileResponse(_STATIC_DIR / "index.html")
+        """Serve a built asset, or the SPA shell.
+
+        The containment check is a RESOLVED-PATH comparison, not a search for
+        "..". Filtering the string is not enough: `Path("/app/static") /
+        "/etc/passwd"` is `/etc/passwd`, because pathlib discards the left side
+        when the right side is absolute — and a request for `//etc/passwd`
+        arrives here as the absolute `full_path` `/etc/passwd`, containing no
+        "..". This route sits outside /api/, so no amount of AUTH_MODE closed
+        it either. Resolving first also collapses symlinks, which a string test
+        cannot see through.
+        """
+        if full_path:
+            try:
+                candidate = (_STATIC_ROOT / full_path.lstrip("/")).resolve()
+            except (OSError, ValueError, RuntimeError):
+                candidate = None
+            if (candidate is not None
+                    and candidate.is_relative_to(_STATIC_ROOT)
+                    and candidate.is_file()):
+                return FileResponse(candidate)
+        return FileResponse(_STATIC_ROOT / "index.html")
 
 
 if __name__ == "__main__":

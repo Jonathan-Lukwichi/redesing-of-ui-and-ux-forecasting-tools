@@ -4,7 +4,10 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL
   || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '');
 
 async function request(path, { method = 'GET', body, signal } = {}) {
-  const opts = { method, signal };
+  // credentials:'include' so the HttpOnly session cookie travels in dev, where
+  // the SPA is on :5173 and the API on :8000. In production both are the same
+  // origin and this is a no-op.
+  const opts = { method, signal, credentials: 'include' };
   if (body instanceof FormData) {
     opts.body = body;
   } else if (body !== undefined) {
@@ -38,6 +41,26 @@ async function request(path, { method = 'GET', body, signal } = {}) {
 }
 
 export const api = {
+  auth: {
+    login:  (username, password) =>
+      request('/api/auth/login', { method: 'POST', body: { username, password } }),
+    logout: () => request('/api/auth/logout', { method: 'POST' }),
+    me:     () => request('/api/auth/me'),
+    users:  () => request('/api/auth/users'),
+  },
+
+  // Action Center decisions. These persist server-side and carry the signed-in
+  // user, so the trail survives a refresh and names a real person.
+  actions: {
+    decide:    (body) => request('/api/actions/decision', { method: 'POST', body }),
+    decisions: () => request('/api/actions/decisions'),
+    history:   ({ action_key = null, limit = 100 } = {}) => {
+      const qs = new URLSearchParams({ limit: String(limit) });
+      if (action_key) qs.set('action_key', action_key);
+      return request(`/api/actions/history?${qs.toString()}`);
+    },
+  },
+
   forecastDemo: (signal) => request('/api/forecast/demo', { signal }),
 
   forecast: {

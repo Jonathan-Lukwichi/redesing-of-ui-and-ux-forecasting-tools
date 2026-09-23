@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Body, Depends
 from fastapi.concurrency import run_in_threadpool
 from typing import List, Dict, Any, Optional, Literal
 from pydantic import BaseModel
@@ -10,6 +10,8 @@ import pandas as pd
 
 from core.forecasting import auto_forecast, run_arima_forecast, run_ml_forecast, WEATHER_FEATURES
 from core import prepare_registry, weather as live_weather, validation
+
+from core import security
 
 router = APIRouter(prefix="/api/forecast", tags=["forecast"])
 
@@ -523,7 +525,8 @@ class ValidateRequest(BaseModel):
 
 
 @router.post("/validate")
-async def validate_engine(req: ValidateRequest) -> Dict[str, Any]:
+async def validate_engine(req: ValidateRequest, _rl=Depends(security.rate_limit("heavy")),
+                          _user=security.PlannerAccess) -> Dict[str, Any]:
     """Rolling-origin backtest for one engine at one horizon.
 
     Runs on demand only (one model fit per fold). The result is cached, so every

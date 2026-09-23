@@ -7,6 +7,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL
 
 async function streamPost(path, body, onDelta, signal) {
   const res = await fetch(`${API_BASE}${path}`, {
+    credentials: 'include',
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -27,8 +28,8 @@ async function streamPost(path, body, onDelta, signal) {
 }
 
 export const aiApi = {
-  health: () => fetch(`${API_BASE}/api/ai/health`).then((r) => r.json()),
-  usage: () => fetch(`${API_BASE}/api/ai/usage`).then((r) => r.json()),
+  health: () => fetch(`${API_BASE}/api/ai/health`, { credentials: 'include' }).then((r) => r.json()),
+  usage: () => fetch(`${API_BASE}/api/ai/usage`, { credentials: 'include' }).then((r) => r.json()),
 
   // Stream a plain-English explanation for any page surface.
   explain: (surface, context, onDelta, signal) =>
@@ -43,8 +44,8 @@ export const aiApi = {
     streamPost('/api/ai/chat', { messages }, onDelta, signal),
 
   // AI-ranked action list from live signals.
-  actions: () => fetch(`${API_BASE}/api/ai/actions`).then((r) => r.json()),
+  actions: () => fetch(`${API_BASE}/api/ai/actions`, { credentials: 'include' }).then((r) => r.json()),
 
   // Admin / governance: durable AI audit trail.
-  audit: (n = 50) => fetch(`${API_BASE}/api/ai/audit?n=${n}`).then((r) => r.json()),
+  audit: (n = 50) => fetch(`${API_BASE}/api/ai/audit?n=${n}`, { credentials: 'include' }).then((r) => r.json()),
 };

@@ -1,7 +1,9 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 import pandas as pd
 import io
 from typing import Dict, Any
+
+from core import security
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
 
@@ -36,7 +38,8 @@ def _detect_arrivals_col(df: pd.DataFrame) -> str | None:
 
 
 @router.post("/patient")
-async def upload_patient_data(file: UploadFile = File(...)) -> Dict[str, Any]:
+async def upload_patient_data(file: UploadFile = File(...),
+                              _user=security.PlannerAccess) -> Dict[str, Any]:
     content = await file.read()
     try:
         df = pd.read_csv(io.BytesIO(content))
@@ -74,7 +77,8 @@ async def upload_patient_data(file: UploadFile = File(...)) -> Dict[str, Any]:
 
 
 @router.post("/inventory")
-async def upload_inventory_data(file: UploadFile = File(...)) -> Dict[str, Any]:
+async def upload_inventory_data(file: UploadFile = File(...),
+                                _user=security.PlannerAccess) -> Dict[str, Any]:
     content = await file.read()
     try:
         df = pd.read_csv(io.BytesIO(content))

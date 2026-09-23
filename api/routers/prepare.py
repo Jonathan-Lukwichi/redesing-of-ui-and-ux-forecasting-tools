@@ -10,12 +10,14 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from core import prepare_registry, registry
 from core.joins import BUILDERS, GROUPS, GroupSpec, get_group
 
+
+from core import security
 
 router = APIRouter(prefix="/api/prepare", tags=["prepare"])
 
@@ -121,7 +123,7 @@ class BuildRequest(BaseModel):
 
 
 @router.post("/build")
-async def build(req: BuildRequest) -> dict[str, Any]:
+async def build(req: BuildRequest, _user=security.PlannerAccess) -> dict[str, Any]:
     spec = get_group(req.group)
     if spec is None:
         raise HTTPException(404, f"Unknown group '{req.group}'. Valid: {[g.id for g in GROUPS]}")
@@ -235,7 +237,7 @@ async def quality(group_id: str) -> dict[str, Any]:
 
 
 @router.delete("/{group_id}")
-async def clear(group_id: str) -> dict[str, Any]:
+async def clear(group_id: str, _user=security.PlannerAccess) -> dict[str, Any]:
     if get_group(group_id) is None:
         raise HTTPException(404, f"Unknown group '{group_id}'")
     cleared = prepare_registry.clear(group_id)
@@ -243,7 +245,7 @@ async def clear(group_id: str) -> dict[str, Any]:
 
 
 @router.delete("")
-async def clear_all() -> dict[str, Any]:
+async def clear_all(_user=security.PlannerAccess) -> dict[str, Any]:
     ids = prepare_registry.loaded_ids()
     prepare_registry.clear_all()
     return {"cleared": ids, "count": len(ids)}

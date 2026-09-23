@@ -53,7 +53,7 @@ Plus, when the AI assistant and the upload pipeline ship, there are two extra pi
 ## 4. Track 1 — The Demo site
 
 ### What it's for
-Showing the platform to anyone who hasn't seen it. Board meetings, vendor demos, recruitment, conferences, leadership briefings. The platform has demo endpoints already (`/api/forecast/demo`, `/api/staff/demo`, `/api/supply/demo`, `/api/kpis/demo`, `/api/actions/demo`) that produce realistic-looking output with no real patient data. The demo site uses only these.
+Showing the platform to anyone who hasn't seen it. Board meetings, vendor demos, recruitment, conferences, leadership briefings. The platform has demo endpoints already (`/api/forecast/demo`, `/api/staff/demo`, `/api/supply/demo`; `/api/kpis/demo` and `/api/actions/demo` were removed in the Phase 2 cleanup — they were unreachable duplicates) that produce realistic-looking output with no real patient data. The demo site uses only these.
 
 ### Where it lives
 - **Frontend:** Vercel or Netlify (free tier covers this).

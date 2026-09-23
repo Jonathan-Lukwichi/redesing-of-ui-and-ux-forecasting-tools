@@ -23,7 +23,10 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter
+from fastapi import Depends
 from pydantic import BaseModel, EmailStr
+
+from core import security
 
 from ai import config, client as ai_client, prompts, redact, audit
 from core import notify
@@ -120,7 +123,16 @@ class ReportEmailRequest(BaseModel):
 
 
 @router.post("/email")
-def email_report(body: ReportEmailRequest) -> dict[str, Any]:
+def email_report(body: ReportEmailRequest,
+                 user=security.PlannerAccess,
+                 _rl=Depends(security.rate_limit("email"))) -> dict[str, Any]:
+    """Email this week's report.
+
+    Previously unauthenticated and unlimited, which made it an open relay: any
+    caller could send an arbitrary PDF from the deployment's verified sender to
+    any address, and push arbitrary text into the model context on the way. It
+    now needs a planner session and is capped at five sends an hour per client,
+    and the audit record names who sent it."""
     model = config.pick_model(_SURFACE)
     system = prompts.report_email_note()
     content = json.dumps(body.context)[:6000]  # same defensive cap as chat context
@@ -155,6 +167,8 @@ def email_report(body: ReportEmailRequest) -> dict[str, Any]:
     )
 
     audit.log_event(_SURFACE, model, content, raw, usage_in, usage_out,
-                     extra={"sent": sent, "subject": subject})
+                     extra={"sent": sent, "subject": subject,
+                            "sent_by": getattr(user, "username", None),
+                            "recipient": str(body.to)})
 
     return {"sent": sent, "subject": subject, "note": html_body}
