@@ -128,7 +128,7 @@ export default function Landing({ onNavigate }) {
                     <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Next 7 days &middot; total arrivals</div>
                     <div style={{ fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 600, marginTop: 2, letterSpacing: '-0.5px' }}>443 <span style={{ fontSize: 13, color: 'var(--text-3)', fontWeight: 400 }}>patients</span></div>
                   </div>
-                  <div style={{ padding: '4px 10px', background: '#fef5f5', color: ALERT, borderRadius: 4, fontSize: 11, fontWeight: 600 }}>Peak: Thu</div>
+                  <div style={{ padding: '4px 10px', background: 'var(--tint-danger)', color: ALERT, borderRadius: 4, fontSize: 11, fontWeight: 600 }}>Peak: Thu</div>
                 </div>
                 <svg viewBox="0 0 320 100" width="100%" height="100" preserveAspectRatio="none">
                   <defs>
@@ -147,7 +147,7 @@ export default function Landing({ onNavigate }) {
                   {[59, 66, 71, 77, 65, 55, 50].map((v, i) => {
                     const isPeak = i === 3;
                     return (
-                      <div key={i} style={{ padding: 5, borderRadius: 4, textAlign: 'center', background: isPeak ? '#fef5f5' : 'white', border: '1px solid ' + (isPeak ? '#fecaca' : 'var(--divider)'), minWidth: 0 }}>
+                      <div key={i} style={{ padding: 5, borderRadius: 4, textAlign: 'center', background: isPeak ? 'var(--tint-danger)' : 'white', border: '1px solid ' + (isPeak ? 'var(--danger-border)' : 'var(--divider)'), minWidth: 0 }}>
                         <div style={{ fontSize: 8, color: 'var(--text-3)', textTransform: 'uppercase' }}>{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}</div>
                         <div style={{ fontSize: 12, fontWeight: 600, color: isPeak ? ALERT : 'var(--text)', margin: '1px 0' }}>{v}</div>
                       </div>
@@ -157,7 +157,7 @@ export default function Landing({ onNavigate }) {
                 <div style={{ fontSize: 9, color: 'var(--text-3)', marginTop: 6 }}>Each day carries a likely range. Plan with the range, not the point.</div>
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <div style={{ flex: 1, minWidth: 0, padding: '8px 10px', background: '#f0f5fa', borderRadius: 4, fontSize: 11 }}>
+                <div style={{ flex: 1, minWidth: 0, padding: '8px 10px', background: 'var(--tint-brand-2)', borderRadius: 4, fontSize: 11 }}>
                   <span style={{ color: 'var(--brand)', fontWeight: 600 }}>&#8599; Plan:</span> fair roster needs 2 locum shifts Thu, reorder 2 supply items
                 </div>
               </div>
@@ -167,7 +167,7 @@ export default function Landing({ onNavigate }) {
       </div>
 
       {/* PROBLEM STRIP - statistics demoted to sourced footnotes, cards lead with the cost */}
-      <div className="lp-pad" style={{ paddingTop: 'clamp(48px, 8vw, 80px)', paddingBottom: 'clamp(48px, 8vw, 80px)', background: 'white' }}>
+      <div className="lp-pad" style={{ paddingTop: 'clamp(48px, 8vw, 80px)', paddingBottom: 'clamp(48px, 8vw, 80px)', background: 'var(--surface)' }}>
         <div style={{ maxWidth: 1320, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 'clamp(28px, 6vw, 56px)' }}>
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, color: 'var(--brand)', textTransform: 'uppercase', marginBottom: 12 }}>The problem</div>
@@ -197,7 +197,7 @@ export default function Landing({ onNavigate }) {
       </div>
 
       {/* HOW IT WORKS - hospital's point of view only, no internal pipeline stages named */}
-      <div id="section-platform" className="lp-pad" style={{ paddingTop: 'clamp(56px, 9vw, 100px)', paddingBottom: 'clamp(56px, 9vw, 100px)', background: 'linear-gradient(180deg, var(--surface-2) 0%, #f0f5fa 100%)' }}>
+      <div id="section-platform" className="lp-pad" style={{ paddingTop: 'clamp(56px, 9vw, 100px)', paddingBottom: 'clamp(56px, 9vw, 100px)', background: 'linear-gradient(180deg, var(--surface-2) 0%, var(--tint-brand-2) 100%)' }}>
         <div style={{ maxWidth: 1320, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 'clamp(32px, 6vw, 64px)' }}>
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, color: 'var(--brand)', textTransform: 'uppercase', marginBottom: 12 }}>How it works</div>
@@ -211,7 +211,7 @@ export default function Landing({ onNavigate }) {
               { n: 3, t: 'Ask why, then act', d: 'The AI analyst explains any figure in plain language. Export the report, or email the alert to the ward manager before the shortfall happens.', icon: 'bolt' },
             ].map((s) => (
               <div key={s.n} style={{ position: 'relative', textAlign: 'center' }}>
-                <div style={{ width: 60, height: 60, borderRadius: 16, background: 'white', border: `2px solid ${BRAND}`, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: BRAND, boxShadow: '0 4px 16px rgba(13,148,136,0.14)' }}>
+                <div style={{ width: 60, height: 60, borderRadius: 16, background: 'var(--surface)', border: `2px solid ${BRAND}`, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: BRAND, boxShadow: '0 4px 16px rgba(13,148,136,0.14)' }}>
                   <Icon name={s.icon} size={24} />
                 </div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: BRAND, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Step {s.n}</div>
@@ -264,7 +264,7 @@ export default function Landing({ onNavigate }) {
       </div>
 
       {/* OUTCOMES */}
-      <div id="section-outcomes" className="lp-pad" style={{ paddingTop: 'clamp(56px, 9vw, 100px)', paddingBottom: 'clamp(24px, 4vw, 40px)', background: 'white' }}>
+      <div id="section-outcomes" className="lp-pad" style={{ paddingTop: 'clamp(56px, 9vw, 100px)', paddingBottom: 'clamp(24px, 4vw, 40px)', background: 'var(--surface)' }}>
         <div style={{ maxWidth: 1320, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 'clamp(32px, 6vw, 64px)' }}>
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, color: 'var(--brand)', textTransform: 'uppercase', marginBottom: 12 }}>Why hospitals choose this</div>
@@ -282,7 +282,7 @@ export default function Landing({ onNavigate }) {
               </div>
             ))}
           </div>
-          <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-2)', maxWidth: 640, margin: '0 auto', lineHeight: 1.6, padding: '18px 20px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10 }}>
+          <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-2)', maxWidth: 640, margin: '0 auto', lineHeight: 1.6, padding: '18px 20px', background: 'var(--tint-info)', border: '1px solid #bae6fd', borderRadius: 10 }}>
             A hospital spending R2m a year on agency cover recovers R200,000 from a 10
             percent reduction. Load your own history and see whether that is reachable,
             before you commit to anything.
@@ -291,10 +291,10 @@ export default function Landing({ onNavigate }) {
       </div>
 
       {/* NEW: report export + email alerts + AI analyst in action */}
-      <div className="lp-pad" style={{ paddingTop: 'clamp(40px, 6vw, 72px)', paddingBottom: 'clamp(40px, 6vw, 72px)', background: 'white' }}>
+      <div className="lp-pad" style={{ paddingTop: 'clamp(40px, 6vw, 72px)', paddingBottom: 'clamp(40px, 6vw, 72px)', background: 'var(--surface)' }}>
         <div style={{ maxWidth: 1320, margin: '0 auto' }}>
           <div className="lp-grid2" style={{ marginBottom: 'clamp(32px, 6vw, 56px)' }}>
-            <div style={{ padding: 'clamp(20px, 4vw, 28px)', background: '#f0f5fa', borderRadius: 12, border: '1px solid #dbe7f2', minWidth: 0 }}>
+            <div style={{ padding: 'clamp(20px, 4vw, 28px)', background: 'var(--tint-brand-2)', borderRadius: 12, border: '1px solid #dbe7f2', minWidth: 0 }}>
               <div style={{ width: 44, height: 44, borderRadius: 10, background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--brand)', marginBottom: 14 }}>
                 <Icon name="file" size={20} />
               </div>
@@ -304,7 +304,7 @@ export default function Landing({ onNavigate }) {
                 you put in front of a board.
               </div>
             </div>
-            <div style={{ padding: 'clamp(20px, 4vw, 28px)', background: '#f0f5fa', borderRadius: 12, border: '1px solid #dbe7f2', minWidth: 0 }}>
+            <div style={{ padding: 'clamp(20px, 4vw, 28px)', background: 'var(--tint-brand-2)', borderRadius: 12, border: '1px solid #dbe7f2', minWidth: 0 }}>
               <div style={{ width: 44, height: 44, borderRadius: 10, background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--brand)', marginBottom: 14 }}>
                 <Icon name="bell" size={20} />
               </div>
@@ -327,7 +327,7 @@ export default function Landing({ onNavigate }) {
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-              <div style={{ background: 'rgba(125,211,252,0.12)', border: '1px solid rgba(125,211,252,0.3)', color: '#e2f4fb', padding: '12px 16px', borderRadius: '12px 12px 12px 2px', fontSize: 13.5, lineHeight: 1.6, maxWidth: '88%' }}>
+              <div style={{ background: 'rgba(125,211,252,0.12)', border: '1px solid rgba(125,211,252,0.3)', color: 'var(--tint-info-2)', padding: '12px 16px', borderRadius: '12px 12px 12px 2px', fontSize: 13.5, lineHeight: 1.6, maxWidth: '88%' }}>
                 Thursday is forecast at 77 arrivals, above the weekly average. Your
                 current roster covers it with 2 locum shifts at R4,180. Booking those
                 shifts now, instead of on the day, keeps the cost at the planned rate.
@@ -357,20 +357,20 @@ export default function Landing({ onNavigate }) {
                   <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Next 7 days &middot; total arrivals</div>
                   <div style={{ fontSize: 22, fontWeight: 600, marginTop: 2 }}>{activeDept.total} <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 400 }}>patients</span></div>
                 </div>
-                <div style={{ padding: '4px 10px', background: '#fef5f5', color: ALERT, borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{activeDept.peakLabel}</div>
+                <div style={{ padding: '4px 10px', background: 'var(--tint-danger)', color: ALERT, borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{activeDept.peakLabel}</div>
               </div>
               <div className="lp-days">
                 {activeDept.days.map((v, i) => {
                   const isPeak = v === Math.max(...activeDept.days);
                   return (
-                    <div key={i} style={{ padding: 5, borderRadius: 4, textAlign: 'center', background: isPeak ? '#fef5f5' : 'var(--surface-2)', border: '1px solid ' + (isPeak ? '#fecaca' : 'var(--divider)'), minWidth: 0 }}>
+                    <div key={i} style={{ padding: 5, borderRadius: 4, textAlign: 'center', background: isPeak ? 'var(--tint-danger)' : 'var(--surface-2)', border: '1px solid ' + (isPeak ? 'var(--danger-border)' : 'var(--divider)'), minWidth: 0 }}>
                       <div style={{ fontSize: 8, color: 'var(--text-3)', textTransform: 'uppercase' }}>{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}</div>
                       <div style={{ fontSize: 12, fontWeight: 600, color: isPeak ? ALERT : 'var(--text)', margin: '1px 0' }}>{v}</div>
                     </div>
                   );
                 })}
               </div>
-              <div style={{ marginTop: 10, padding: '8px 10px', background: '#f0f5fa', borderRadius: 4, fontSize: 11 }}>
+              <div style={{ marginTop: 10, padding: '8px 10px', background: 'var(--tint-brand-2)', borderRadius: 4, fontSize: 11 }}>
                 <span style={{ color: 'var(--brand)', fontWeight: 600 }}>&#8599; Plan:</span> {activeDept.plan}
               </div>
             </div>

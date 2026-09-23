@@ -170,7 +170,7 @@ export default function PolicyEvidence({ onPolicyChange }) {
                     border: `1px solid ${isAdopted ? C.navy : isWinner ? C.teal : 'var(--border)'}`,
                     borderStyle: isBenchmark ? 'dashed' : 'solid',
                     borderRadius: 8, padding: '14px 14px',
-                    background: isAdopted ? '#f0f6fc' : isWinner ? '#ecfeff' : 'white',
+                    background: isAdopted ? 'var(--tint-brand)' : isWinner ? 'var(--accent-soft)' : 'var(--surface)',
                     opacity: busy.compare ? 0.55 : 1, transition: 'opacity .15s',
                     display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0,
                   }}>

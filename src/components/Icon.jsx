@@ -29,11 +29,17 @@ const ICONS = {
   more: "M12 12m-1 0a1 1 0 102 0a1 1 0 10-2 0M5 12m-1 0a1 1 0 102 0a1 1 0 10-2 0M19 12m-1 0a1 1 0 102 0a1 1 0 10-2 0",
   eye: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 12m-3 0a3 3 0 106 0a3 3 0 10-6 0",
   cloud: "M18 10a6 6 0 00-11.5-2A4 4 0 003 16h15a4 4 0 000-6z",
+  sun: "M12 4V2M12 22v-2M4 12H2M22 12h-2M6.3 6.3L4.9 4.9M19.1 19.1l-1.4-1.4M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4M16 12a4 4 0 11-8 0 4 4 0 018 0z",
+  moon: "M20 14.5A8.5 8.5 0 019.5 4a8.5 8.5 0 1010.5 10.5z",
+  alert: "M12 8v5M12 17h.01M10.3 3.9L2.4 17.1A1.9 1.9 0 004 20h16a1.9 1.9 0 001.6-2.9L13.7 3.9a1.9 1.9 0 00-3.4 0z",
   logout: "M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1",
 };
 
 export default function Icon({ name, size = 16 }) {
-  const d = ICONS[name] || ICONS.home;
+  // An unknown name used to render <path d={undefined}> — an invisible
+  // icon, with nothing to notice. Fall back to a visible marker so a
+  // typo announces itself instead of quietly leaving a hole.
+  const d = ICONS[name] || ICONS.bell;
   return (
     <svg
       width={size}

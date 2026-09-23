@@ -68,7 +68,7 @@ export default function Welcome({ onNavigate }) {
             Sign in
           </button>
 
-          <div style={{ marginTop: 28, padding: 14, background: '#f0f5fa', borderRadius: 8, fontSize: 12, color: 'var(--text-2)' }}>
+          <div style={{ marginTop: 28, padding: 14, background: 'var(--tint-brand-2)', borderRadius: 8, fontSize: 12, color: 'var(--text-2)' }}>
             <strong style={{ color: 'var(--brand)' }}>Try it now:</strong> sample credentials are already
             filled in, just click Sign in to explore the full platform.
           </div>

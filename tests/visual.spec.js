@@ -39,11 +39,19 @@ const VIEWPORTS = [
   { name: 'desktop', width: 1440, height: 900 },
 ];
 
+// Both themes get baselines. Light alone would leave dark mode unprotected —
+// and dark is the theme the night shift actually reads.
+const THEMES = ['light', 'dark'];
+
+for (const theme of THEMES) {
 for (const route of ROUTES) {
   for (const vp of VIEWPORTS) {
-    test(`${route} @ ${vp.name} — unchanged`, async ({ page }) => {
+    test(`${route} @ ${vp.name} [${theme}] — unchanged`, async ({ page }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height });
       await page.goto(`/#${route}`);
+      // Force the theme explicitly rather than relying on the OS preference,
+      // so a run is identical on any machine.
+      await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme);
 
       // Let failed API calls settle and ResizeObserver-driven charts measure.
       await page.waitForTimeout(1500);
@@ -62,7 +70,7 @@ for (const route of ROUTES) {
 
       await page.waitForTimeout(150);
 
-      await expect(page).toHaveScreenshot(`${route}-${vp.name}.png`, {
+      await expect(page).toHaveScreenshot(`${route}-${vp.name}-${theme}.png`, {
         fullPage: true,
         // Tuned against a canary: a 40px border added to <body> must fail
         // EVERY page. A ratio threshold does not do that — on a tall full-page
@@ -93,4 +101,5 @@ scale: 'css',
       });
     });
   }
+}
 }

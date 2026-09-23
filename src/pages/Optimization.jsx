@@ -133,7 +133,7 @@ export default function Optimization({ onNavigate }) {
               <button key={o.model} onClick={() => selectModel(o.model)} disabled={busy.staff || busy.supply} style={{
                 textAlign: 'left', cursor: busy.staff || busy.supply ? 'wait' : 'pointer', fontFamily: 'inherit',
                 border: `2px solid ${model === o.model ? C.navy : '#e5e9f0'}`, borderRadius: 10,
-                background: model === o.model ? '#f0f6fc' : '#fff', padding: '12px 14px',
+                background: model === o.model ? 'var(--tint-brand)' : 'var(--surface)', padding: '12px 14px',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
                   <strong style={{ fontSize: 13.5, color: C.ink }}>{o.label}</strong>
@@ -506,7 +506,7 @@ function SectionHeader({ n, title, desc }) {
   return (
     <div style={{ margin: '22px 0 12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--brand)', color: '#fff', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{n}</span>
+        <span style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--brand)', color: 'var(--surface)', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{n}</span>
         <span style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>{title}</span>
       </div>
       <div style={{ fontSize: 12.5, color: C.muted, marginTop: 5, marginLeft: 36 }}>{desc}</div>

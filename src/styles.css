@@ -49,6 +49,23 @@
   --c5: #dc2626;
   --c6: #475569;
 
+  /* Surfaces and tints that were written as literals in rules below. Each
+     keeps its exact current value, so adopting a token changes nothing in
+     light mode — it only gives the dark theme something to redefine. Without
+     these, a hardcoded #fff panel stays white at 03:00 and blinds the reader. */
+  --card-border-soft:  #e9ecf1;   /* explore cards / KPI tiles */
+  --danger-border:     #fecaca;
+  --danger-tint:       #fffafa;   /* danger-toned card background */
+  --notice-warn-bg:    #fffaf0;   /* the offline / degraded notice */
+  --notice-warn-border:#f3d9a8;
+  --brand-hover:       #174e76;   /* primary button, hover */
+  --on-brand:          #ffffff;   /* text on a filled brand/accent surface */
+  --tint-brand:        #f0f6fc;   /* selected option / soft brand panel */
+  --tint-brand-2:      #f0f5fa;
+  --tint-info:         #f0f9ff;
+  --tint-info-2:       #e2f4fb;
+  --tint-danger:       #fef5f5;
+
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
 
@@ -416,7 +433,7 @@ body {
 
 .topbar-search:focus {
   border-color: var(--brand);
-  background: white;
+  background: var(--surface);
 }
 
 .topbar-search-wrap {
@@ -554,7 +571,7 @@ body {
   border-color: var(--brand);
   color: white;
 }
-.btn-primary:hover { background: #174e76; color: white; }
+.btn-primary:hover { background: var(--brand-hover); color: var(--on-brand); }
 
 .btn-ghost {
   background: transparent;
@@ -992,14 +1009,14 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
 .exp-bar h1 { font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -0.3px; color: var(--text); }
 .exp-bar .exp-sub { font-size: 12px; color: var(--text-3); margin-top: 2px; }
 
-.exp-ranges { margin-left: auto; display: flex; gap: 4px; background: #fff; border: 1px solid #e4e7eb; border-radius: 9px; padding: 4px; }
+.exp-ranges { margin-left: auto; display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 4px; }
 .exp-ranges button { border: 0; background: transparent; font-family: inherit; font-size: 12px; font-weight: 600; color: var(--text-3); padding: 6px 12px; border-radius: 6px; cursor: pointer; }
-.exp-ranges button.on { background: #0d9488; color: #fff; }
+.exp-ranges button.on { background: var(--accent); color: var(--on-brand); }
 
-.exp-filter { display: flex; align-items: center; gap: 7px; background: #fff; border: 1px solid #e4e7eb; border-radius: 9px; padding: 8px 13px; font-size: 12px; font-weight: 600; color: #334155; cursor: pointer; font-family: inherit; }
+.exp-filter { display: flex; align-items: center; gap: 7px; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 8px 13px; font-size: 12px; font-weight: 600; color: var(--text-2); cursor: pointer; font-family: inherit; }
 
 .exp-kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 14px; }
-.exp-kpi { background: #fff; border: 1px solid #e9ecf1; border-radius: 13px; padding: 16px 16px 14px; position: relative; overflow: hidden; box-shadow: 0 1px 2px rgba(15,23,41,.04); transition: box-shadow .16s, transform .16s; }
+.exp-kpi { background: var(--surface); border: 1px solid var(--card-border-soft); border-radius: 13px; padding: 16px 16px 14px; position: relative; overflow: hidden; box-shadow: 0 1px 2px rgba(15,23,41,.04); transition: box-shadow .16s, transform .16s; }
 .exp-kpi:hover { box-shadow: 0 8px 22px rgba(15,23,41,.09); transform: translateY(-2px); }
 .exp-kpi .exp-accent { position: absolute; top: 0; left: 0; right: 0; height: 3px; opacity: .9; }
 .exp-kpi .exp-lab { font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .8px; }
@@ -1010,7 +1027,7 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
 .exp-kpi .exp-spark { position: absolute; right: 10px; bottom: 10px; opacity: .9; }
 
 .exp-grid { display: grid; gap: 14px; }
-.exp-card { background: #fff; border: 1px solid #e9ecf1; border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; box-shadow: 0 1px 2px rgba(15,23,41,.04); transition: box-shadow .16s, transform .16s; }
+.exp-card { background: var(--surface); border: 1px solid var(--card-border-soft); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; box-shadow: 0 1px 2px rgba(15,23,41,.04); transition: box-shadow .16s, transform .16s; }
 .exp-card:hover { box-shadow: 0 6px 20px rgba(15,23,41,.08); transform: translateY(-1px); }
 .exp-card.exp-np { padding: 0; }
 .exp-ct { font-size: 15px; font-weight: 700; letter-spacing: -0.2px; line-height: 1.25; color: var(--text); }
@@ -1026,7 +1043,7 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
 .exp-tbl td { padding: 12px 16px; border-bottom: 1px solid #f3f5f8; color: var(--text); }
 .exp-tbl tr:last-child td { border-bottom: 0; }
 .exp-tbl tbody tr { cursor: pointer; }
-.exp-tbl tbody tr:hover { background: #fafbfc; }
+.exp-tbl tbody tr:hover { background: var(--surface-2); }
 
 .exp-chip { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 8px; }
 
@@ -1077,7 +1094,7 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
   container-name: card;
 }
 .ui-card-dashed { border-style: dashed; background: var(--surface-2); }
-.ui-card[data-tone="danger"] { border-color: #fecaca; background: #fffafa; }
+.ui-card[data-tone="danger"] { border-color: var(--danger-border); background: var(--danger-tint); }
 
 .ui-card-header {
   display: flex;
@@ -1397,7 +1414,7 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
 /* ---------- Humanized empty / offline notice cards ---------- */
 .notice-card { border-radius: var(--r-xl); padding: 22px 24px; }
 .notice-empty { border: 2px dashed var(--border-2); background: transparent; text-align: center; }
-.notice-offline { background: #fffaf0; border: 1px solid #f3d9a8; }
+.notice-offline { background: var(--notice-warn-bg); border: 1px solid var(--notice-warn-border); }
 .notice-offline pre {
   background: var(--sidebar-bg, #0f1729); color: #cbd5e1; padding: 12px 14px;
   border-radius: var(--r-md); overflow-x: auto; font-size: 12px; margin-top: 8px;
@@ -1430,3 +1447,157 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
   cursor: pointer;
 }
 .btn-link:hover { color: var(--brand-2); }
+
+/* =============================================================================
+   DARK THEME
+   -----------------------------------------------------------------------------
+   Not a cosmetic preference in this product. The optimiser rosters nurses onto
+   a Night shift; those nurses read this dashboard at 03:00. Blue light
+   suppresses melatonin for roughly twice as long as comparable green light and
+   shifts circadian rhythm by about three hours rather than 1.5, which is why
+   clinical software vendors ship dark themes specifically for night staff.
+
+   Deliberately NOT an inversion. Saturated mid-tones that read well on white
+   vibrate on dark, so every hue is lifted and the surfaces are desaturated
+   navy-slate rather than neutral grey. Every value below was measured against
+   WCAG rather than eyeballed: body text 14.8:1, secondary 10.8:1, muted 7.2:1,
+   and every semantic colour at or above 6.3:1 on --surface.
+
+   Known limit, stated rather than papered over: the six chart series cannot all
+   be separated by LIGHTNESS as well as hue - six saturated hues on a dark
+   ground will always leave a pair close in luminance (here purple and red).
+   Series are distinguished by hue plus direct labels, as they are in the light
+   theme. Fixing it properly means fewer series or added pattern, which is a
+   design decision rather than a token change.
+
+   Applied two ways, which is the standard pattern:
+     - the OS preference, unless the user has explicitly chosen light;
+     - an explicit [data-theme="dark"], which wins over the OS.
+   ============================================================================= */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { color-scheme: dark; }
+  :root:not([data-theme="light"]) { --hf-dark: 1; }
+}
+:root[data-theme="dark"] { color-scheme: dark; --hf-dark: 1; }
+
+/* The palette itself, written once and referenced by both selectors above via
+   a shared block. Duplicated selector list rather than a preprocessor mixin,
+   because this stylesheet has no build step beyond Vite's bundling. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:           #0b1220;
+    --surface:      #111a2b;
+    --surface-2:    #162033;
+    --surface-3:    #1c2740;
+    --border:       #243044;
+    --border-2:     #2d3a52;
+    --divider:      #1c2537;
+
+    --text:         #e8edf5;
+    --text-2:       #c3ccdb;
+    --text-3:       #9aa8bd;
+    --text-4:       #7b8aa3;
+
+    --brand:        #6cb6e8;
+    --brand-2:      #9acdf0;
+    --brand-soft:   #16293d;
+    --accent:       #2dd4bf;
+    --accent-soft:  #10302e;
+
+    --success:        #4ade80;
+    --success-soft:   #0f2a1a;
+    --success-strong: #86efac;
+    --accent-purple:  #a78bfa;
+    --warning:      #fbbf24;
+    --warning-soft: #33250a;
+    --danger:       #f87171;
+    --danger-soft:  #3a1518;
+    --info:         #60a5fa;
+    --info-soft:    #14243f;
+    --purple:       #a78bfa;
+    --purple-soft:  #241a3d;
+
+    --c1: #6cb6e8;
+    --c2: #2dd4bf;
+    --c3: #fbbf24;
+    --c4: #a78bfa;
+    --c5: #f87171;
+    --c6: #94a3b8;
+
+    --sidebar-bg:          #070d18;
+    --sidebar-text:        #9aa8bd;
+    --sidebar-text-active: #ffffff;
+
+    --card-border-soft:  #243044;
+    --danger-border:     #5c2328;
+    --danger-tint:       #2a1416;
+    --notice-warn-bg:    #2e2510;
+    --notice-warn-border:#5a4410;
+    --brand-hover:       #8cc6ee;
+    --on-brand:          #06121f;
+  --tint-brand:        #16293d;
+  --tint-brand-2:      #142436;
+  --tint-info:         #10283c;
+  --tint-info-2:       #143040;
+  --tint-danger:       #2a1416;
+    --tint-brand:        #16293d;
+    --tint-brand-2:      #142436;
+    --tint-info:         #10283c;
+    --tint-info-2:       #143040;
+    --tint-danger:       #2a1416;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg:           #0b1220;
+  --surface:      #111a2b;
+  --surface-2:    #162033;
+  --surface-3:    #1c2740;
+  --border:       #243044;
+  --border-2:     #2d3a52;
+  --divider:      #1c2537;
+
+  --text:         #e8edf5;
+  --text-2:       #c3ccdb;
+  --text-3:       #9aa8bd;
+  --text-4:       #7b8aa3;
+
+  --brand:        #6cb6e8;
+  --brand-2:      #9acdf0;
+  --brand-soft:   #16293d;
+  --accent:       #2dd4bf;
+  --accent-soft:  #10302e;
+
+  --success:        #4ade80;
+  --success-soft:   #0f2a1a;
+  --success-strong: #86efac;
+  --accent-purple:  #a78bfa;
+  --warning:      #fbbf24;
+  --warning-soft: #33250a;
+  --danger:       #f87171;
+  --danger-soft:  #3a1518;
+  --info:         #60a5fa;
+  --info-soft:    #14243f;
+  --purple:       #a78bfa;
+  --purple-soft:  #241a3d;
+
+  --c1: #6cb6e8;
+  --c2: #2dd4bf;
+  --c3: #fbbf24;
+  --c4: #a78bfa;
+  --c5: #f87171;
+  --c6: #94a3b8;
+
+  --sidebar-bg:          #070d18;
+  --sidebar-text:        #9aa8bd;
+  --sidebar-text-active: #ffffff;
+
+  --card-border-soft:  #243044;
+  --danger-border:     #5c2328;
+  --danger-tint:       #2a1416;
+  --notice-warn-bg:    #2e2510;
+  --notice-warn-border:#5a4410;
+  --brand-hover:       #8cc6ee;
+  --on-brand:          #06121f;
+}

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Icon from './Icon';
+import ThemeToggle from './ThemeToggle';
 import AskChat from './AskChat';
 import { api } from '../api/client';
 import { useSession } from '../auth/SessionContext';
@@ -155,6 +156,7 @@ function Sidebar({ active, onNavigate, collapsed, onToggle, mobileOpen, sidebarR
           <Icon name="home" size={14} />
           {!collapsed && <span>Home</span>}
         </button>
+        <ThemeToggle collapsed={collapsed} />
         <SignOutButton collapsed={collapsed} onNavigate={onNavigate} />
       </div>
     </aside>
