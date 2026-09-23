@@ -2,6 +2,14 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
+  // The default run is the responsive suite only. Visual baselines are
+  // machine-specific (font rendering, GPU), so they are opt-in via
+  // --project=visual and must never fail someone else's CI.
+  projects: [
+    { name: 'responsive', testIgnore: /visual\.spec\.js/ },
+    { name: 'visual', testMatch: /visual\.spec\.js/ },
+  ],
+  snapshotPathTemplate: '{testDir}/__screenshots__/{arg}{ext}',
   timeout: 60_000,
   fullyParallel: true,
   reporter: [['list']],

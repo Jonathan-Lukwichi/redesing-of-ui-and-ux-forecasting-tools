@@ -22,4 +22,6 @@ jobs:
       - run: npm run build
       # Fails the build on horizontal overflow, chart console errors, clipped
       # card text or sub-24px hit areas at phone widths (320px included).
-      - run: npx playwright test --workers=2
+      # The responsive project only. The visual-baseline project is
+      # machine-specific and is guarded by VISUAL=1 so it cannot run here.
+      - run: npx playwright test --project=responsive --workers=2
