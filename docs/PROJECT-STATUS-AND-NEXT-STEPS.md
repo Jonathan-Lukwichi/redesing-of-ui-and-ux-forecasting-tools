@@ -331,11 +331,18 @@ Pin `pulp` to `>=2.7,<3` explicitly regardless, and either move the Dockerfile t
 
 ## 6. What still needs doing
 
-### Blocking the deploy
-1. **Diagnose and fix the `cc61f58` build failure** (§5). Nothing else in this
-   list reaches users until this is resolved.
-2. **Pin the 18 unpinned dependencies** and reconcile the Python version. This is
-   both the likely fix and the way to stop the problem recurring.
+### Blocking the deploy — resolved 26 Sep 2026
+1. ~~Diagnose and fix the `cc61f58` build failure~~ **Done.** The Render log
+   showed `ImportError: cannot import name 'LpStatus' from 'pulp'`: PuLP 4.0.0
+   had been released and removed both `LpStatus` and `PULP_CBC_CMD`. Fixed by
+   `pulp>=2.7,<4` (`d9eb747`); the deploy went live.
+2. ~~Pin the unpinned dependencies~~ **Done.** `api/requirements.lock` holds the
+   exact tested set (42 packages, transitive included), verified to have
+   cp312/manylinux wheels for every entry; the Dockerfile installs the lock, not
+   `requirements.txt`. Backend suite on that set: 234 passed, 1 skipped.
+   **Python version is still split:** the image is 3.12, Jonathan's local venv
+   is 3.14. The lock is proven to install on 3.12, but tests run on 3.14.
+   Aligning them means installing Python 3.12 locally and rebuilding the venv.
 
 ### Two design questions that need Jonathan's decision
 These are genuine trade-offs, not bugs, so they were left open rather than

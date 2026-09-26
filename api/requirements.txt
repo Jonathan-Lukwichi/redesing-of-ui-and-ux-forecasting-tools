@@ -1,3 +1,5 @@
+# What the app needs, with minimum versions. Production installs the exact,
+# tested set in requirements.lock instead -- keep the two in step.
 fastapi>=0.115
 uvicorn>=0.30
 # supabase>=2.10  # disabled: transitive pyiceberg fails to build on Python 3.14. Re-enable when needed.
