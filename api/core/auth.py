@@ -25,11 +25,20 @@ table would be lost on every restart and every scale event.
 * Tokens are delivered as `HttpOnly`, `SameSite=Strict`, `Secure` cookies, so
   page JavaScript — and anything injected into it — cannot read them.
 
-Roles are ordered, and a route asks for a MINIMUM role:
+Roles are territory, NOT rank. A route asks for a SCOPE; a role is a set of
+scopes; there is no ordering between roles. A stock manager is not a junior
+director, and a staff manager has no business reading the pharmacy's plan:
 
-    viewer  — read the forecasts, plans and explore pages
-    planner — run optimisations, upload data, email reports
-    admin   — model identities, accuracy figures, the AI audit log, user list
+    admin         — everything, including the data pipeline
+    director      — every page and operational number, decisions and alerts, but
+                    NOT accuracy figures, model identities or the AI audit log
+    staff_manager — forecasts and staffing; nothing in supply
+    stock_manager — forecasts and supply; nothing in staffing
+    viewer        — every read-only page, no authority
+    planner       — legacy middle rung of the old ladder, kept so existing
+                    AUTH_USERS entries keep working after the model changed shape
+
+See ROLE_SCOPES and ROLE_ACTION_CATEGORIES below for the authoritative mapping.
 
 Deployment
 ----------
