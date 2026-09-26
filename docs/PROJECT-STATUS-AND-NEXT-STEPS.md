@@ -344,22 +344,27 @@ Pin `pulp` to `>=2.7,<3` explicitly regardless, and either move the Dockerfile t
    is 3.14. The lock is proven to install on 3.12, but tests run on 3.14.
    Aligning them means installing Python 3.12 locally and rebuilding the venv.
 
-### Two design questions that need Jonathan's decision
-These are genuine trade-offs, not bugs, so they were left open rather than
-decided unilaterally:
+### Two design questions — decided by Jonathan, 26 Sep 2026
 
-1. **`POST /api/forecast/run` is unauthenticated but writes shared `_LAST_RUN`
-   state.** Under the `/last` materialisation pattern, every consumer — pages and
-   AI tools alike — reads that one cached result. So an anonymous visitor can
-   change what a signed-in director sees on screen. Options: (a) leave it, and
-   accept that the demo is shared; (b) require `forecast:read` for the run while
-   keeping the read of `/last` open; (c) keep a per-session cache. Option (b) is
-   the recommendation.
-2. **`/api/forecast/engines` serves `accuracy_pct` anonymously.** This directly
-   contradicts the governance rule that the public app never states accuracy
-   figures. Either the field is removed from the anonymous response and served
-   only under the `admin` scope, or the rule needs amending. The rule as written
-   says remove it.
+1. **`POST /api/forecast/run` writes shared `_LAST_RUN` state anonymously.**
+   **Decision: (a) leave it — the demo is shared.** No code change. Revisit if
+   real hospital users go live alongside public visitors.
+2. **`/api/forecast/engines` served `accuracy_pct` anonymously.**
+   **Decision: (a) admin-only. Done.** The route now takes `security.AdminAccess`
+   (test: `test_engine_accuracy_requires_admin`). The two forecast pages fetched
+   it on load but never rendered the result — that dead fetch is removed, which
+   also stops two model fits firing on every page visit.
+
+**Still open — found while doing item 2, not yet decided.** Accuracy figures
+still reach non-admin users by other routes: the forecast run result carries
+`confidence_pct`; the Total ED page's model cards show "≈N% accurate" and a
+"Validation MAPE" stat (`Task1Forecast.jsx`, around lines 423, 800–820, and a
+hardcoded "≈88% accurate" sentence near 408); `routers/optimization.py`
+returns `accuracy_pct` in several responses read by `Optimization.jsx`. Whether
+each of these is visible to a signed-out visitor was not checked screen by
+screen. The rule says admin-only, but the derived trust badge (`3e096af`) was
+built deliberately for managers — so this needs a decision on what "never
+states accuracy" covers before it is changed.
 
 ### Engineering work, in priority order
 

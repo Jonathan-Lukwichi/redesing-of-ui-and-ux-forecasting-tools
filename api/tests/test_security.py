@@ -81,6 +81,18 @@ def test_audit_surfaces_require_admin(client, path):
     assert client.get(path).status_code == 200
 
 
+def test_engine_accuracy_requires_admin(client):
+    """Accuracy figures are admin-only: /api/forecast/engines served
+    accuracy_pct to anyone. Only the admin page reads it."""
+    path = "/api/forecast/engines?group=g1"
+    assert client.get(path).status_code == 401
+    _login(client, "pam")
+    assert client.get(path).status_code == 403
+    client.post("/api/auth/logout")
+    _login(client, "ada")
+    assert client.get(path).status_code not in (401, 403)
+
+
 def test_user_list_never_exposes_password_hashes(client):
     _login(client, "ada")
     body = client.get("/api/auth/users").json()

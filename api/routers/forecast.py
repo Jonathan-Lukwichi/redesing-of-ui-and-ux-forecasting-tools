@@ -489,9 +489,11 @@ _ENGINE_CACHE: dict = {}
 
 
 @router.get("/engines")
-async def engine_accuracy(group: str = "g1", specialty: Optional[str] = None) -> Dict[str, Any]:
+async def engine_accuracy(group: str = "g1", specialty: Optional[str] = None,
+                          _user=security.AdminAccess) -> Dict[str, Any]:
     """Live accuracy of the two engines that actually run (SARIMAX + Gradient
-    Boosting) on this target, so the picker shows what the result will show."""
+    Boosting) on this target. Admin-only: accuracy figures never reach the
+    public app, and the Admin page is the only reader."""
     s, weekly = _series_for(group, specialty)
     key = (specialty or group, int(s.size),
            s.index[-1].strftime("%Y-%m-%d") if s.size else "-")

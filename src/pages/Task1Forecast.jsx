@@ -88,7 +88,6 @@ export default function Task1Forecast({ onNavigate }) {
   const [models, setModels]   = useState(null);   // 6 research models (technical section only)
   const [error,  setError]    = useState(null);
   const [engine, setEngine]   = useState('ml');    // the engine that actually runs
-  const [engineInfo, setEngineInfo] = useState(null); // live accuracy per engine
   const [horizon, setHorizon] = useState('7d');
   const [running, setRunning] = useState(false);
   const [result,  setResult]  = useState(null);
@@ -104,9 +103,6 @@ export default function Task1Forecast({ onNavigate }) {
     api.forecast.coverage('g1')
       .then((c) => { if (alive && c?.merged) setCoverage(c); })
       .catch(() => { /* coverage is best-effort; picker still works unbounded */ });
-    api.forecast.engines({ group: 'g1' })
-      .then((e) => { if (alive) setEngineInfo(e?.engines || null); })
-      .catch(() => { /* accuracy badges are best-effort */ });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

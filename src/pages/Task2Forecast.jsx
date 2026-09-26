@@ -93,7 +93,6 @@ export default function Task2Forecast({ onNavigate }) {
   const [error,     setError]     = useState(null);
   const [specialty, setSpecialty] = useState(null);
   const [engine,    setEngine]    = useState('ml');
-  const [engineInfo, setEngineInfo] = useState(null); // live accuracy per engine, for the current specialty
   const [horizon,   setHorizon]   = useState('7d');
   const [running,   setRunning]   = useState(false);
   const [result,    setResult]    = useState(null);
@@ -124,17 +123,6 @@ export default function Task2Forecast({ onNavigate }) {
   const selectedSpecialty = catalogue?.find((s) => s.specialty === specialty) || null;
   const isWeekly = selectedSpecialty?.resolution === 'weekly';
   const horizons = isWeekly ? WEEKLY_HORIZONS : DAILY_HORIZONS;
-
-  // Fetch live engine accuracy for the chosen specialty (so the picker matches the result).
-  useEffect(() => {
-    if (!specialty) return;
-    let alive = true;
-    setEngineInfo(null);
-    api.forecast.engines({ specialty })
-      .then((e) => { if (alive) setEngineInfo(e?.engines || null); })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, [specialty]);
 
   // Auto-correct horizon when switching to/from weekly specialties
   useEffect(() => {
