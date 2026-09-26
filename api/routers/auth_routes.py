@@ -76,7 +76,10 @@ def me(request: Request) -> dict[str, Any]:
         # sidebar can never offer a page the server would then refuse.
         "anonymous_scopes": (
             [] if security.auth_mode() == "strict"
-            else sorted(auth.ROLE_SCOPES["viewer"])
+            # With no accounts configured the deployment runs as a working demo:
+            # the compute features are usable, the dangerous ones are not.
+            else sorted(auth.UNCONFIGURED_SCOPES if not auth.auth_configured()
+                        else auth.ROLE_SCOPES["viewer"])
         ),
         "anonymous_action_categories": (
             [] if security.auth_mode() == "strict"

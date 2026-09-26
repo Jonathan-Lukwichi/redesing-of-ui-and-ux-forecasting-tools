@@ -30,7 +30,11 @@ export default function Landing({ onNavigate }) {
 
   return (
     <div className="lp-page" style={{ background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'Inter, system-ui, sans-serif', overflowY: 'auto' }}>
+      {/* The landing page renders outside AppShell, so it needs its own skip
+          link and landmark rather than inheriting them. */}
+      <a className="skip-link" href="#lp-main">Skip to main content</a>
 
+      <main id="lp-main" tabIndex={-1}>
       {/* Top nav */}
       <div className="lp-pad" style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 10,
@@ -130,7 +134,8 @@ export default function Landing({ onNavigate }) {
                   </div>
                   <div style={{ padding: '4px 10px', background: 'var(--tint-danger)', color: ALERT, borderRadius: 4, fontSize: 11, fontWeight: 600 }}>Peak: Thu</div>
                 </div>
-                <svg viewBox="0 0 320 100" width="100%" height="100" preserveAspectRatio="none">
+                <svg viewBox="0 0 320 100" width="100%" height="100" preserveAspectRatio="none"
+                     role="img" aria-label="Illustration: a week of forecast patient arrivals peaking on Thursday">
                   <defs>
                     <linearGradient id="lg-hero" x1="0" x2="0" y1="0" y2="1">
                       <stop offset="0" stopColor={BRAND} stopOpacity="0.3" />
@@ -441,6 +446,7 @@ export default function Landing({ onNavigate }) {
           <div>Made for South African hospitals. POPIA-conscious design.</div>
         </div>
       </div>
+      </main>
     </div>
   );
 }

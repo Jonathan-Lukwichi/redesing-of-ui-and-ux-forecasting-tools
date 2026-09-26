@@ -91,6 +91,7 @@ _HASH_LOCK = threading.Lock()
 # Scope vocabulary (verb-scoped so read and act are separable):
 SCOPES = (
     "forecast:read",    # the forecasts and the dashboard
+    "forecast:validate",# run a rolling-origin backtest (heavy, but read-side)
     "data:read",        # Explore, dataset and group listings
     "data:write",       # upload, build groups, run backtests
     "staff:read",       # staffing pages and rosters
@@ -122,17 +123,17 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
     # AI audit log — those stay with `admin`, per the governance rule that
     # accuracy is kept out of the front-line app. Reads the data pages but does
     # not run the pipeline.
-    "director": _READ_ONLY | {"actions:decide", "reports:send"},
+    "director": _READ_ONLY | {"forecast:validate", "actions:decide", "reports:send"},
 
     # Workforce / nursing management.
     "staff_manager": frozenset({
-        "forecast:read", "staff:read", "staff:plan",
+        "forecast:read", "forecast:validate", "staff:read", "staff:plan",
         "actions:read", "actions:decide", "reports:send", "assistant",
     }),
 
     # Pharmacy / stores.
     "stock_manager": frozenset({
-        "forecast:read", "supply:read", "supply:plan",
+        "forecast:read", "forecast:validate", "supply:read", "supply:plan",
         "actions:read", "actions:decide", "reports:send", "assistant",
     }),
 
@@ -142,7 +143,7 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
     # Legacy: the ladder's middle rung. Kept so existing AUTH_USERS entries
     # continue to work unchanged after the model changed shape underneath them.
     "planner": _READ_ONLY | {
-        "data:write", "staff:plan", "supply:plan",
+        "data:write", "forecast:validate", "staff:plan", "supply:plan",
         "actions:decide", "reports:send",
     },
 }
@@ -243,6 +244,37 @@ def _load_users() -> dict[str, tuple[str, str]]:
 
 def auth_configured() -> bool:
     return bool(_load_users())
+
+
+# What a deployment grants when NO accounts are configured.
+#
+# The first version of this made "no accounts" mean "nothing protected works",
+# which is the right instinct — a product that ships wide open by default is how
+# these things go wrong. But applied bluntly it also breaks the public demo: the
+# flagship Run-optimisation and backtest buttons return 503 on a deployment
+# nobody has configured yet, which is a bad first impression and an easy thing
+# to mistake for a broken app.
+#
+# So the closed-by-default rule is scoped to what is ACTUALLY dangerous rather
+# than to everything that happens to be a write:
+#
+#   OPEN unconfigured   running an optimisation or a backtest. These read
+#                       simulated data and return numbers. Nothing leaves the
+#                       server, no secret is exposed, and they are rate limited.
+#                       The cost is CPU, which the `heavy` bucket already caps.
+#
+#   CLOSED unconfigured reports:send  — sends real email from a verified domain
+#                       admin         — the AI audit log, model identities, users
+#                       data:write    — uploads and pipeline builds mutate server
+#                                       state and are an easy resource vector
+#
+# Configure AUTH_USERS and this stops applying entirely: every route goes back
+# to asking the signed-in user's role.
+UNCONFIGURED_SCOPES = frozenset({
+    "forecast:read", "forecast:validate", "data:read",
+    "staff:read", "supply:read", "staff:plan", "supply:plan",
+    "actions:read", "assistant",
+})
 
 
 def list_users() -> list[dict]:

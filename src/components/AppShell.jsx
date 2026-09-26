@@ -287,6 +287,11 @@ export default function AppShell({ active = 'dashboard', onNavigate, children })
   }, []);
 
   return (
+    <>
+    {/* Without this a keyboard user tabs through the whole sidebar on every
+        page load before reaching anything they came for. Hidden until focused
+        (see .skip-link in styles.css). */}
+    <a className="skip-link" href="#main-content">Skip to main content</a>
     <div className="app" style={isMobile ? undefined : {
       gridTemplateColumns: collapsed ? '72px 1fr' : 'minmax(220px, 280px) 1fr',
       transition: 'grid-template-columns .18s ease',
@@ -303,12 +308,16 @@ export default function AppShell({ active = 'dashboard', onNavigate, children })
       {isMobile && mobileOpen && (
         <div className="sidebar-backdrop" onClick={() => setMobileOpen(false)} />
       )}
-      <div className="main">
+      {/* A real <main> landmark, so assistive technology can jump straight to
+          the content and announce where it has landed. tabIndex -1 lets the
+          skip link above move focus here without making it tab-stoppable. */}
+      <main className="main" id="main-content" tabIndex={-1}>
         <Topbar crumbs={crumbs} onMenu={() => setMobileOpen(true)}
           menuOpen={mobileOpen} menuBtnRef={menuBtnRef} />
         {children}
-      </div>
+      </main>
       <AskChat />
     </div>
+    </>
   );
 }

@@ -357,3 +357,67 @@ def test_forwarded_for_is_ignored_unless_a_proxy_is_trusted(monkeypatch):
 
     monkeypatch.setenv("TRUST_PROXY", "1")
     assert security._client_key(req("1.1.1.1")) == "1.1.1.1"
+
+
+# ── The unconfigured-deployment posture ──────────────────────────────────────
+# "Closed by default" is right, but applied bluntly it turned an unconfigured
+# deployment into a wall of 503s including the flagship demo features. The rule
+# is now scoped to what is actually dangerous. Both halves are pinned here,
+# because getting either one wrong is a bad failure: too open leaks, too closed
+# looks broken.
+
+@pytest.fixture()
+def unconfigured(monkeypatch):
+    monkeypatch.delenv("AUTH_USERS", raising=False)
+    monkeypatch.setenv("AUTH_SECRET", "test-secret-not-a-real-one")
+    monkeypatch.setenv("AUTH_MODE", "protected")
+    monkeypatch.delenv("DEMO_INSECURE", raising=False)
+    for limiter in security.LIMITS.values():
+        limiter._hits.clear()
+    import main
+    return TestClient(main.app, base_url="https://testserver")
+
+
+@pytest.mark.parametrize("method,path,payload", [
+    ("post", "/api/optimization/staff",  {"model": "ml"}),
+    ("post", "/api/optimization/supply", {"model": "ml"}),
+    ("post", "/api/forecast/validate",   {"model": "ml", "horizon": 7}),
+])
+def test_demo_compute_works_without_accounts(unconfigured, method, path, payload):
+    """These read simulated data and return numbers. Nothing leaves the server
+    and they are rate limited, so a 503 here would only make the demo look
+    broken without making anything safer."""
+    status = getattr(unconfigured, method)(path, json=payload).status_code
+    assert status not in (401, 403, 503), (
+        f"{method.upper()} {path} returned {status} on an unconfigured deployment — "
+        "the demo's flagship feature is unreachable")
+
+
+@pytest.mark.parametrize("method,path,payload,why", [
+    ("post", "/api/reports/email", {"to": "a@b.com", "pdf_base64": "AA", "context": {}},
+     "sends real email from a verified domain"),
+    ("get",  "/api/ai/audit", None, "the AI audit log"),
+    ("get",  "/api/auth/users", None, "the user list"),
+    ("post", "/api/prepare/build", {"group_id": "g1"}, "mutates server state"),
+])
+def test_dangerous_surfaces_stay_closed_without_accounts(unconfigured, method, path, payload, why):
+    r = getattr(unconfigured, method)(path, json=payload) if payload is not None \
+        else getattr(unconfigured, method)(path)
+    assert r.status_code == 503, f"{path} ({why}) was reachable unconfigured"
+    assert r.json()["detail"]["error"] == "auth_not_configured"
+
+
+def test_the_error_names_what_it_cannot_do(unconfigured):
+    """A bare 'not configured' leaves an operator guessing. The message names
+    the capability and what to set."""
+    body = unconfigured.get("/api/ai/audit").json()["detail"]
+    assert "AUTH_USERS" in body["message"]
+    assert body["scope"] == "admin"
+
+
+def test_configuring_accounts_restores_full_role_enforcement(client):
+    """The posture is a fallback, not a hole: once accounts exist, every route
+    goes back to asking the signed-in user's role."""
+    assert client.post("/api/optimization/staff", json={"model": "ml"}).status_code == 401
+    _login(client, "viv")                      # viewer holds no :plan scope
+    assert client.post("/api/optimization/staff", json={"model": "ml"}).status_code == 403

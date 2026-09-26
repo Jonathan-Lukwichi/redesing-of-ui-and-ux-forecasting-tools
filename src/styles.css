@@ -15,7 +15,13 @@
   --text:         #0f172a;
   --text-2:       #334155;
   --text-3:       #64748b;
-  --text-4:       #94a3b8;
+  /* Darkened from #94a3b8 (2.56:1) to meet WCAG AA for body text. It was used
+     53 times for small secondary labels and failed even the 3:1 large-text
+     minimum, so it was the least readable thing in the app. The trade-off,
+     stated rather than hidden: it now sits close to --text-3 (4.76:1), so the
+     visual step between the two tiers comes mostly from size and weight rather
+     than colour. Legibility wins that argument. */
+  --text-4:       #6c7787;   /* 4.54:1 on white */
 
   --brand:        #1e6091;
   --brand-2:      #2f86c4;
@@ -33,7 +39,9 @@
   /* Used by the forecast and explore pages to mark a third category
      distinct from brand blue and accent teal. */
   --accent-purple: #7c3aed;
-  --warning:      #d97706;
+  /* Darkened from #d97706 (3.19:1) to reach AA. A warning colour that cannot
+     be read comfortably is the one colour you least want to fail. */
+  --warning:      #b36204;   /* 4.50:1 on white */
   --warning-soft: #fdf3e3;
   --danger:       #dc2626;
   --danger-soft:  #fbeaea;
@@ -44,7 +52,7 @@
 
   --c1: #1e6091;
   --c2: #0d9488;
-  --c3: #d97706;
+  --c3: #b36204;
   --c4: #7c3aed;
   --c5: #dc2626;
   --c6: #475569;
@@ -1600,4 +1608,67 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
   --notice-warn-border:#5a4410;
   --brand-hover:       #8cc6ee;
   --on-brand:          #06121f;
+}
+
+/* =============================================================================
+   ACCESSIBILITY
+   -----------------------------------------------------------------------------
+   The audit found: 2 :focus-visible rules in the whole stylesheet, no skip
+   link, no <main>, no reduced-motion handling, and status conveyed by colour
+   alone. Public-sector procurement — South African, NHS, US federal — asks for
+   a conformance statement, and a keyboard user currently cannot tell where they
+   are on the page.
+   ============================================================================= */
+
+/* --- Keyboard focus (WCAG 2.4.7, and 2.4.11 Focus Appearance) ---------------
+   One rule, applied to everything focusable, so a new control is covered the
+   day it is added rather than the day someone remembers. :focus-visible, not
+   :focus, so a mouse click does not leave a ring behind. The outline sits
+   OUTSIDE the element with an offset, so it never has to fight a background,
+   and it is two tones so it stays visible on both light and dark surfaces. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 28%, transparent);
+}
+/* On the dark sidebar the brand blue has too little to push against. */
+.sidebar :where(a, button, [tabindex]):focus-visible {
+  outline-color: var(--sidebar-text-active);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.22);
+}
+
+/* --- Skip link (WCAG 2.4.1) -------------------------------------------------
+   A keyboard user otherwise tabs through the entire sidebar on every page load
+   before reaching the content. Hidden until focused. */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -64px;
+  z-index: 10000;
+  background: var(--surface);
+  color: var(--brand);
+  border: 2px solid var(--brand);
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: top .12s ease-in-out;
+}
+.skip-link:focus { top: 8px; }
+
+/* --- Reduced motion (WCAG 2.3.3) -------------------------------------------
+   Vestibular disorders make large or sustained motion genuinely unpleasant.
+   Honour the OS setting rather than deciding for the reader. Motion is reduced
+   to near-zero rather than removed, because `animation: none` can leave an
+   element stuck on frame one of an entrance animation and therefore invisible. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* The landing backdrop is decorative and large — the worst combination. */
+  video { display: none !important; }
 }

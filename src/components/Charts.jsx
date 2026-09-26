@@ -72,6 +72,42 @@ export function formatHero(value, unit) {
   return `${formatNum(value, { decimals: typeof value === 'number' && value % 1 !== 0 ? 1 : 0 })}${unit ? '' : ''}`;
 }
 
+
+/* ── Accessibility for the chart layer ──────────────────────────────────────
+ * Every chart here is hand-rolled inline SVG, and until now not one of them had
+ * a text alternative: 22 components, zero `role`, zero `<title>`, zero labels.
+ * To a screen reader each one was an unlabelled graphic — WCAG 1.1.1, and the
+ * single hardest gap to close retroactively.
+ *
+ * `chartA11y` returns the props that make an SVG announce itself as one image
+ * with a name, rather than a tree of anonymous shapes. The summary is generated
+ * from the data the chart already has, so it stays true when the data changes —
+ * a hand-written caption drifts the first time someone edits the series.
+ */
+export function describeSeries(values = [], { unit = '', label = 'values' } = {}) {
+  const nums = values.map(Number).filter((v) => Number.isFinite(v));
+  if (!nums.length) return `${label}: no data`;
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  const mean = nums.reduce((a, b) => a + b, 0) / nums.length;
+  const u = unit ? ` ${unit}` : '';
+  const direction = nums.length > 1
+    ? (nums[nums.length - 1] > nums[0] ? ', trending up'
+      : nums[nums.length - 1] < nums[0] ? ', trending down' : ', flat')
+    : '';
+  return `${label}: ${nums.length} points, ranging ${formatNum(min)}${u} to `
+       + `${formatNum(max)}${u}, averaging ${formatNum(mean, { decimals: 1 })}${u}${direction}`;
+}
+
+export function chartA11y(summary) {
+  // role="img" collapses the SVG's internals into a single announced node.
+  // Without it a screen reader walks every <path> and <rect> individually,
+  // which is noise rather than information.
+  return summary
+    ? { role: 'img', 'aria-label': summary }
+    : { role: 'presentation', 'aria-hidden': 'true' };
+}
+
 // ---- KPI strip primitives --------------------------------------------------
 
 export function KPICard({ label, value, unit, deltaPct, deltaLabel, sparkline, accent = 'stable', sparklineColor, polarity = 'normal' }) {
@@ -287,7 +323,7 @@ export function RankedBars({ rows, valueKey = 'pct_deviation', labelKey = 'categ
   );
 }
 
-export function MonthlyIndexBars({ rows, baselineLabel = 'Annual mean', height = 240 }) {
+export function MonthlyIndexBars({ rows, baselineLabel = 'Annual mean', height = 240 , ariaLabel }) {
   const [svgRef, w] = useMeasuredWidth(720);
   const h = height, pad = { l: 48, r: 16, t: 26, b: 30 };
   if (!rows || !rows.length) return null;
@@ -299,7 +335,7 @@ export function MonthlyIndexBars({ rows, baselineLabel = 'Annual mean', height =
   const y = (v) => pad.t + innerH - ((v - min) / (max - min)) * innerH;
   const bw = (innerW / rows.length) * 0.68;
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+    <svg {...chartA11y(ariaLabel || describeSeries((rows||[]).map(r=>r.value ?? r.index ?? 0), {label:'Monthly index'}))} ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {[60, 80, 100, 110].map((v) => (
         <g key={v}>
           <line x1={pad.l} x2={w - pad.r} y1={y(v)} y2={y(v)} stroke={v === 100 ? '#cbd5e1' : 'var(--divider)'} strokeDasharray={v === 100 ? '4 4' : '0'} />
@@ -340,7 +376,7 @@ export function MonthlyIndexBars({ rows, baselineLabel = 'Annual mean', height =
   );
 }
 
-export function DonutWithCenter({ slices, size = 200, thickness = 30, centerHeadline, centerSub }) {
+export function DonutWithCenter({ slices, size = 200, thickness = 30, centerHeadline, centerSub , ariaLabel }) {
   const r = size / 2;
   const ri = r - thickness;
   const total = (slices || []).reduce((s, x) => s + (x.value || 0), 0);
@@ -348,7 +384,7 @@ export function DonutWithCenter({ slices, size = 200, thickness = 30, centerHead
   let a = -Math.PI / 2;
   return (
     <div style={{ position: 'relative', width: '100%', maxWidth: size, aspectRatio: '1 / 1', margin: '0 auto' }}>
-      <svg viewBox={`0 0 ${size} ${size}`} width="100%" height="100%">
+      <svg {...chartA11y(ariaLabel || `Breakdown of ${(slices||[]).length} categories: ` + (slices||[]).map(s=>`${s.label} ${formatNum(s.value)}`).join(', '))} viewBox={`0 0 ${size} ${size}`} width="100%" height="100%">
         {slices.map((s, i) => {
           const frac = (s.value || 0) / total;
           const a2 = a + frac * Math.PI * 2;
@@ -407,7 +443,7 @@ export function Sparkline({ data, color = 'var(--brand)', width = 80, height = 2
   );
 }
 
-export function LineChart({ series, height = 220, xLabels, showGrid = true, fillArea = true, peakIndex, peakLabel }) {
+export function LineChart({ series, height = 220, xLabels, showGrid = true, fillArea = true, peakIndex, peakLabel, ariaLabel }) {
   const uid = useId().replace(/[:]/g, '');
   const [svgRef, w] = useMeasuredWidth(720);
   const h = height, pad = { l: 44, r: 18, t: 14, b: 28 };
@@ -428,7 +464,7 @@ export function LineChart({ series, height = 220, xLabels, showGrid = true, fill
     ? shownLabels.map((_, i) => i * Math.floor((n - 1) / (shownLabels.length - 1))) : [];
 
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+    <svg {...chartA11y(ariaLabel || describeSeries(((series||[])[0]||{}).data || [], {label:'Trend'}))} ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       <defs>
         {series.map((s, si) => (
           <linearGradient key={si} id={`${uid}-g${si}`} x1="0" y1="0" x2="0" y2="1">
@@ -507,7 +543,7 @@ export function LineChart({ series, height = 220, xLabels, showGrid = true, fill
   );
 }
 
-export function BarChart({ data, height = 200, color = 'var(--brand)', labels, valueFmt = (v) => v, rotateLabels }) {
+export function BarChart({ data, height = 200, color = 'var(--brand)', labels, valueFmt = (v) => v, rotateLabels , ariaLabel }) {
   // Auto-rotate x-axis labels when there are many labels OR any label is long.
   const longestLabel = Math.max(0, ...(labels || []).map((l) => String(l || '').length));
   const shouldRotate = rotateLabels ?? (data.length > 6 || longestLabel > 8);
@@ -521,7 +557,7 @@ export function BarChart({ data, height = 200, color = 'var(--brand)', labels, v
   const lblStride = thinStride(data.length, innerW, shouldRotate ? 34 : 56);
   const showValues = bw >= 24;
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+    <svg {...chartA11y(ariaLabel || describeSeries(data||[], {label:'Bar chart'}))} ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {[0, 0.25, 0.5, 0.75, 1].map((t, i) => (
         <line key={i} x1={pad.l} x2={w - pad.r} y1={pad.t + innerH * (1 - t)} y2={pad.t + innerH * (1 - t)} stroke="var(--divider)" />
       ))}
@@ -545,13 +581,13 @@ export function BarChart({ data, height = 200, color = 'var(--brand)', labels, v
   );
 }
 
-export function Donut({ data, size = 180, thickness = 28 }) {
+export function Donut({ data, size = 180, thickness = 28 , ariaLabel }) {
   const r = size / 2, ri = r - thickness;
   const total = (data || []).reduce((s, d) => s + (d.value || 0), 0);
   if (!data || !data.length || total <= 0) return null;
   let a = -Math.PI / 2;
   return (
-    <svg viewBox={`0 0 ${size} ${size}`}
+    <svg {...chartA11y(ariaLabel || `Breakdown of ${(data||[]).length} categories`)} viewBox={`0 0 ${size} ${size}`}
       style={{ width: '100%', maxWidth: size, height: 'auto', aspectRatio: '1 / 1', display: 'block', margin: '0 auto' }}>
       {data.map((d, i) => {
         const frac = d.value / total;
@@ -569,7 +605,7 @@ export function Donut({ data, size = 180, thickness = 28 }) {
   );
 }
 
-export function StemPlot({ data, height = 200, color = 'var(--brand)', confidenceBand, labels }) {
+export function StemPlot({ data, height = 200, color = 'var(--brand)', confidenceBand, labels , ariaLabel }) {
   const [svgRef, w] = useMeasuredWidth(720);
   const h = height, pad = { l: 48, r: 16, t: 16, b: 30 };
   if (!data || !data.length) return null;
@@ -579,7 +615,7 @@ export function StemPlot({ data, height = 200, color = 'var(--brand)', confidenc
   const y = (v) => pad.t + innerH / 2 - (v / max) * (innerH / 2 - 6);
   const yZero = pad.t + innerH / 2;
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+    <svg {...chartA11y(ariaLabel || describeSeries(data||[], {label:'Values'}))} ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {confidenceBand != null && (
         <g>
           <rect x={pad.l} y={y(confidenceBand)} width={innerW} height={Math.max(0, y(-confidenceBand) - y(confidenceBand))} fill="var(--brand)" opacity="0.08" />
@@ -602,7 +638,7 @@ export function StemPlot({ data, height = 200, color = 'var(--brand)', confidenc
   );
 }
 
-export function BoxPlot({ data, labels, height = 220, color = 'var(--brand)' }) {
+export function BoxPlot({ data, labels, height = 220, color = 'var(--brand)' , ariaLabel }) {
   // data: [{ min, q1, median, q3, max, whisker_low?, whisker_high?, mean? }, ...]
   const [svgRef, w] = useMeasuredWidth(720);
   const h = height, pad = { l: 48, r: 16, t: 16, b: 30 };
@@ -617,7 +653,7 @@ export function BoxPlot({ data, labels, height = 220, color = 'var(--brand)' }) 
   const cw = (innerW / data.length) * 0.5;
 
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+    <svg {...chartA11y(ariaLabel || `Distribution across ${(data||[]).length} groups`)} ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {[0, 0.25, 0.5, 0.75, 1].map((t, i) => {
         const yv = yMin + t * (yMax - yMin);
         return (
@@ -647,7 +683,7 @@ export function BoxPlot({ data, labels, height = 220, color = 'var(--brand)' }) 
   );
 }
 
-export function StackedArea({ series, dates, colors, height = 220 }) {
+export function StackedArea({ series, dates, colors, height = 220 , ariaLabel }) {
   // series: { Label1: [v...], Label2: [v...] }, dates: [...]
   const labels = Object.keys(series);
   const n = dates.length;
@@ -672,7 +708,7 @@ export function StackedArea({ series, dates, colors, height = 220 }) {
   });
 
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+    <svg {...chartA11y(ariaLabel || `Stacked area of ${(series||[]).length} series over ${(dates||[]).length} periods`)} ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {paths.map((p) => <path key={p.label} d={p.path} fill={p.color} opacity="0.8" />)}
       <line x1={pad.l} x2={w - pad.r} y1={pad.t + innerH} y2={pad.t + innerH} stroke="#cbd5e1" />
       {[0, 0.5, 1].map((t, i) => (
@@ -686,7 +722,7 @@ export function StackedArea({ series, dates, colors, height = 220 }) {
 
 const COLOR_CYCLE = ['var(--brand)', 'var(--accent)', 'var(--warning)', 'var(--purple)', 'var(--danger)', 'var(--success)', '#475569', '#f59e0b'];
 
-export function ScatterPlot({ points, height = 240, xLabels = [], colorMap = {} }) {
+export function ScatterPlot({ points, height = 240, xLabels = [], colorMap = {} , ariaLabel }) {
   // points: [{ x: index, y: number, category, regime }] OR [{ date, value, category }]
   const [svgRef, w] = useMeasuredWidth(760);
   const h = height, pad = { l: 48, r: 16, t: 12, b: 30 };
@@ -701,7 +737,7 @@ export function ScatterPlot({ points, height = 240, xLabels = [], colorMap = {} 
     normal: 'var(--brand)', high: 'var(--warning)', peak: 'var(--danger)', zero: 'var(--text-4)', missing: 'var(--border)',
   };
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+    <svg {...chartA11y(ariaLabel || `Scatter plot of ${(points||[]).length} points`)} ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {[0, 0.25, 0.5, 0.75, 1].map((t, i) => (
         <line key={i} x1={pad.l} x2={w - pad.r} y1={pad.t + innerH * (1 - t)} y2={pad.t + innerH * (1 - t)} stroke="var(--divider)" />
       ))}
@@ -720,7 +756,7 @@ export function ScatterPlot({ points, height = 240, xLabels = [], colorMap = {} 
   );
 }
 
-export function DivergingMatrix({ rows, columns, data, height = 280, max: maxOverride }) {
+export function DivergingMatrix({ rows, columns, data, height = 280, max: maxOverride , ariaLabel }) {
   // data: 2D array of numbers (rows × columns), centred at 0
   const [svgRef, w] = useMeasuredWidth(760);
   const h = height, pad = { l: 140, r: 12, t: 12, b: 80 };
@@ -730,7 +766,7 @@ export function DivergingMatrix({ rows, columns, data, height = 280, max: maxOve
   const flat = data.flat().filter((v) => v != null && Number.isFinite(v));
   const m = maxOverride || Math.max(1, ...flat.map(Math.abs));
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+    <svg {...chartA11y(ariaLabel || `Matrix of ${(rows||[]).length} rows by ${(columns||[]).length} columns`)} ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {rows.map((rl, ri) => (
         <text key={'r' + ri} x={pad.l - 8} y={pad.t + (ri + 0.65) * cellH} textAnchor="end" fontSize="11" fill="#475569">{rl}</text>
       ))}
@@ -769,7 +805,7 @@ export function DivergingMatrix({ rows, columns, data, height = 280, max: maxOve
   );
 }
 
-export function Heatmap({ data, rows, cols, height = 200, max: maxProp }) {
+export function Heatmap({ data, rows, cols, height = 200, max: maxProp , ariaLabel }) {
   const [svgRef, w] = useMeasuredWidth(720);
   const h = height, pad = { l: 68, r: 16, t: 12, b: 30 };
   if (!data || !data.length || !rows?.length || !cols?.length) return null;
@@ -777,7 +813,7 @@ export function Heatmap({ data, rows, cols, height = 200, max: maxProp }) {
   const cellH = (h - pad.t - pad.b) / rows.length;
   const m = maxProp || Math.max(1e-9, ...data.flat().filter(Number.isFinite));
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+    <svg {...chartA11y(ariaLabel || `Heatmap, ${(rows||[]).length} rows by ${(cols||[]).length} columns`)} ref={svgRef} viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
       {rows.map((rl, ri) => (
         <text key={'r' + ri} x={pad.l - 8} y={pad.t + (ri + 0.65) * cellH} textAnchor="end" fontSize="12" fill="var(--text-3)">{rl}</text>
       ))}

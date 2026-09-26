@@ -179,6 +179,7 @@ def current_user(request: Request) -> Optional[User]:
 # they are standing outside of rather than printing an internal token at them.
 _SCOPE_LABEL = {
     "forecast:read":  "view forecasts",
+    "forecast:validate": "run a forecast backtest",
     "data:read":      "view the data pages",
     "data:write":     "upload or prepare data",
     "staff:read":     "view staffing",
@@ -214,12 +215,19 @@ def require_scope(scope: str) -> Callable:
         user = current_user(request)
         if user is None:
             if not auth.auth_configured():
-                # Closed by default: no accounts means no access, rather than
-                # a deployment that forgot to configure users being wide open.
+                # No accounts configured. The dangerous surfaces stay shut; the
+                # demo compute features stay usable, so an unconfigured
+                # deployment is a working demo rather than a wall of 503s.
+                # See auth.UNCONFIGURED_SCOPES for why each line falls where it
+                # does.
+                if scope in auth.UNCONFIGURED_SCOPES:
+                    return User(username="guest", role="viewer")
                 raise HTTPException(503, {
                     "error": "auth_not_configured",
-                    "message": ("This deployment has no user accounts configured, so "
-                                "protected features are unavailable. Set AUTH_USERS "
+                    "scope": scope,
+                    "message": (f"This deployment has no user accounts configured, so "
+                                f"it cannot {_SCOPE_LABEL.get(scope, scope)}. "
+                                "Set AUTH_USERS to enable role-based access "
                                 "(see api/.env.example)."),
                 })
             raise HTTPException(401, {"error": "not_authenticated",
@@ -267,6 +275,7 @@ StaffPlanAccess  = Depends(require_scope("staff:plan"))
 SupplyPlanAccess = Depends(require_scope("supply:plan"))
 DataWriteAccess  = Depends(require_scope("data:write"))
 ReportSendAccess = Depends(require_scope("reports:send"))
+ValidateAccess   = Depends(require_scope("forecast:validate"))
 DecideAccess     = Depends(require_scope("actions:decide"))
 BothPlanAccess   = Depends(require_all_scopes("staff:plan", "supply:plan"))
 

@@ -526,7 +526,7 @@ class ValidateRequest(BaseModel):
 
 @router.post("/validate")
 async def validate_engine(req: ValidateRequest, _rl=Depends(security.rate_limit("heavy")),
-                          _user=security.DataWriteAccess) -> Dict[str, Any]:
+                          _user=security.ValidateAccess) -> Dict[str, Any]:
     """Rolling-origin backtest for one engine at one horizon.
 
     Runs on demand only (one model fit per fold). The result is cached, so every

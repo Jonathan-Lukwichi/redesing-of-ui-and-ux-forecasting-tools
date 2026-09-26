@@ -29,7 +29,7 @@ ENDPOINTS = [
     ("post",   "/api/prepare/build",        {"group_id": "g1"}, "data:write"),
     ("delete", "/api/prepare/g1",           None,             "data:write"),
     ("delete", "/api/datasets/daily_arrival", None,           "data:write"),
-    ("post",   "/api/forecast/validate",    {"model": "ml", "horizon": 7}, "data:write"),
+    ("post",   "/api/forecast/validate",    {"model": "ml", "horizon": 7}, "forecast:validate"),
     ("post",   "/api/reports/email",        {"to": "a@b.com", "pdf_base64": "AA", "context": {}},
      "reports:send"),
     ("get",    "/api/ai/audit",             None,             "admin"),
