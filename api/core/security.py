@@ -243,6 +243,15 @@ def require_scope(scope: str) -> Callable:
     return _dep
 
 
+def sees_accuracy(request: Request) -> bool:
+    """Whether this caller may see accuracy figures (see core.disclosure).
+    Never raises: used to shape a response, not to refuse one."""
+    if auth_mode() == "open":
+        return True
+    user = current_user(request)
+    return user is not None and user.can("admin")
+
+
 def require_all_scopes(*scopes: str) -> Callable:
     """For a route that does two territories' work at once — the combined
     optimisation runs both the roster and the reorder plan, so only someone who

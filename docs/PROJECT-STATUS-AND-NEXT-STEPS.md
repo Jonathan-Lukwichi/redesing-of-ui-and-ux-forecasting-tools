@@ -366,6 +366,25 @@ screen. The rule says admin-only, but the derived trust badge (`3e096af`) was
 built deliberately for managers — so this needs a decision on what "never
 states accuracy" covers before it is changed.
 
+**Decided and done (27 Sep 2026): no scores for non-admins, keep the
+plain-English badge.** `api/core/disclosure.py` defines the accuracy fields
+(MAPE, MASE, accuracy/confidence percentages, `*_pct_error`); a middleware in
+`main.py` strips them from every `/api/` JSON response unless the caller has
+the `admin` scope. It is one choke point, so a new route is covered
+automatically, and it redacts a copy, so the shared `/last` cache is untouched.
+`ForecastTrust.jsx` now words its verdict without MASE or a coverage
+percentage. The "≈N% accurate" model cards turned out to be dead code (never
+mounted); they now also receive no MAPE. The typical miss in patients (MAE) and
+`beats_seasonal_naive` still reach everyone. The AI assistant reads the cache
+in-process, so it still sees the figures and relies on its prompt rule.
+Tests: `test_accuracy_figures_are_stripped_for_non_admins`,
+`test_admin_still_sees_accuracy_figures`.
+
+**Known on Jonathan's Windows machine:** 3–4 responsive checks on Landing and
+Welcome (`no horizontal overflow` at 320/390/768px) time out while taking a
+screenshot. They fail the same way on the code before this change, so they
+are pre-existing and machine-specific; not yet investigated.
+
 ### Engineering work, in priority order
 
 **High — correctness of published numbers**

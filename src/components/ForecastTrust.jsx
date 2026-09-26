@@ -18,6 +18,14 @@
  */
 import { TOKENS as C } from './trustTokens';
 
+// How often the stated range held the real number, in words rather than a score.
+function rangeNote(coveragePct) {
+  if (coveragePct == null) return '';
+  if (coveragePct >= 90) return '; the stated range held the real number almost every day';
+  if (coveragePct >= 75) return '; the stated range held the real number on most days';
+  return '; the stated range missed often, so allow extra margin';
+}
+
 function state(data) {
   if (!data) return null;
   const horizon = (data.forecast || []).length;
@@ -39,12 +47,11 @@ function state(data) {
       label: beats === false
         ? 'Backtested — not beating a simple rule'
         : `Backtested on ${v.n_folds} past weeks`,
+      // Plain English only: accuracy scores (MASE, percentages) are admin-only
+      // and the API strips them for everyone else (api/core/disclosure.py).
       detail: beats === false
-        ? `At this horizon the model does no better than assuming next week repeats last week (MASE ${v.mase}). Plan with the range, and prefer the other engine.`
-        : `Typically within ${Math.round(v.horizon_mae)} patients a day${
-            v.pi_coverage_pct != null
-              ? `; the stated range caught ${Math.round(v.pi_coverage_pct)}% of days`
-              : ''}.`,
+        ? 'At this horizon the model does no better than assuming next week repeats last week. Plan with the range, and prefer the other engine.'
+        : `Typically within ${Math.round(v.horizon_mae)} patients a day${rangeNote(v.pi_coverage_pct)}.`,
     };
   }
 

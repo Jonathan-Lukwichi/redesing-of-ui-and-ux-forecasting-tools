@@ -4,7 +4,7 @@ from pathlib import Path
 import orjson
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, ORJSONResponse
+from fastapi.responses import FileResponse, ORJSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
@@ -23,7 +23,7 @@ class NumpyJSONResponse(ORJSONResponse):
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 _SERVE_FRONTEND = _STATIC_DIR.is_dir()
 
-from core import auth as core_auth, security
+from core import auth as core_auth, disclosure, security
 from routers import (forecast, staff, supply, upload, datasets, prepare, explore,
                      task1, task2, ai, optimization, reports, auth_routes,
                      action_items)
@@ -109,6 +109,24 @@ async def _enforce_strict_mode(request, call_next):
                                         "message": "Sign in to continue."}},
                 )
     return await call_next(request)
+
+
+@app.middleware("http")
+async def _redact_accuracy(request, call_next):
+    """Accuracy figures are admin-only (core/disclosure.py). Applied here, at
+    one choke point, for the same reason as strict mode: a route added next
+    month that happens to return a MAPE is covered the moment it exists."""
+    response = await call_next(request)
+    if (not request.url.path.startswith("/api/")
+            or "application/json" not in response.headers.get("content-type", "")
+            or security.sees_accuracy(request)):
+        return response
+    body = b"".join([chunk async for chunk in response.body_iterator])
+    if any(m in body for m in disclosure.MARKERS):
+        body = orjson.dumps(disclosure.redact_accuracy(orjson.loads(body)))
+    headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+    return Response(content=body, status_code=response.status_code,
+                    headers=headers, media_type="application/json")
 
 
 @app.middleware("http")

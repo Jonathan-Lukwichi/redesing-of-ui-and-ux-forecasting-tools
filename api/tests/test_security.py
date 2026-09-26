@@ -93,6 +93,52 @@ def test_engine_accuracy_requires_admin(client):
     assert client.get(path).status_code not in (401, 403)
 
 
+_ACCURACY_LEAKS = ("confidence_pct", "confidence_tier", "mape", "validated_mase")
+
+
+def _seed_last_forecast(monkeypatch):
+    from routers import forecast
+    run = {"kind": "total", "ran_at": "2026-09-26T12:00:00", "result": {
+        "forecast": [{"date": "2026-10-01", "predicted": 101.0}],
+        "mae": 9.1, "confidence_pct": 88.2, "confidence_tier": "high",
+        "mape": 11.8, "validated_mase": 1.1,
+        "validation": {"beats_seasonal_naive": False, "horizon_mae": 9.0,
+                       "mase": 1.1, "per_step": [{"step": 1, "mae": 8.0, "mape": 10.0}]},
+    }}
+    monkeypatch.setattr(forecast, "_LAST_RUN", run)
+    return run
+
+
+def test_accuracy_figures_are_stripped_for_non_admins(client, monkeypatch):
+    """Accuracy percentages, MAPE and MASE are admin-only. Everyone else still
+    gets the forecast, the typical miss in patients, and the plain-English
+    verdict on whether it beats the simple rule."""
+    run = _seed_last_forecast(monkeypatch)
+    for who in (None, "pam"):
+        if who:
+            _login(client, who)
+        res = client.get("/api/forecast/last").json()["result"]
+        for key in _ACCURACY_LEAKS:
+            assert key not in res, f"{key} reached {who or 'an anonymous visitor'}"
+        assert "mase" not in res["validation"]
+        assert "mape" not in res["validation"]["per_step"][0]
+        assert res["mae"] == 9.1
+        assert res["forecast"][0]["predicted"] == 101.0
+        assert res["validation"]["beats_seasonal_naive"] is False
+        assert res["validation"]["horizon_mae"] == 9.0
+        client.post("/api/auth/logout")
+    # Redaction is a copy: the shared /last result every consumer reads is intact.
+    assert run["result"]["confidence_pct"] == 88.2
+    assert run["result"]["validation"]["mase"] == 1.1
+
+
+def test_admin_still_sees_accuracy_figures(client, monkeypatch):
+    _seed_last_forecast(monkeypatch)
+    _login(client, "ada")
+    res = client.get("/api/forecast/last").json()["result"]
+    assert res["confidence_pct"] == 88.2 and res["validation"]["mase"] == 1.1
+
+
 def test_user_list_never_exposes_password_hashes(client):
     _login(client, "ada")
     body = client.get("/api/auth/users").json()
