@@ -108,10 +108,15 @@ def test_the_prompt_does_not_invent_limits_for_a_full_access_role():
     assert "OUTSIDE THEIR AREA" not in note
 
 
-def test_an_anonymous_caller_is_told_to_sign_in_not_given_numbers():
+def test_an_anonymous_caller_gets_the_same_numbers_the_pages_show():
+    """A signed-out visitor can only reach the chat when reads are open to
+    them (strict mode refuses the chat itself), and then the Forecast, Staffing
+    and Supply pages already show them these numbers. Telling them to sign in
+    for the same figures made the assistant refuse the obvious questions."""
     note = prompts.scope_note(None)
     assert "NOT SIGNED IN" in note
-    assert "sign in" in note.lower()
+    assert "tell them to sign in first" not in note.lower()
+    assert "live-data tools" in note
 
 
 def test_every_role_is_told_teaching_is_allowed():

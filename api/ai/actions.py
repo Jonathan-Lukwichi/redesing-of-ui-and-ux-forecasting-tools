@@ -7,7 +7,7 @@ import re
 from typing import Any
 
 from ai import config, prompts, tools, redact
-from ai.client import _client
+from ai.client import _client, with_fallback
 
 
 def gather_signals() -> dict[str, Any]:
@@ -42,9 +42,40 @@ _SCHEMA = {
 }
 
 
+def _ask_claude(content: str):
+    client = _client()
+    try:
+        resp = client.messages.create(
+            model=config.model_fast(),
+            max_tokens=900,
+            system=prompts.action_ranker(),
+            messages=[{"role": "user", "content": content}],
+            output_config={"format": {"type": "json_schema", "schema": _SCHEMA}},
+        )
+    except Exception as e:
+        if getattr(e, "status_code", None) in (401, 403) or "credit balance" in str(e).lower():
+            raise   # the account, not the schema: let the fallback take over
+        # Fallback without structured-output constraint.
+        resp = client.messages.create(
+            model=config.model_fast(), max_tokens=900,
+            system=prompts.action_ranker() + "\nReturn ONLY a JSON object: {\"actions\":[...]}.",
+            messages=[{"role": "user", "content": content}],
+        )
+    text = "".join(b.text for b in resp.content if b.type == "text")
+    yield (text, (resp.usage.input_tokens, resp.usage.output_tokens), config.model_fast())
+
+
+def _ask_gemini(content: str):
+    from ai import gemini
+    res = gemini.complete(
+        prompts.action_ranker() + "\nReturn ONLY a JSON object: {\"actions\":[...]}.",
+        [{"role": "user", "content": content}], max_tokens=4000)
+    yield (res["message"].get("content") or "", (res["usage"]["in"], res["usage"]["out"]),
+           res["model"])
+
+
 def generate() -> dict[str, Any]:
     signals = gather_signals()
-    client = _client()
     content = (
         "Here are the live operational signals. The 'optimization' block is the "
         "forecast-driven plan for next week (the cheapest lawful nurse roster that "
@@ -56,25 +87,8 @@ def generate() -> dict[str, Any]:
         + json.dumps(signals, default=str)
         + "\n</context>"
     )
-    try:
-        resp = client.messages.create(
-            model=config.model_fast(),
-            max_tokens=900,
-            system=prompts.action_ranker(),
-            messages=[{"role": "user", "content": content}],
-            output_config={"format": {"type": "json_schema", "schema": _SCHEMA}},
-        )
-        text = "".join(b.text for b in resp.content if b.type == "text")
-        usage = (resp.usage.input_tokens, resp.usage.output_tokens)
-    except Exception:
-        # Fallback without structured-output constraint.
-        resp = client.messages.create(
-            model=config.model_fast(), max_tokens=900,
-            system=prompts.action_ranker() + "\nReturn ONLY a JSON object: {\"actions\":[...]}.",
-            messages=[{"role": "user", "content": content}],
-        )
-        text = "".join(b.text for b in resp.content if b.type == "text")
-        usage = (resp.usage.input_tokens, resp.usage.output_tokens)
+    text, usage, model = next(with_fallback(lambda: _ask_claude(content),
+                                            lambda: _ask_gemini(content)))
 
     actions = []
     try:
@@ -93,4 +107,4 @@ def generate() -> dict[str, Any]:
         a["id"] = i
         a["title"] = redact.scrub(a.get("title", ""))   # confidentiality safety-net
         a["reason"] = redact.scrub(a.get("reason", ""))
-    return {"actions": actions, "usage": {"in": usage[0], "out": usage[1]}}
+    return {"actions": actions, "usage": {"in": usage[0], "out": usage[1]}, "model": model}

@@ -1,8 +1,8 @@
 """AI assistant router (Phase 1). Cheap, grounded, streaming, budget-capped.
 
-  GET  /api/ai/health            — liveness + which models + remaining budget
-  POST /api/ai/explain/forecast  — stream a plain-English forecast narrative
-  GET  /api/ai/usage             — token/cost tile for the admin view
+  GET  /api/ai/health            â€” liveness + which models + remaining budget
+  POST /api/ai/explain/forecast  â€” stream a plain-English forecast narrative
+  GET  /api/ai/usage             â€” token/cost tile for the admin view
 """
 from __future__ import annotations
 from typing import Any
@@ -18,7 +18,7 @@ from core import action_store, security
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
-# Starlette's signature is JSONResponse(content, status_code=...) — always go
+# Starlette's signature is JSONResponse(content, status_code=...) â€” always go
 # through this helper so a guard can never crash with swapped arguments again.
 def _err(status: int, error: str, message: str) -> JSONResponse:
     return JSONResponse(content={"error": error, "message": message}, status_code=status)
@@ -51,20 +51,20 @@ class ExplainForecastRequest(BaseModel):
 
 def _stream(surface: str, system: str, content: str):
     """Yield plain-text chunks (scrubbed of any hospital identifier); record usage."""
-    model = config.pick_model(surface)
+    used = {"model": config.pick_model(surface)}
     usage = {"in": 0, "out": 0}
 
     def _raw():
         try:
-            for kind, payload in ai_client.stream_text(system, content, model=model):
+            for kind, payload in ai_client.stream_text(system, content, model=used["model"]):
                 if kind == "delta":
                     yield payload
+                elif kind == "model":
+                    used["model"] = payload
                 elif kind == "usage":
                     usage["in"], usage["out"] = payload["in"], payload["out"]
-        except ai_client.AIError as e:
-            yield f"\n[assistant unavailable: {e}]"
-        except Exception as e:  # network/API hiccup — fail gracefully, don't 500 the stream
-            yield f"\n[the assistant is temporarily unavailable: {type(e).__name__}]"
+        except Exception as e:  # no provider / API hiccup â€” fail gracefully, don't 500 the stream
+            yield ai_client.friendly(e)
 
     parts: list[str] = []
     try:
@@ -73,8 +73,8 @@ def _stream(surface: str, system: str, content: str):
             yield chunk
     finally:
         if usage["in"] or usage["out"]:
-            telemetry.record(surface, model, usage["in"], usage["out"])
-        audit.log_event(surface, model, content, "".join(parts), usage["in"], usage["out"])
+            telemetry.record(surface, used["model"], usage["in"], usage["out"])
+        audit.log_event(surface, used["model"], content, "".join(parts), usage["in"], usage["out"])
 
 
 @router.post("/explain/forecast")
@@ -84,7 +84,7 @@ async def explain_forecast(req: ExplainForecastRequest,
     return _explain("forecast", req.forecast)
 
 
-# Generic explain — one panel component, any page.
+# Generic explain â€” one panel component, any page.
 _EXPLAIN = {
     "forecast":     (prompts.forecast_explainer,     context.build_forecast_context),
     "staff":        (prompts.staff_explainer,        context.build_staff_context),
@@ -102,7 +102,7 @@ class ExplainRequest(BaseModel):
 def _explain(surface: str, data: dict[str, Any]):
     if not config.configured():
         return _err(503, "ai_not_configured",
-                    "Set ANTHROPIC_API_KEY in api/.env to enable the assistant.")
+                    "Set ANTHROPIC_API_KEY or GEMINI_API_KEY in api/.env to enable the assistant.")
     if telemetry.over_budget():
         return _err(429, "budget_exhausted",
                     "The assistant's daily budget cap is reached. It will resume tomorrow.")
@@ -131,7 +131,7 @@ async def briefing(req: BriefingRequest,
                    _user=security.ReadAccess):
     if not config.configured():
         return _err(503, "ai_not_configured",
-                    "Set ANTHROPIC_API_KEY in api/.env to enable the assistant.")
+                    "Set ANTHROPIC_API_KEY or GEMINI_API_KEY in api/.env to enable the assistant.")
     if telemetry.over_budget():
         return _err(429, "budget_exhausted", "Daily budget reached.")
     system = prompts.dashboard_briefing()
@@ -156,7 +156,7 @@ async def chat(request: Request,
                _user=security.ReadAccess):
     if not config.configured():
         return _err(503, "ai_not_configured",
-                    "Set ANTHROPIC_API_KEY in api/.env to enable the assistant.")
+                    "Set ANTHROPIC_API_KEY or GEMINI_API_KEY in api/.env to enable the assistant.")
     if telemetry.over_budget():
         return _err(429, "budget_exhausted", "Daily budget reached.")
 
@@ -170,22 +170,23 @@ async def chat(request: Request,
 
     def gen():
         in_tok = out_tok = 0
+        model = config.model_reasoning()
         parts: list[str] = []
         try:
             for kind, payload in ai_chat.stream_chat(msgs, user=caller):
                 if kind == "delta":
                     parts.append(payload)
                     yield payload
+                elif kind == "model":
+                    model = payload
                 elif kind == "usage":
                     in_tok, out_tok = payload["in"], payload["out"]
-        except ai_client.AIError as e:
-            yield f"\n[assistant unavailable: {e}]"
         except Exception as e:
-            yield f"\n[the assistant is temporarily unavailable: {type(e).__name__}]"
+            yield ai_client.friendly(e)
         finally:
             if in_tok or out_tok:
-                telemetry.record("chat", config.model_reasoning(), in_tok, out_tok)
-            audit.log_event("chat", config.model_reasoning(), last_user, "".join(parts), in_tok, out_tok)
+                telemetry.record("chat", model, in_tok, out_tok)
+            audit.log_event("chat", model, last_user, "".join(parts), in_tok, out_tok)
 
     return StreamingResponse(gen(), media_type="text/plain; charset=utf-8", headers=_STREAM_HEADERS)
 
@@ -196,21 +197,22 @@ async def actions(request: Request,
                   _user=security.ReadAccess):
     if not config.configured():
         return _err(503, "ai_not_configured",
-                    "Set ANTHROPIC_API_KEY in api/.env to enable the assistant.")
+                    "Set ANTHROPIC_API_KEY or GEMINI_API_KEY in api/.env to enable the assistant.")
     if telemetry.over_budget():
         return _err(429, "budget_exhausted", "Daily budget reached.")
     try:
         # Runs in a threadpool so its self-calls don't deadlock the event loop.
         out = await run_in_threadpool(ai_actions.generate)
-    except ai_client.AIError as e:
-        return _err(503, "ai_error", str(e))
+    except Exception as e:
+        return _err(503, "ai_error", ai_client.friendly(e).strip("\n[]"))
     u = out.pop("usage", None)
+    model = out.pop("model", None) or config.model_fast()
     in_t = (u or {}).get("in", 0)
     out_t = (u or {}).get("out", 0)
     if u:
-        telemetry.record("actions", config.model_fast(), in_t, out_t)
+        telemetry.record("actions", model, in_t, out_t)
     import json as _json
-    audit.log_event("actions", config.model_fast(), "live forecast/staff/supply/optimization signals",
+    audit.log_event("actions", model, "live forecast/staff/supply/optimization signals",
                     _json.dumps(out.get("actions", []), default=str), in_t, out_t)
 
     # The list is regenerated on every call and the generator gives items no

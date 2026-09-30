@@ -16,3 +16,4 @@ screenshots/
 test-results/
 playwright-report/
 api/.venv/
+api/data/action_decisions.sqlite3*

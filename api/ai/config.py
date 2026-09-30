@@ -51,6 +51,8 @@ PRICES = {
 
 
 def cost_usd(model: str, in_tokens: int, out_tokens: int) -> float:
+    if model.startswith("gemini"):
+        return 0.0      # free tier: must not eat into the daily Claude budget
     p = PRICES.get(model, {"in": 3.0, "out": 15.0})
     return round(in_tokens / 1e6 * p["in"] + out_tokens / 1e6 * p["out"], 6)
 
@@ -59,8 +61,28 @@ def api_key() -> str:
     return _env("ANTHROPIC_API_KEY")
 
 
+def gemini_key() -> str:
+    return _env("GEMINI_API_KEY")
+
+
+def gemini_model() -> str:
+    return _env("GEMINI_MODEL", "gemini-2.5-flash")
+
+
+def gemini_models() -> list[str]:
+    """Preferred model first, then free-tier alternates tried when it is
+    overloaded or out of quota (ai/gemini.py)."""
+    alternates = _env("GEMINI_FALLBACK_MODELS", "gemini-flash-latest,gemini-2.5-flash-lite")
+    out = [gemini_model()]
+    for m in alternates.split(","):
+        if m.strip() and m.strip() not in out:
+            out.append(m.strip())
+    return out
+
+
 def configured() -> bool:
-    return bool(api_key())
+    """At least one provider: Claude, or Gemini as the fallback (ai/client.py)."""
+    return bool(api_key() or gemini_key())
 
 
 def daily_budget_usd() -> float:

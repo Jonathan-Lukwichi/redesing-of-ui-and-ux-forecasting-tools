@@ -195,9 +195,12 @@ def scope_note(user) -> str:
     designed and one that feels broken.
     """
     if user is None:
-        return ("\n\nTHE PERSON IS NOT SIGNED IN. Answer from the knowledge cards and "
-                "anything already on their screen. If they ask for live operational "
-                "numbers, tell them to sign in first.\n")
+        # Reachable only when reads are open to signed-out visitors (strict mode
+        # refuses the chat itself), so the pages already show them these numbers.
+        return ("\n\nTHE PERSON IS NOT SIGNED IN, viewing the public read-only app. "
+                "Use the live-data tools as normal: they return exactly the numbers "
+                "the pages show this visitor. Actions, uploads and admin figures "
+                "need an account.\n")
 
     areas = []
     if user.can("staff:read"):

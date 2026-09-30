@@ -385,6 +385,25 @@ Welcome (`no horizontal overflow` at 320/390/768px) time out while taking a
 screenshot. They fail the same way on the code before this change, so they
 are pre-existing and machine-specific; not yet investigated.
 
+### AI assistant: Gemini fallback (30 Sep 2026)
+The Anthropic account ran out of credit, so every assistant surface returned
+"BadRequestError". Now: Claude first; if it fails before answering and
+`GEMINI_API_KEY` is set, Google Gemini's free tier answers instead
+(`api/ai/gemini.py`, OpenAI-compatible endpoint over httpx, no new package).
+A billing/auth failure pauses Claude for 10 minutes; topping up restores it with
+no redeploy. Overloaded free models (503/429) hand over to
+`gemini-flash-latest`, then `gemini-2.5-flash-lite`. Gemini usage is costed at
+$0 so it cannot trip the daily budget. Errors now read "The assistant is
+offline right now" rather than an exception name. Verified against the real
+Gemini API: chat with live-data tools, explain, Action Center.
+**Privacy trade-off:** free-tier prompts may be used by Google; the assistant
+sends aggregate figures with the hospital identity scrubbed, never
+patient-level data.
+
+Also changed: a signed-out visitor was told to "sign in first" for any live
+number, although the pages show them those numbers and no accounts exist on
+the live site. The assistant now answers with the same numbers the pages show.
+
 ### Engineering work, in priority order
 
 **High — correctness of published numbers**

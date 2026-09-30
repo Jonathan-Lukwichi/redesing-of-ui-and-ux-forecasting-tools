@@ -18,7 +18,7 @@ import json
 from typing import Iterator
 
 from ai import config, prompts, tools, redact
-from ai.client import _client, AIError
+from ai.client import _client, AIError, with_fallback
 
 APP_GUIDE = (
     "ABOUT THE APP — HealthForecast is a decision-support tool for the Emergency "
@@ -179,12 +179,28 @@ _MAX_TOOL_ROUNDS = 4  # retrieval rounds before the answer is forced
 
 def stream_chat(messages: list[dict], user=None) -> Iterator[tuple[str, object]]:
     """messages: [{role:'user'|'assistant', content:str}]. Yields ('delta', text)
-    chunks then ('usage', {in,out})."""
-    client = _client()
-    model = config.model_reasoning()
+    chunks, then ('model', name) and ('usage', {in,out})."""
     usage = {"in": 0, "out": 0}
+    used = {"model": config.model_reasoning()}
 
-    def _run() -> Iterator[str]:
+    def _gemini() -> Iterator[str]:
+        from ai import gemini
+        used["model"] = config.gemini_model()
+        system = "\n\n".join(b["text"] for b in _system_blocks(user))
+        for kind, payload in gemini.chat(
+                system, messages, tools.schemas_for(user),
+                lambda name, args: tools.execute(name, args, user=user),
+                _MAX_TOOL_ROUNDS):
+            if kind == "delta":
+                yield payload
+            elif kind == "model":
+                used["model"] = payload
+            elif kind == "usage":
+                usage.update(payload)
+
+    def _claude() -> Iterator[str]:
+        client = _client()
+        model = config.model_reasoning()
         convo: list[dict] = [{"role": m["role"], "content": m["content"]} for m in messages]
         for round_no in range(_MAX_TOOL_ROUNDS + 1):
             # Past the cap, force an answer from what was already retrieved —
@@ -229,6 +245,7 @@ def stream_chat(messages: list[dict], user=None) -> Iterator[tuple[str, object]]
 
     # One scrubber over the whole stream: an identifier split across chunks can
     # never slip through (see redact.scrub_stream).
-    for chunk in redact.scrub_stream(_run()):
+    for chunk in redact.scrub_stream(with_fallback(_claude, _gemini)):
         yield ("delta", chunk)
+    yield ("model", used["model"])
     yield ("usage", usage)
