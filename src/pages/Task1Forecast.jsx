@@ -559,7 +559,10 @@ function ForecastResult({ data, horizonId, badge, onValidate, validating }) {
         Trained live on {data.history_window_days?.toLocaleString()} days of real hospital arrivals.
         The low–high band is the <strong>likely range</strong> — the band the real number should usually
         fall inside, which naturally widens further into the future. Plan with the range, not just the single number.
-        This forecast is validated against historical data; if a prediction ever looks clearly off, contact the platform administrator.
+        {data.validated || data.is_backtest
+          ? 'This forecast has been checked against past data (see the badge above); '
+          : 'To test it against past data, use “Check this forecast” above; '}
+        if a prediction ever looks clearly off, contact the platform administrator.
       </div>
     </div>
   );

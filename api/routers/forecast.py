@@ -201,6 +201,18 @@ def compute_validation(s: "pd.Series", model: str, horizon: int,
     return result
 
 
+_TRAIN_WINDOW_DAYS = 730
+
+
+def _training_window(train: "pd.Series", weekly: bool) -> "pd.Series":
+    """The history the engines actually train on. Shared by the forecast and
+    the backtest: the validation cache is keyed on this series, so if the two
+    disagreed a backtest would never be found by the forecast it describes."""
+    if not weekly and train.size > _TRAIN_WINDOW_DAYS:
+        return train.iloc[-_TRAIN_WINDOW_DAYS:]
+    return train
+
+
 def _forecast_from_series(
     s: "pd.Series",
     model: str,
@@ -229,8 +241,7 @@ def _forecast_from_series(
             f"Only {int(train.size)} {unit} of history before the chosen start "
             f"— need at least 30. Pick a later start date.",
         )
-    if not weekly and train.size > 730:
-        train = train.iloc[-730:]
+    train = _training_window(train, weekly)
 
     history = train.to_numpy().round(2).tolist()
     dates   = [d.strftime("%Y-%m-%d") for d in train.index]
@@ -541,6 +552,9 @@ async def validate_engine(req: ValidateRequest, _rl=Depends(security.rate_limit(
     n_folds = max(2, min(int(req.n_folds), 12))
     s_series, weekly = _series_for(req.group, req.specialty)
     grain = s_series.resample("W").sum() if weekly else s_series
+    # Backtest exactly the window an open-future forecast trains on, so the
+    # badge on that forecast finds this result.
+    grain = _training_window(grain, weekly)
     label = req.specialty or "Total ED arrivals"
 
     result = await run_in_threadpool(compute_validation, grain, req.model, req.horizon, n_folds)

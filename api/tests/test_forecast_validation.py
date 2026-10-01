@@ -186,3 +186,20 @@ def test_category_split_is_declared_as_a_historical_mix_not_a_forecast():
     basis = res["category_split_basis"]
     assert basis["is_forecast"] is False
     assert basis["method"] == "historical_case_mix"
+
+
+# ── The badge must see a backtest the user ran ───────────────────────────────
+
+def test_a_backtest_is_found_by_the_forecast_it_describes(monkeypatch):
+    """'Check this forecast' backtested the FULL history while the forecast
+    trains on the last 730 days, so the cache keys never matched and the badge
+    said 'Not yet backtested' forever. Both must use one training window."""
+    from routers import forecast as F
+    monkeypatch.setattr(F, "_VALIDATION_CACHE", {})
+    monkeypatch.setattr(V, "rolling_origin_evaluate",
+                        lambda s, engine, horizon, n_folds: {"horizon": horizon, "mape": 10.0})
+    monkeypatch.setattr(V, "summarise", lambda v: "stub")
+    full = _series(n=1200)                       # longer than the 730-day window
+    F.compute_validation(F._training_window(full, weekly=False), "statistical", 7)
+    res = F._forecast_from_series(full, "statistical", 7)
+    assert res["validated"] is True
