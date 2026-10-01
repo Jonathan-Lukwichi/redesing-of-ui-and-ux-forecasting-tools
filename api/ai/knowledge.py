@@ -492,14 +492,203 @@ CARDS: dict[str, dict] = {
             "this is the argument."
         ),
     },
+
+    # ── Page guides ──────────────────────────────────────────────────────────
+    # How each page works, what its labels mean, and how to use it. Kept here
+    # rather than printed on the pages, so the screens stay clean and anyone who
+    # wants the explanation asks the assistant.
+
+    "page_dashboard": {
+        "title": "Page guide: the Dashboard",
+        "keywords": "dashboard home overview page cards tomorrow next 7 days peak day forecast card chart history day of week report generate email download what is on the dashboard",
+        "source": "HealthForecast app guide",
+        "body": (
+            "The Dashboard is the one-screen morning briefing. Top cards: TOMORROW'S FORECAST "
+            "(predicted patients plus the likely range), NEXT 7 DAYS (total and average per "
+            "day), PEAK DAY (the busiest day ahead) and FORECAST (whether the forecast has been "
+            "checked against past weeks). The main chart shows the last 30 days of real "
+            "arrivals followed by the 7-day forecast, with the likely range shaded and the peak "
+            "marked. The day-of-week chart shows which weekdays are usually busiest. The "
+            "Supply and Staffing boxes summarise items at risk, costs, lawful coverage and the "
+            "nurse shortfall, each with an Open link to the full page. How to use it: read the "
+            "peak day and the range first, then check whether staffing and supply can absorb "
+            "it; follow Open to act. Opening the Dashboard also runs the 7-day forecast that "
+            "the other pages and the assistant then read."
+        ),
+    },
+    "page_data_hub": {
+        "title": "Page guide: Data Hub (uploading the data)",
+        "keywords": "data hub upload files csv datasets fetch load seven hospital external private public section rows missing required columns memory privacy",
+        "source": "HealthForecast app guide",
+        "body": (
+            "Data Hub is where the seven source files are loaded. Section A, Hospital data "
+            "(private): daily arrivals, hourly arrivals, clinical daily (by specialty) and "
+            "clinical hourly. Section B, External factors (public): the calendar (holidays, "
+            "school terms), daily weather and hourly weather. Each file shows its rows, any "
+            "missing required columns and any extra columns, so problems are visible before "
+            "analysis. Privacy: hospital files are held in the server's memory only and never "
+            "written to disk; 'Clear all' removes them. It needs a signed-in account with "
+            "upload rights. How to use it: load or fetch all seven, check none shows missing "
+            "required columns, then go to Prepare."
+        ),
+    },
+    "page_prepare": {
+        "title": "Page guide: Prepare Data (the four analysis groups G1 to G4)",
+        "keywords": "prepare data merge join groups g1 g2 g3 g4 build cleaning columns rows type non-null unique sample daily hourly clinical demand",
+        "source": "HealthForecast app guide",
+        "body": (
+            "Prepare joins the raw files into four analysis groups. G1 Daily demand = daily "
+            "arrivals + calendar + daily weather (feeds the Total ED forecast). G2 = hourly "
+            "arrivals + calendar + hourly weather (hour-of-day patterns). G3 = clinical daily "
+            "(by specialty) + calendar + daily weather (feeds the By specialty forecast). G4 = "
+            "clinical hourly + calendar + hourly weather. Building a group records every "
+            "cleaning step. The column table shows each column's type, how many values are "
+            "filled in (Non-null), how many distinct values (Unique) and a sample. How to use "
+            "it: build G1 first (the forecast and optimisation need it), then the others for "
+            "Explore and the specialty forecast. Needs an account with upload rights."
+        ),
+    },
+    "page_explore": {
+        "title": "Page guide: Explore (the exploratory data analysis)",
+        "keywords": "explore eda exploratory analysis findings patterns charts seasonality trend covid busy day threshold calendar effects specialty mix hourly profile",
+        "source": "HealthForecast app guide",
+        "body": (
+            "Explore is the exploratory data analysis of the real arrival history. Headline "
+            "finding cards state a pattern in plain words, for example the typical and busy-day "
+            "levels, the post-COVID demand shift, seasonal swings and long-run growth; each "
+            "has a suggested reason and an action. The suggested reasons are hypotheses, not "
+            "proven causes. Charts cover the yearly trend, day-of-week and hour-of-day "
+            "patterns, calendar effects (holidays, school terms), weather links and the "
+            "specialty mix. How to use it: read the finding cards for what matters for "
+            "planning, then use the charts to see the evidence. Ask the assistant 'what did "
+            "the EDA find?' for a summary."
+        ),
+    },
+    "page_forecast": {
+        "title": "Page guide: Total ED and By specialty forecasts",
+        "keywords": "forecast page total ed specialty run horizon engine day cards likely range low high demand colour badge check this forecast backtest not yet backtested start date load last operational",
+        "source": "HealthForecast app guide",
+        "body": (
+            "These pages forecast arrivals: Total ED for the whole department, By specialty "
+            "for one specialty. Choose the engine (best ML model or best statistical model), "
+            "the horizon and optionally a past start date, then press Run. A past start date "
+            "makes it a backtest: the forecast is shown beside what really happened. Each day "
+            "card shows predicted patients, the likely range (where the real number should "
+            "usually land) and a colour for low, medium or high demand. The trust badge says "
+            "whether the forecast has been checked: 'Not yet backtested' until someone presses "
+            "'Check this forecast', which tests it on 8 past weeks and reports, in words, "
+            "whether it beats the simple rule that next week repeats last week. How to use it: "
+            "plan with the range, not the single number; check the forecast before relying on "
+            "it; low-volume specialties swing a lot, so lean on the range even more."
+        ),
+    },
+    "page_staff_planner": {
+        "title": "Page guide: Staff Planner, and what PN, EN, ENA, payroll and BCEA mean",
+        "keywords": "staff planner staffing page nurses table pn en ena professional enrolled auxiliary role skill days worked reg hrs regular hours ot hrs overtime zero ot hrs zero why overtime is 0 avg wk hrs weekly hours sick payroll bcea breach coverage lawful overwork shortfall legend columns",
+        "source": "HealthForecast app guide",
+        "body": (
+            "The Staff Planner shows the 23-nurse pool from a simulation of about 13 months "
+            "(396 days), so every total in the table covers that whole period, not a week. "
+            "Roles: PN = Professional Nurse (registered, 4-year training, leads shifts); EN = "
+            "Enrolled Nurse (2-year training, works under a PN); ENA = Enrolled Nursing "
+            "Auxiliary (1-year training, basic care). Skill = level 1 to 3, used so every shift "
+            "has enough senior nurses. Days worked and Sick = days over the period. Reg hrs = "
+            "regular hours over the period. OT hrs = overtime; it reads 0 because the "
+            "simulation books every hour as regular, so the overwork shows in Avg wk hrs "
+            "instead. Avg wk hrs = average hours per week; the legal maximum is 45. Payroll = "
+            "that nurse's salary cost over the whole period. BCEA = how many times the nurse "
+            "exceeded the 45-hour limit of the Basic Conditions of Employment Act. Top cards: "
+            "Coverage (lawful hours) = the share of shifts the nurses could cover within 45 "
+            "hours a week; Staffing shortfall = extra nurses needed to do that; Overwork = "
+            "average hours as a percentage of the legal week. How it helps: it shows the ward "
+            "only reaches its coverage through illegal overwork, which is the case for hiring "
+            "or for the optimised roster."
+        ),
+    },
+    "page_supply_planner": {
+        "title": "Page guide: Supply Planner, and what ABC, service, days cover and status mean",
+        "keywords": "supply planner stock inventory page items table abc class category use per day days cover service level stockouts status at risk excess ok cost inventory value stockout penalty legend columns",
+        "source": "HealthForecast app guide",
+        "body": (
+            "The Supply Planner shows 30 stock items from a simulation of about 13 months. "
+            "ABC = importance class by spend: A items are the few that carry most of the cost "
+            "and deserve the closest control, C items the many cheap ones. Use/day = average "
+            "daily consumption. Days cover = how many days the average stock on hand would "
+            "last. Service = how often the item was on the shelf when needed. Stockouts = how "
+            "many times it ran out. Status: 'At risk' when service is below 95% or it ran out "
+            "at all; 'Excess' when more than 120 days of cover is tied up; otherwise OK. Top "
+            "cards: items at risk, inventory value, stockout penalty (the cost of running "
+            "out) and total cost for this run. How to use it: fix A-class items at risk "
+            "first, then release cash from Excess items; the Optimization page produces the "
+            "actual reorder plan."
+        ),
+    },
+    "page_optimization": {
+        "title": "Page guide: Optimization, what it does and how it helps decisions",
+        "keywords": "optimization optimisation page what does it do how use run staff supply plan roster reorder before after saving compare both forecasts safety buffer kappa lean standard cautious service level policy locum order quantity reorder point order up to decision",
+        "source": "HealthForecast app guide",
+        "body": (
+            "Optimization turns the forecast into next week's decisions. Step 1, choose the "
+            "forecast engine; 'Compare both forecasts' runs the whole plan under each and "
+            "shows which gives the cheaper plan. Step 2, choose the standing reorder policy: "
+            "the evidence table compares ordering rules and you adopt one; the weekly supply "
+            "run then tunes it. 'Run staff optimization' converts forecast patients into "
+            "nurses per shift (SA nurse-to-patient ratios) and finds the cheapest LAWFUL "
+            "roster: nobody over 45 hours, the right PN/EN/ENA mix, every shift covered; any "
+            "gap becomes locum (agency) hours to book. The Safety buffer (Lean, Standard, "
+            "Cautious) sets how much margin to keep for busy days. 'Run supply optimization' "
+            "simulates many possible weeks of demand (Monte-Carlo) and sets, per item, the reorder point "
+            "(order when stock falls to this), the order-up-to level and the quantity to order "
+            "now. The Service level (90-99%) is how often an item should be on the shelf when "
+            "needed. Each result shows cost BEFORE versus AFTER and the saving per year. How "
+            "it helps: instead of guessing, a manager gets 'you need this many nurses on each "
+            "shift, book these locum hours, reorder these items now', legal and costed. "
+            "Nothing runs until you press Run."
+        ),
+    },
+    "page_action_center": {
+        "title": "Page guide: Action Center, and why it asks you to sign in",
+        "keywords": "action center actions recommended to-do list sign in why approve snooze dismiss decision audit trail urgency high medium low overdue staff supply capacity regenerate",
+        "source": "HealthForecast app guide",
+        "body": (
+            "The Action Center turns the forecast, staffing, supply and optimisation results "
+            "into a ranked to-do list, each item marked High, Medium or Low urgency and "
+            "tagged staff, supply or capacity. Anyone can read it. Approving, snoozing or "
+            "dismissing an item needs a signed-in account because each decision is saved "
+            "with the person's name: in a hospital every decision must show who made it, and "
+            "an anonymous click would leave no accountability. Decisions are kept, so a "
+            "dismissed item does not come back. The counters show open, approved, snoozed, "
+            "done and overdue items. 'Re-generate' rebuilds the list from the latest numbers; "
+            "it can take up to a minute. Run the optimisation first for the most concrete "
+            "actions."
+        ),
+    },
+    "page_accounts_and_roles": {
+        "title": "Page guide: signing in, the demo, roles and the Admin page",
+        "keywords": "sign in login account password demo without signing roles admin director staff manager stock manager viewer permission cannot see page missing data hub hidden admin page audit",
+        "source": "HealthForecast app guide",
+        "body": (
+            "Without signing in you get the read-only demo: every forecast, roster and supply "
+            "page. Signing in (Welcome page, or Sign in at the bottom of the sidebar) unlocks "
+            "what your role allows. Roles are areas, not ranks: admin sees and does "
+            "everything (Data Hub, Prepare, Admin); director sees all operations and decides "
+            "actions; staff manager covers forecasts and staffing; stock manager covers "
+            "forecasts and supply; viewer only reads. A page missing from the sidebar is "
+            "outside your role or needs signing in. The Admin page holds the technical view: "
+            "real model names, accuracy figures and the assistant's audit log, kept out of "
+            "the public app so front-line users are not biased by a single score."
+        ),
+    },
 }
 
 _STOP = {"the", "a", "an", "is", "of", "to", "and", "how", "what", "why", "do", "does",
-         "in", "on", "for", "this", "that", "it", "me", "explain", "tell", "about"}
+         "in", "on", "for", "this", "that", "it", "me", "explain", "tell", "about",
+         # 'how does X work' / 'what does X mean': phrasing, not topic
+         "work", "works", "mean", "means"}
 
 
 # Short domain terms that must survive the length filter ("ml forecast", "ed").
-_SHORT_OK = {"ml", "ed", "ss"}
+_SHORT_OK = {"ml", "ed", "ss", "pn", "en", "ot", "wk", "g1", "g2", "g3", "g4"}
 
 
 def search(query: str, k: int = 2) -> list[dict]:
