@@ -169,9 +169,10 @@ function Sidebar({ active, onNavigate, collapsed, onToggle, mobileOpen, sidebarR
 function SignOutButton({ collapsed, onNavigate }) {
   const { user, signOut } = useSession();
   const [busy, setBusy] = useState(false);
-  const label = user ? `Sign out (${user.username})` : 'Sign out';
+  const label = user ? `Sign out (${user.username})` : 'Sign in';
 
   const click = async () => {
+    if (!user) { onNavigate('welcome'); return; }   // nothing to end: go to the real form
     if (!window.confirm('Sign out of HealthForecast AI?')) return;
     setBusy(true);
     try { await signOut(); } catch { /* the navigation below still applies */ }
@@ -181,13 +182,13 @@ function SignOutButton({ collapsed, onNavigate }) {
 
   return (
     <button
-      className="sidebar-footer-btn sidebar-footer-btn-danger"
+      className={`sidebar-footer-btn${user ? ' sidebar-footer-btn-danger' : ''}`}
       onClick={click}
       disabled={busy}
       title={label}
       style={collapsed ? { justifyContent: 'center' } : undefined}
     >
-      <Icon name="logout" size={14} />
+      <Icon name={user ? 'logout' : 'users'} size={14} />
       {!collapsed && <span>{busy ? 'Signing out…' : label}</span>}
     </button>
   );

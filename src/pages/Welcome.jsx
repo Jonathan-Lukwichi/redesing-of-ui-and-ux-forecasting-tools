@@ -1,6 +1,9 @@
 import HeroMotion from '../components/HeroMotion';
+import { useSession } from '../auth/SessionContext';
+import SignIn from '../auth/SignIn';
 
 export default function Welcome({ onNavigate }) {
+  const { user, configured } = useSession();
   return (
     <div className="lp-page" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
       {/* Left: branding */}
@@ -47,31 +50,34 @@ export default function Welcome({ onNavigate }) {
       {/* Right: login form */}
       <div className="lp-pad" style={{ background: 'white', paddingTop: 48, paddingBottom: 48, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         <div style={{ maxWidth: 380, width: '100%', margin: '0 auto' }}>
-          <h2 style={{ fontSize: 'clamp(1.25rem, 3vw, 1.5rem)', fontWeight: 600, color: 'var(--text)', margin: '0 0 6px 0', letterSpacing: '-0.3px' }}>Sign in</h2>
-          <p style={{ fontSize: 14, color: 'var(--text-3)', margin: '0 0 28px 0' }}>Sign in to see your hospital's forecast.</p>
-
-          <div className="field-group" style={{ marginBottom: 14 }}>
-            <label className="label">Email</label>
-            <input className="input" defaultValue="demo@healthforecast.local" />
-          </div>
-          <div className="field-group" style={{ marginBottom: 6 }}>
-            <label className="label">Password</label>
-            <input className="input" type="password" defaultValue="••••••••••••" />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, gap: 8, flexWrap: 'wrap' }}>
-            <label style={{ fontSize: 12, color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-              <input type="checkbox" defaultChecked /> Keep me signed in
-            </label>
-          </div>
-
-          <button className="btn btn-primary btn-lg" style={{ width: '100%', justifyContent: 'center' }} onClick={() => onNavigate('dashboard')}>
-            Sign in
-          </button>
-
-          <div style={{ marginTop: 28, padding: 14, background: 'var(--tint-brand-2)', borderRadius: 8, fontSize: 12, color: 'var(--text-2)' }}>
-            <strong style={{ color: 'var(--brand)' }}>Try it now:</strong> sample credentials are already
-            filled in, just click Sign in to explore the full platform.
-          </div>
+          {user ? (
+            <>
+              <h2 style={{ fontSize: 'clamp(1.25rem, 3vw, 1.5rem)', fontWeight: 600, color: 'var(--text)', margin: '0 0 6px 0', letterSpacing: '-0.3px' }}>Welcome back</h2>
+              <p style={{ fontSize: 14, color: 'var(--text-3)', margin: '0 0 28px 0' }}>
+                Signed in as <strong>{user.username}</strong> ({user.role}).
+              </p>
+              <button className="btn btn-primary btn-lg" style={{ width: '100%', justifyContent: 'center' }} onClick={() => onNavigate('dashboard')}>
+                Open the dashboard
+              </button>
+            </>
+          ) : (
+            <>
+              <h2 style={{ fontSize: 'clamp(1.25rem, 3vw, 1.5rem)', fontWeight: 600, color: 'var(--text)', margin: '0 0 6px 0', letterSpacing: '-0.3px' }}>Sign in</h2>
+              <p style={{ fontSize: 14, color: 'var(--text-3)', margin: '0 0 20px 0' }}>
+                Sign in to upload data, approve actions and see the admin view.
+              </p>
+              {/* The real form: the server checks the password. Without
+                  accounts configured there is nothing to sign in to, so only
+                  the demo route is offered. */}
+              {configured && <SignIn title="Your account" onDone={() => onNavigate('dashboard')} />}
+              <button className="btn btn-lg" style={{ width: '100%', justifyContent: 'center', marginTop: 16, whiteSpace: 'normal', textAlign: 'center' }} onClick={() => onNavigate('dashboard')}>
+                Explore the demo without signing in →
+              </button>
+              <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text-3)', lineHeight: 1.6 }}>
+                The demo shows every forecast, roster and supply plan read-only.
+              </div>
+            </>
+          )}
 
           <div style={{ marginTop: 16, textAlign: 'center', fontSize: 12, color: 'var(--text-4)' }}>
             <span style={{ cursor: 'pointer', color: 'var(--brand)' }} onClick={() => onNavigate('landing')}>← Back to home</span>
