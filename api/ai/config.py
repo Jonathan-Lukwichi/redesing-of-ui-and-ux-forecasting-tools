@@ -72,7 +72,9 @@ def gemini_model() -> str:
 def gemini_models() -> list[str]:
     """Preferred model first, then free-tier alternates tried when it is
     overloaded or out of quota (ai/gemini.py)."""
-    alternates = _env("GEMINI_FALLBACK_MODELS", "gemini-flash-latest,gemini-2.5-flash-lite")
+    alternates = _env("GEMINI_FALLBACK_MODELS",
+                      "gemini-flash-latest,gemini-3.5-flash,gemini-3.5-flash-lite,"
+                      "gemini-flash-lite-latest")
     out = [gemini_model()]
     for m in alternates.split(","):
         if m.strip() and m.strip() not in out:

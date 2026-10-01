@@ -40,6 +40,11 @@ TOOL_SCHEMAS = [
         "input_schema": {"type": "object", "properties": {}},
     },
     {
+        "name": "get_explore_findings",
+        "description": "Get the headline findings of the exploratory data analysis (the Explore page): typical and busy-day arrival levels, demand shifts such as pre- vs post-COVID, seasonality and calendar effects, computed from the real hospital history. These are the same findings the Explore page shows. Use for questions about patterns in the historical data, what the EDA found, or what is going on in the data.",
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    {
         "name": "lookup_knowledge",
         "description": "Look up a plain-language explanation of a METHOD or CONCEPT — the app's methods (forecast engines, multi-step, backtesting, (s,S), safety stock, inventory costs, Monte-Carlo, the staffing programme) PLUS the statistics and supply-chain foundations for interpreting scenarios: common vs special cause variation (is a spike real?), planning with spread not averages, count distributions and overdispersion, confidence intervals and real-vs-noise differences, correlation vs causation, autocorrelation, Pareto/ABC prioritisation, fair policy comparisons, PDSA adoption cycles, the bullwhip effect, risk pooling, lead time rules, push vs pull, the value of information — and machine-learning foundations: what ML is, overfitting and held-out validation, features and leakage, preprocessing, the bias-variance trade-off (why not deep learning here), and ensembles/boosting. Returns a short teaching summary and its source. Use it whenever you interpret WHY something looks the way it does, alongside (not instead of) the live-number tools.",
         "input_schema": {
@@ -65,6 +70,7 @@ TOOL_SCOPE = {
     "get_supply_status": "supply:read",
     "get_staff_status":  "staff:read",
     "get_optimization":  None,      # split per half at execution time
+    "get_explore_findings": "data:read",
     "lookup_knowledge":  None,      # universal
 }
 
@@ -148,22 +154,22 @@ def execute(name: str, inp: dict[str, Any], user=None) -> dict[str, Any]:
                 "out_of_scope": True}
     try:
         if name == "get_forecast":
-            # The engines are not perfectly deterministic, so a fresh run would
-            # not match the page. Read the run the user is looking at; only fall
-            # back to a fresh run when nothing has been run in the app yet.
+            # Read ONLY the run already materialised in the app (the /last
+            # pattern). The assistant never runs a forecast of its own: the
+            # engines are not perfectly deterministic, so a private run would
+            # disagree with the screen, and it would silently replace the
+            # user's "last forecast".
             last = _get("/api/forecast/last")
-            d, source = None, None
-            if last.get("available") and (last.get("result") or {}).get("forecast"):
-                d = last["result"]
-                source = "the forecast run currently shown on the Forecast page"
-            if d is None:
-                d = _post("/api/forecast/run", {
-                    "model": inp.get("model", "ml"),
-                    "horizon": int(inp.get("horizon", 7)),
-                })
-                if d.get("error") or d.get("detail"):
-                    return {"error": "Forecast not available — G1 (Daily demand) may not be merged. Build it on the Prepare page."}
-                source = "a fresh run (the user has not run a forecast in the app yet)"
+            if not (last.get("available") and (last.get("result") or {}).get("forecast")):
+                return {"error": ("No forecast has been run in the app since the server last "
+                                  "started, so there are no forecast numbers to report. Say "
+                                  "exactly that, and tell the user to open the Dashboard or "
+                                  "press Run on the Total ED page. Do not estimate.")}
+            d = last["result"]
+            where = "a specialty forecast page" if last.get("kind") == "specialty" else \
+                    "the Dashboard or the Total ED forecast page"
+            source = (f"the forecast last run in the app (on {where}) at "
+                      f"{last.get('ran_at', 'an unknown time')} — the same numbers shown on screen")
             days = d.get("forecast", [])
             model_label = {"ml": "best ML model", "statistical": "best statistical model"}.get(
                 d.get("requested_model"), d.get("requested_model") or "unknown")
@@ -173,6 +179,15 @@ def execute(name: str, inp: dict[str, Any], user=None) -> dict[str, Any]:
                 # assistant must not quote accuracy numbers (see chat prompt).
                 **({"window_note": note} if note else {}),
                 "source": source,
+                # Words, not scores: accuracy figures are admin-only.
+                "trust": (
+                    "checked against what actually happened in this window" if d.get("is_backtest")
+                    else ("checked against past weeks; "
+                          + ("it beats the simple rule 'next week repeats last week'"
+                             if (d.get("validation") or {}).get("beats_seasonal_naive")
+                             else "it does NOT beat the simple rule 'next week repeats last week'"))
+                    if d.get("validated")
+                    else "not yet checked against past weeks"),
                 "model": model_label,
                 "specialty": d.get("requested_specialty"),
                 "is_backtest": d.get("is_backtest", False),
@@ -192,6 +207,9 @@ def execute(name: str, inp: dict[str, Any], user=None) -> dict[str, Any]:
             if d.get("error") or d.get("detail"):
                 return {"error": "Supply data not available — the simulation files may not be loaded."}
             return {
+                "source": ("SIMULATED supply data (a 30-item catalogue, 13-month panel) "
+                           "built for this study, not live hospital stock records. Say so "
+                           "if asked where the numbers come from."),
                 "kpis": d.get("kpis"),
                 "items_at_risk": d.get("items_at_risk"),
                 "at_risk": [{"item": i["item_name"], "class": i["abc_class"],
@@ -203,18 +221,54 @@ def execute(name: str, inp: dict[str, Any], user=None) -> dict[str, Any]:
             if d.get("error") or d.get("detail"):
                 return {"error": "Staffing data not available — the simulation files may not be loaded."}
             k = d.get("kpis") or {}
+            days = d.get("days_simulated")
             # Decision numbers ONLY. Payroll, weekly-hours averages and BCEA
             # breach counts are deliberately omitted from the chat payload —
             # they belong to the Staffing page explainer, not conversational
             # answers (the model cannot recite what it never sees).
+            # Shift totals are summed over the whole simulated period; they
+            # are renamed so they can never be read out as a weekly figure.
+            shifts = [{
+                "shift": s.get("shift"),
+                "avg_nurses_required_per_shift": s.get("avg_required"),
+                "avg_nurses_filled_per_shift": s.get("avg_filled"),
+                "locum_hours_total_over_period": s.get("locum_hours"),
+            } for s in (d.get("shifts") or [])]
             return {
+                "source": (f"SIMULATED staffing data (a 23-nurse pool over {days} days) built "
+                           "for this study, not live hospital rosters. Say so if asked "
+                           "where the numbers come from."),
+                "period_days": days,
                 "note": ("Current state only. For the demand-matched BEST roster use "
                          "get_optimization; if that plan is unavailable, tell the user to "
-                         "run the staff optimization on the Optimization page."),
+                         "run the staff optimization on the Optimization page. Locum "
+                         f"hours are TOTALS over all {days} simulated days, not per week."),
                 "kpis": {key: k.get(key) for key in (
                     "lawful_coverage_pct", "coverage_pct", "staffing_shortfall",
                     "nurses_needed_legal", "n_active_staff", "n_posts")},
-                "shifts": d.get("shifts"),
+                "definitions": {
+                    "coverage_pct": "share of required shifts actually filled — reached only by nurses working beyond the legal limit",
+                    "lawful_coverage_pct": "share of required shifts the nurses COULD fill if each worked only the legal 45 hours a week; the gap to coverage_pct is the overwork",
+                    "staffing_shortfall": "extra nurses needed to cover demand within the legal 45-hour week",
+                },
+                "shifts": shifts,
+            }
+        if name == "get_explore_findings":
+            # Deterministic analyses of the merged history: the same call the
+            # Explore page makes returns the same findings, so no /last cache
+            # is needed for the numbers to agree with the screen.
+            d = _get("/api/explore/findings")
+            if d.get("error") or d.get("detail") or not d.get("findings"):
+                return {"error": "No exploratory findings are available yet — the data groups may not be built. Tell the user to open the Prepare page."}
+            return {
+                "source": "the Explore page's findings, computed from the real hospital arrival history",
+                "note": ("'possible_reason' is a suggested explanation that has NOT been "
+                         "statistically tested. Present it as a possibility, never as a proven cause."),
+                "findings": [{
+                    "title": f.get("title"), "headline": f.get("headline"),
+                    "summary": f.get("summary"), "possible_reason": f.get("mechanism"),
+                    "suggested_action": f.get("action"),
+                } for f in d["findings"][:8]],
             }
         if name == "lookup_knowledge":
             from ai import knowledge

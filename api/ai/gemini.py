@@ -16,6 +16,7 @@ patient-level records.
 from __future__ import annotations
 
 import json
+import logging
 from functools import lru_cache
 from typing import Any, Iterator
 
@@ -25,7 +26,10 @@ from ai import config
 from ai.client import AIError, _SSL_CONTEXT
 
 _URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-_TRY_NEXT_MODEL = (429, 500, 503, 504)   # overloaded or out of quota, not a bad request
+log = logging.getLogger(__name__)
+# Overloaded, out of quota, or retired for this key (Google retires free models
+# for new users with a 404) — none of these is a bad request, so try the next.
+_TRY_NEXT_MODEL = (404, 429, 500, 503, 504)
 
 
 @lru_cache(maxsize=1)
@@ -69,6 +73,7 @@ def complete(system: str, messages: list[dict], *, tools: list[dict] | None = No
                     "usage": {"in": int(u.get("prompt_tokens") or 0),
                               "out": int(u.get("completion_tokens") or 0)}}
         last = f"Gemini returned {r.status_code}: {r.text[:300]}"
+        log.warning("Gemini model %s returned %s", model, r.status_code)
         if r.status_code not in _TRY_NEXT_MODEL:
             break
     raise AIError(last)
