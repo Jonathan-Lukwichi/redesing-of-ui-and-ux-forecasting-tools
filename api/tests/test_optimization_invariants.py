@@ -4,7 +4,7 @@ The code that decides how many nurses work on Thursday and how many vials to
 order had no tests at all. These are the properties that must hold for ANY
 input, not golden numbers that break whenever a coefficient moves:
 
-* no roster may ever breach the BCEA weekly cap or the 11-hour rest rule;
+* no roster may ever breach the BCEA weekly cap or the 12-hour rest rule;
 * the cost arithmetic must reconcile;
 * a budget must actually bind, and must never be met by dropping the skills mix;
 * the cost tie-breaker must prefer the cheaper of two interchangeable nurses;
@@ -65,16 +65,24 @@ def test_bcea_weekly_cap_never_breached(daily):
 
 
 @pytest.mark.parametrize("daily", [[10] * 7, [45] * 7, [200] * 7])
-def test_eleven_hour_rest_rule_never_breached(daily):
-    """No Day shift the morning after a Night shift (BCEA s14)."""
+def test_twelve_hour_rest_rule_never_breached(daily):
+    """At least twelve hours between shifts on consecutive days (BCEA s15(1)(a))."""
     r = _solve(daily)
     for row in r["roster"]:
         worked = set(row["shifts_assigned"])
         for d in range(len(daily) - 1):
-            night = f"{E.DAY_ABBR[d % 7]}-Night"
-            nxt = f"{E.DAY_ABBR[(d + 1) % 7]}-Day"
-            assert not (night in worked and nxt in worked), (
-                f"{row['staff_id']} works {night} then {nxt}")
+            for sh, sh2 in E.REST_FORBIDDEN:
+                a = f"{E.DAY_ABBR[d % 7]}-{sh}"
+                b = f"{E.DAY_ABBR[(d + 1) % 7]}-{sh2}"
+                assert not (a in worked and b in worked), (
+                    f"{row['staff_id']} works {a} then {b}")
+
+
+def test_rest_pairs_match_the_dissertation():
+    """The pairs the dissertation's roster code forbids: Night then Day or
+    Evening, and Evening then Day, on the next day."""
+    assert sorted(E.REST_FORBIDDEN) == sorted(
+        [("Night", "Day"), ("Night", "Evening"), ("Evening", "Day")])
 
 
 @pytest.mark.parametrize("daily", [[10] * 7, [45] * 7, [200] * 7])

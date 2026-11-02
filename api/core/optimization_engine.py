@@ -40,6 +40,13 @@ SHIFT_SHARE = {"Day": 0.41, "Evening": 0.41, "Night": 0.18}   # Ch5 §5.4
 NURSE_RATIO = {"Day": 4, "Evening": 5, "Night": 6}            # NDoH norms
 SHIFT_HOURS = 12.0
 LEGAL_WEEKLY_HOURS = 45.0                                     # BCEA s9
+MIN_REST_HOURS = 12.0                                         # BCEA s15(1)(a)
+# Shift start times (hours after midnight), as in the dissertation's roster code.
+SHIFT_START = {"Day": 6.0, "Evening": 14.0, "Night": 22.0}
+# Shift pairs (s on day d, s2 on day d+1) leaving less than MIN_REST_HOURS
+# between the end of s and the start of s2; these may not both be worked.
+REST_FORBIDDEN = [(s, s2) for s in SHIFTS for s2 in SHIFTS
+                  if SHIFT_START[s2] + 24.0 - (SHIFT_START[s] + SHIFT_HOURS) < MIN_REST_HOURS]
 WORK_YEAR_HOURS = 2080.0                                      # 52w × 40h
 DEFAULT_SIGMA_EPS = 9.35                                      # XGBoost residual SD
 DAY_ABBR = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -290,10 +297,12 @@ def solve_staff(
         for d in day_idx:
             prob += lpSum(x[(s["staff_id"], d, sh)] for sh in SHIFTS) <= 1
 
-    # 11-hour rest (BCEA s14): no Day shift the morning after a Night shift.
+    # 12-hour rest (BCEA s15(1)(a)): no pair of shifts on consecutive days
+    # that leaves less than twelve hours between them (REST_FORBIDDEN).
     for s in staff:
         for d in day_idx[:-1]:
-            prob += x[(s["staff_id"], d, "Night")] + x[(s["staff_id"], d + 1, "Day")] <= 1
+            for sh, sh2 in REST_FORBIDDEN:
+                prob += x[(s["staff_id"], d, sh)] + x[(s["staff_id"], d + 1, sh2)] <= 1
 
     # Skills mix: at least one Professional Nurse on every shift (softened).
     if pns:

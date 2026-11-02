@@ -149,7 +149,7 @@ CARDS: dict[str, dict] = {
         "body": (
             "Building the cheapest lawful roster is an integer programme: decide yes/no whether "
             "each nurse works each shift, to MINIMISE total cost while MEETING every shift's "
-            "demand and OBEYING the rules — the 45-hour weekly cap and 11-hour rest from the "
+            "demand and OBEYING the rules — the 45-hour weekly cap and 12-hour rest from the "
             "Basic Conditions of Employment Act, one shift per nurse per day, and a skills mix. "
             "Demand per shift comes from the forecast. When the lawful staff can't cover demand, "
             "the gap shows as agency-locum hours rather than illegal overtime — which is the real "
