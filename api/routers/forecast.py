@@ -11,7 +11,7 @@ import pandas as pd
 from core.forecasting import auto_forecast, run_arima_forecast, run_ml_forecast, WEATHER_FEATURES
 from core import prepare_registry, weather as live_weather, validation
 
-from core import security
+from core import security, data_version
 
 router = APIRouter(prefix="/api/forecast", tags=["forecast"])
 
@@ -340,6 +340,9 @@ def _forecast_from_series(
 # — the numbers the user is actually looking at — rather than trigger its own.
 _LAST_RUN: Optional[Dict[str, Any]] = None
 
+# Last per-specialty forecast results, keyed by specialty.
+_LAST_SPECIALTY: Dict[str, Dict[str, Any]] = {}
+
 
 def _remember_run(kind: str, result: Dict[str, Any]) -> None:
     global _LAST_RUN
@@ -348,6 +351,17 @@ def _remember_run(kind: str, result: Dict[str, Any]) -> None:
         "ran_at": datetime.now().isoformat(timespec="seconds"),
         "result": result,
     }
+
+
+def _clear_forecast_caches() -> None:
+    global _LAST_RUN
+    _LAST_RUN = None
+    _LAST_SPECIALTY.clear()
+    _ENGINE_CACHE.clear()
+    _VALIDATION_CACHE.clear()
+
+
+data_version.register("forecast", _clear_forecast_caches)
 
 
 @router.get("/last")

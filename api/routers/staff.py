@@ -12,7 +12,7 @@ from typing import Any, Optional
 import numpy as np
 from fastapi import APIRouter, HTTPException
 
-from core import simulation_data
+from core import simulation_data, data_version
 from core.optimization_engine import compare_staff_strategies
 
 router = APIRouter(prefix="/api/staff", tags=["staff"])
@@ -145,6 +145,13 @@ async def overview() -> dict[str, Any]:
 
 # Load-last cache for the on-demand strategy comparison (the /last pattern).
 _LAST_STRATEGY: dict[str, Any] = {}
+
+
+def _clear_staff_caches() -> None:
+    _LAST_STRATEGY.clear()
+
+
+data_version.register("staff", _clear_staff_caches)
 
 
 @router.get("/strategy-compare-demo")

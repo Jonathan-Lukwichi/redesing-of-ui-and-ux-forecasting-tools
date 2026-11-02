@@ -22,7 +22,7 @@ from core import simulation_data, optimization_engine as engine
 from core.forecasting import run_arima_forecast, run_ml_forecast
 from routers.forecast import _forecast_from_series, _series_for
 
-from core import security
+from core import security, data_version
 
 router = APIRouter(prefix="/api/optimization", tags=["optimization"])
 
@@ -64,6 +64,14 @@ _LAST_TUNE: dict[str, Any] = {}
 # Cache the fitted forecast so the staff and supply buttons (and re-runs) don't
 # refit the model each time. Keyed by (model, start_date); cleared on process exit.
 _FC_CACHE: dict[tuple, dict[str, Any]] = {}
+
+
+def _clear_optimization_caches() -> None:
+    _LAST_TUNE.clear()
+    _FC_CACHE.clear()
+
+
+data_version.register("optimization", _clear_optimization_caches)
 
 
 async def _get_week_forecast(model: str, start_date: Optional[str]) -> dict[str, Any]:

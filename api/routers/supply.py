@@ -10,7 +10,7 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from core import simulation_data
+from core import simulation_data, data_version
 from core.optimization_engine import (
     optimize_supply_multi_arm,
     optimize_supply_lead_time_sweep,
@@ -292,6 +292,14 @@ async def _engine_items() -> tuple[list[dict], str]:
 # Load-last caches for the on-demand evidence runs (the /last pattern).
 _LAST_COMPARE: dict[str, Any] = {}
 _LAST_SWEEP: dict[str, Any] = {}
+
+
+def _clear_supply_caches() -> None:
+    _LAST_COMPARE.clear()
+    _LAST_SWEEP.clear()
+
+
+data_version.register("supply", _clear_supply_caches)
 
 
 @router.get("/compare-demo")

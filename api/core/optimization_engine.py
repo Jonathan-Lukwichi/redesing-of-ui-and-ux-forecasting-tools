@@ -29,6 +29,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 import numpy as np
+from core import data_version
 from pulp import (
     LpProblem, LpVariable, LpMinimize, lpSum, LpInteger, LpBinary,
     LpStatus, PULP_CBC_CMD, value as lp_value,
@@ -1391,6 +1392,26 @@ def set_policy(policy: str, tuned: Optional[dict] = None) -> dict[str, Any]:
         "service_level": (tuned or {}).get("service_level"),
     })
     return get_policy_state()
+
+
+def reset_tuned_params() -> bool:
+    """Forget tuned parameters but keep the adopted policy family.
+
+    Returns True if anything was cleared.
+    """
+    keys = ("params_by_item", "tuned_at", "lead_time_mean", "service_level")
+    cleared = any(_POLICY_STATE.get(k) is not None for k in keys)
+    for k in keys:
+        _POLICY_STATE[k] = None
+    return cleared
+
+
+def _clear_last() -> None:
+    for k in _LAST:
+        _LAST[k] = None
+
+
+data_version.register("optimization_engine", lambda: (_clear_last(), reset_tuned_params()))
 
 
 def tune_policy(
