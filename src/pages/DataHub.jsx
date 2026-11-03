@@ -128,13 +128,17 @@ export default function DataHub({ onNavigate }) {
       return next;
     });
 
+  // Every slot change also re-reads staging and preflight: preflight drives the
+  // checklist rows and the Run gate, so it must never outlive the slots it checked.
   const refreshInventory = async () => {
+    const staging = refreshStaging();
     try {
       const inv = await api.datasets.inventory();
       setInventory(inv);
     } catch (e) {
       setError(e.message);
     }
+    await staging;
   };
 
   const onPickFile = (id) => {
@@ -286,11 +290,13 @@ export default function DataHub({ onNavigate }) {
       }
     }
     // Re-read the checklist before saying "Finished", so it never shows stale problems.
-    await Promise.all([refreshInventory(), refreshStaging()]);
+    await refreshInventory();
     setProgress({ finished: true, total: queue.length, ok, failed: queue.length - ok });
   };
 
   const onDropBestFit = async (result) => {
+    // Same gates as the drop zone: never beside the register queue or under a run.
+    if (uploading || running) return;
     patchResult(result.key, { state: 'uploading', message: 'Uploading…', bestFit: null });
     try {
       const message = await uploadOne({ kind: 'slot', id: result.bestFit.id, file: result.file });
@@ -298,7 +304,7 @@ export default function DataHub({ onNavigate }) {
     } catch (err) {
       patchResult(result.key, { state: 'failed', message: extractMessage(err) });
     }
-    await Promise.all([refreshInventory(), refreshStaging()]);
+    await refreshInventory();
   };
 
   // ---- Run ------------------------------------------------------------------
@@ -387,9 +393,13 @@ export default function DataHub({ onNavigate }) {
         title="Upload everything"
         sub="Registers are transformed as they arrive · CSVs go to the slot their name matches"
       />
+      {/* Files are sorted by the slot names in the inventory, so the zone waits for it. */}
       <DropZone
-        disabled={uploading || running}
-        disabledReason={running ? 'A run is in progress. Upload again when it finishes.' : 'Uploading…'}
+        disabled={uploading || running || !inventory}
+        disabledReason={running ? 'A run is in progress. Upload again when it finishes.'
+          : uploading ? 'Uploading…'
+            : error ? 'The file list could not be loaded, so files cannot be sorted. Is the server running?'
+              : 'Loading the file list…'}
         progress={progress}
         results={dropResults}
         onFiles={onDropFiles}

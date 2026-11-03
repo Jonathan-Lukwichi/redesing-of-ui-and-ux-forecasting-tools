@@ -72,7 +72,7 @@ export default function DropZone({ disabled, disabledReason, progress, results, 
                 <Card.FileLabel>{r.name}</Card.FileLabel>
                 <div className="pl-result-msg">{r.message}</div>
                 {r.bestFit && (
-                  <button className="btn btn-sm" onClick={() => onSendToBestFit(r)}>
+                  <button className="btn btn-sm" disabled={disabled} onClick={() => onSendToBestFit(r)}>
                     <Icon name="check" size={12} /> Upload there ({r.bestFit.label})
                   </button>
                 )}

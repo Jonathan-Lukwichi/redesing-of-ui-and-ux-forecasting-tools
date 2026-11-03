@@ -126,11 +126,13 @@ async function mockDataHub(page, {
     user: { username: 'admin', role: 'admin', scopes: ['data:write', 'data:read', 'forecast:read'], action_categories: [] },
     auth_mode: 'protected', auth_configured: true,
   } }));
-  await page.route('**/api/datasets/inventory', (r) => r.fulfill({ json: dhInventory(loaded) }));
+  // Any of status, preflight and loaded may be a function, read on each request.
+  const now = (v) => (typeof v === 'function' ? v() : v);
+  await page.route('**/api/datasets/inventory', (r) => r.fulfill({ json: dhInventory(now(loaded)) }));
   await page.route('**/api/datasets/source/status', (r) => r.fulfill({ json: { configured: false } }));
-  await page.route('**/api/pipeline/status', (r) => { count(r.request()); return r.fulfill({ json: typeof status === 'function' ? status() : status }); });
+  await page.route('**/api/pipeline/status', (r) => { count(r.request()); return r.fulfill({ json: now(status) }); });
   await page.route('**/api/pipeline/staged', (r) => { count(r.request()); return r.fulfill({ json: staged }); });
-  await page.route('**/api/pipeline/preflight', (r) => { count(r.request()); return r.fulfill({ json: preflight }); });
+  await page.route('**/api/pipeline/preflight', (r) => { count(r.request()); return r.fulfill({ json: now(preflight) }); });
   return calls;
 }
 
@@ -425,6 +427,8 @@ test('upload @ 390px — dropped files upload one at a time with receipts; unkno
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/#upload');
+  // The zone opens once the file list it sorts by has loaded.
+  await expect(page.getByRole('button', { name: 'Choose files' })).toBeEnabled();
   const xlsx = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
   await page.locator('.pl-drop input[type="file"]').setInputFiles([
     { name: 'Casualty_Daily_Register_2025_01.xlsx', mimeType: xlsx, buffer: Buffer.from('x') },
@@ -490,4 +494,87 @@ test('upload @ 390px — a refused download says so plainly', async ({ page }) =
   await page.goto('/#upload');
   await page.getByRole('button', { name: 'Download transformed CSVs' }).click();
   await expect(page.locator('.pl-staged')).toContainText('cannot upload or prepare data');
+});
+
+test('upload @ 390px — an Advanced tile upload re-reads preflight and the checklist row updates', async ({ page }) => {
+  let itemsLoaded = false;
+  const preflightNow = () => ({
+    ...DH_PREFLIGHT_MISSING,
+    issues: DH_PREFLIGHT_MISSING.issues.filter((i) => !(itemsLoaded && i.file === 'inventory_items.csv')),
+  });
+  const calls = await mockDataHub(page, {
+    preflight: preflightNow,
+    loaded: () => (itemsLoaded ? ['inventory_items'] : []),
+  });
+  await page.route('**/api/datasets/inventory_items/upload', (r) => {
+    itemsLoaded = true;
+    return r.fulfill({ json: { filename: 'inventory_items.csv', rows: 30, columns: ['item_id'], preview: [], schema_valid: true } });
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#upload');
+  const row = page.locator('.pl-check-row', { has: page.locator('.ui-card-file', { hasText: /^inventory_items\.csv$/ }) });
+  await expect(row).toHaveAttribute('data-state', 'problem');
+  const before = calls['GET /api/pipeline/preflight'];
+  await page.locator('details.pl-advanced summary').click();
+  const tile = page.locator('.pl-advanced .ui-card', { has: page.locator('.ui-card-title', { hasText: /^Inventory items$/ }) });
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    tile.getByRole('button', { name: 'Upload CSV' }).click(),
+  ]);
+  await chooser.setFiles({ name: 'inventory_items.csv', mimeType: 'text/csv', buffer: Buffer.from('item_id\nA\n') });
+  await expect(row).toHaveAttribute('data-state', 'present');
+  await expect(row).not.toContainText('Missing file');
+  expect(calls['GET /api/pipeline/preflight']).toBeGreaterThan(before);
+});
+
+test('upload @ 390px — the drop zone waits for the file list it sorts by', async ({ page }) => {
+  await mockDataHub(page);
+  let release;
+  const held = new Promise((res) => { release = res; });
+  await page.route('**/api/datasets/inventory', async (r) => { await held; return r.fulfill({ json: dhInventory([]) }); });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#upload');
+  const choose = page.getByRole('button', { name: 'Choose files' });
+  await expect(choose).toBeDisabled();
+  await expect(page.locator('.pl-drop')).toContainText('Loading the file list');
+  release();
+  await expect(choose).toBeEnabled();
+});
+
+test('upload @ 390px — "Upload there" is disabled while uploading and while running', async ({ page }) => {
+  let running = false;
+  await mockDataHub(page, {
+    preflight: { ok: true, issues: [], replaced_months: [], arrivals_source: 'both' },
+    loaded: DH_SLOTS.map((s) => s.id),
+    status: () => dhStatus(running ? { done: 0, running: true } : {}),
+  });
+  let release;
+  const held = new Promise((res) => { release = res; });
+  await page.route(/\/api\/pipeline\/registers/, async (r) => {
+    await held;
+    return r.fulfill({ json: { file: 'x', month: '2025-01', days: 31, arrivals: 4102, hourly_rows: 744, clinical_columns: 40, status: 'added' } });
+  });
+  await page.route(/\/api\/datasets\/[a-z_]+\/upload/, (r) => r.fulfill({ status: 400, json: { detail: {
+    error: 'missing_required_columns', message: "It looks like the 'Hourly arrivals' dataset (confidence 92%).",
+    best_fit: { id: 'hourly_arrival', label: 'Hourly arrivals', confidence: 0.92 },
+  } } }));
+  await page.route('**/api/pipeline/run', (r) => { running = true; return r.fulfill({ json: dhStatus({ done: 0, running: true }) }); });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#upload');
+  await expect(page.getByRole('button', { name: 'Choose files' })).toBeEnabled();
+  const xlsx = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  await page.locator('.pl-drop input[type="file"]').setInputFiles([
+    { name: 'pure_daily_arrival.csv', mimeType: 'text/csv', buffer: Buffer.from('date\n') },
+    { name: 'Casualty_Daily_Register_2025_01.xlsx', mimeType: xlsx, buffer: Buffer.from('x') },
+  ]);
+  const uploadThere = page.locator('.pl-results').getByRole('button', { name: /Upload there/ });
+  // The CSV failed with a best fit while the register is still in flight.
+  await expect(uploadThere).toBeVisible();
+  await expect(uploadThere).toBeDisabled();
+  release();
+  await expect(page.locator('.pl-progress')).toContainText('Finished');
+  await expect(uploadThere).toBeEnabled();
+  await page.getByRole('button', { name: 'Run full pipeline' }).click();
+  await expect(page.locator('.pl-stage[data-status="running"]')).toHaveCount(1);
+  await expect(uploadThere).toBeDisabled();
 });

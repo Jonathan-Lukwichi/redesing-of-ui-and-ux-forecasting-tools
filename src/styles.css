@@ -1177,7 +1177,7 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
    so without this it shrinks to its header when the page is taller than the view. */
 .pl-drop-card, .pl-summary, .pl-tracker { flex-shrink: 0; }
 /* .btn has no disabled look of its own; a disabled Run must not read as ready. */
-:is(.pl-drop, .pl-run, .pl-staged) .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+:is(.pl-drop, .pl-results, .pl-run, .pl-staged) .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 :is(.pl-drop, .pl-run, .pl-staged) .btn-primary:disabled:hover { background: var(--brand); color: white; }
 
 .pl-drop {
