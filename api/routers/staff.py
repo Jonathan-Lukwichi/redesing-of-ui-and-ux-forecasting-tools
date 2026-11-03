@@ -177,6 +177,7 @@ async def staff_strategy_compare_demo(
             if 10 <= m <= 300:
                 mean_arrivals = m
     res = compare_staff_strategies(mean_arrivals=mean_arrivals, n_active=n_active)
+    res["data_version"] = data_version.current()
     _LAST_STRATEGY["result"] = res
     return res
 

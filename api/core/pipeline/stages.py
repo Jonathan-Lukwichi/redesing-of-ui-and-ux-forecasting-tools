@@ -14,7 +14,8 @@ from typing import Callable, Literal
 
 import pandas as pd
 
-from core import datasets, ops_derive, prepare_registry, registry, simulation_data
+from core import data_version, datasets, ops_derive, prepare_registry, registry
+from core import optimization_engine as engine, simulation_data
 from core.explore import findings
 from core.pipeline import preflight, staging
 from core.pipeline.consolidate import build_ops_daily
@@ -201,11 +202,163 @@ def analyse_stage() -> StageResult:
                                  "the rest are shown."], status="amber")
 
 
-# Run order. Later tasks append forecast, optimise and recommend.
+# --- 5. Forecast --------------------------------------------------------------
+
+PIPELINE_MODEL = "ml"
+PIPELINE_HORIZON = 7
+WEEKLY_SPECIALTIES = ("Maternity", "Psychiatry")
+WEEKLY_HORIZON = 4
+
+
+def _forecast_failure(exc) -> str:
+    detail = getattr(exc, "detail", None)
+    if isinstance(detail, dict) and detail.get("error") == "g1_not_merged":
+        return "There is no daily demand group (G1) to forecast from."
+    if getattr(exc, "status_code", None) == 422:
+        return "Too little arrivals history to forecast: at least 30 days are needed."
+    # Other engine errors may quote data, so only the target is named.
+    return "The Total ED forecast could not be fitted to the uploaded arrivals."
+
+
+def forecast_stage() -> StageResult:
+    # Imported lazily, as core/bootstrap.py does, to avoid a circular import.
+    from fastapi import HTTPException
+    from routers import forecast, optimization
+
+    try:
+        s, _weekly = forecast._series_for("g1", None)
+        # Backtest first: the forecast then finds it and sizes its error with it.
+        validation = forecast.compute_validation(
+            forecast._training_window(s, False), PIPELINE_MODEL, PIPELINE_HORIZON)
+        res = forecast.compute_total(PIPELINE_MODEL, PIPELINE_HORIZON)
+    except HTTPException as e:
+        raise StageFailed(_forecast_failure(e)) from None
+    forecast._remember_run("total", res)
+    optimization._FC_CACHE[(PIPELINE_MODEL, "open")] = optimization.week_forecast_from_result(
+        res, PIPELINE_MODEL)
+    del s
+    gc.collect()
+
+    done, absent, failed = _specialty_forecasts(forecast)
+    receipt = f"Total ED: {PIPELINE_HORIZON}-day forecast from {res['forecast_start']}, "
+    warnings: list[str] = []
+    status = "done"
+    if validation is not None and res.get("validated"):
+        receipt += f"backtested on {_plural(int(validation['n_folds']), 'rolling origin')}"
+    else:
+        receipt += "not backtested, so plans use the model's one-step error"
+        warnings.append("The Total ED forecast was not backtested: rolling-origin validation "
+                        "needs at least 90 days of training data plus one full horizon.")
+        status = "amber"
+    receipt += f"; {len(done)} {'specialty' if len(done) == 1 else 'specialties'} forecast"
+    weekly = [n for n in done if n in WEEKLY_SPECIALTIES]
+    if weekly:
+        receipt += f" ({' and '.join(weekly)} by week)"
+    if absent:
+        warnings.append(f"Not in the clinical file, so not forecast: {', '.join(absent)}.")
+        status = "amber"
+    if failed:
+        warnings.append(f"Could not be forecast from the uploaded data: {', '.join(failed)}.")
+        status = "amber"
+    return StageResult(receipt, warnings, status)
+
+
+def _specialty_forecasts(forecast) -> tuple[list[str], list[str], list[str]]:
+    """Each specialty into its own keyed store, never the Total ED /last."""
+    g3 = prepare_registry.get_df("g3")
+    columns = set(g3.columns) if g3 is not None else set()
+    del g3
+    done, absent, failed = [], [], []
+    for name, col in forecast.SPECIALTY_COLUMN.items():
+        if col not in columns:
+            absent.append(name)
+            continue
+        weekly = name in WEEKLY_SPECIALTIES
+        try:
+            res = forecast.compute_specialty(
+                name, PIPELINE_MODEL, WEEKLY_HORIZON if weekly else PIPELINE_HORIZON,
+                "weekly" if weekly else "daily")
+        except Exception:  # noqa: BLE001 - one specialty never stops the rest
+            failed.append(name)
+            continue
+        res["data_version"] = data_version.current()
+        forecast._LAST_SPECIALTY[name] = res
+        done.append(name)
+    return done, absent, failed
+
+
+# --- 6. Optimise --------------------------------------------------------------
+
+POLICY_NOTICE = ("Tuned reorder settings were reset because the data changed. "
+                 "Re-tune on the Optimization page.")
+
+
+def recommended_family(comparison: dict | None) -> str | None:
+    """The deployable family with the lowest simulated total cost. Naive and
+    oracle are benchmarks, so they are never candidates; None if no deployable
+    family was compared."""
+    policies = (comparison or {}).get("policies") or {}
+    costs = {p: float(v["total_cost_mean"]) for p, v in policies.items()
+             if p in engine.DEPLOYABLE_POLICIES and v.get("total_cost_mean") is not None}
+    return min(costs, key=costs.get) if costs else None
+
+
+def _plan_failure(exc) -> str:
+    detail = getattr(exc, "detail", None)
+    if isinstance(detail, dict) and detail.get("error") == "g1_not_merged":
+        return ("There is no daily demand group (G1), so there is no forecast to plan "
+                "from. The run never plans from demonstration data instead.")
+    if isinstance(detail, dict) and detail.get("error") == "simulation_missing":
+        return "The staff or stock tables are missing, so no plan was made."
+    return "The roster and supply plan could not be built from the forecast."
+
+
+def optimise_stage() -> StageResult:
+    # Imported lazily, as core/bootstrap.py does, to avoid a circular import.
+    from fastapi import HTTPException
+    from routers import optimization, staff, supply
+
+    try:
+        plan = optimization.run_for_pipeline(PIPELINE_MODEL)
+    except HTTPException as e:
+        raise StageFailed(_plan_failure(e)) from None
+    except ValueError:   # the live forecast had no days
+        raise StageFailed("The forecast has no days to plan from.") from None
+    gc.collect()
+    # The evidence ladders, through the route functions so their /last caches fill.
+    comparison = asyncio.run(supply.supply_compare_demo())
+    gc.collect()
+    ladder = asyncio.run(staff.staff_strategy_compare_demo())
+
+    state = engine.get_policy_state()
+    adopted = engine.DEPLOYABLE_POLICIES[state["policy"]]["label"]
+    week = (plan.get("forecast") or {}).get("week_starting")
+    kpis = (plan.get("supply") or {}).get("kpis") or {}
+    receipt = (f"Lawful roster for the week from {week}; supply plan under the adopted "
+               f"family, {adopted}, with {kpis.get('items_to_order', 0)} of "
+               f"{_plural(int(kpis.get('items_total', 0)), 'item')} to order")
+    rec = recommended_family(comparison)
+    if rec is None:
+        receipt += "; no recommendation, because no deployable family was compared"
+    elif rec == state["policy"]:
+        receipt += f"; the evidence recommends {adopted}, the adopted family"
+    else:
+        receipt += (f"; the evidence recommends {engine.DEPLOYABLE_POLICIES[rec]['label']}, "
+                    f"while {adopted} stays adopted until changed on the Optimization page")
+    n = len(ladder.get("strategies") or {})
+    receipt += (f"; {n} rostering {'strategy' if n == 1 else 'strategies'} compared, "
+                "and only the lawful roster is deployed")
+    warnings = [POLICY_NOTICE] if engine.tuned_was_reset() else []
+    return StageResult(receipt, warnings)
+
+
+# Run order. Task 12 appends recommend.
 STAGES: list[tuple[str, str, Callable[[], StageResult]]] = [
     ("check", "Check", check),
     ("transform", "Transform", transform),
     ("operations", "Operations", operations),
     ("consolidate", "Consolidate", consolidate),
     ("analyse", "Analyse", analyse_stage),
+    ("forecast", "Forecast", forecast_stage),
+    ("optimise", "Optimise", optimise_stage),
 ]

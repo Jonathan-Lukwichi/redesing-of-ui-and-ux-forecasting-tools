@@ -11,6 +11,7 @@ merged; otherwise we fall back to the bundled 13-month scheduling simulation's
 own arrival history so the page is always demonstrable.
 """
 from __future__ import annotations
+import asyncio
 from typing import Any, Optional
 
 import pandas as pd
@@ -74,17 +75,19 @@ def _clear_optimization_caches() -> None:
 data_version.register("optimization", _clear_optimization_caches)
 
 
-async def _get_week_forecast(model: str, start_date: Optional[str]) -> dict[str, Any]:
+async def _get_week_forecast(model: str, start_date: Optional[str],
+                             strict: bool = False) -> dict[str, Any]:
     """Next-7-day total-ED forecast. Tries the live G1 pipeline (same data and
     accuracy as the Forecast page); falls back to the simulation's own arrival
-    history only if G1 isn't merged. We ONLY cache the live G1 result — a
-    transient fallback must never get pinned, otherwise the optimization would
-    keep showing demo numbers (and a different accuracy) after G1 is ready."""
+    history only if G1 isn't merged (never with strict=True). We ONLY cache the
+    live G1 result — a transient fallback must never get pinned, otherwise the
+    optimization would keep showing demo numbers (and a different accuracy)
+    after G1 is ready."""
     key = (model, start_date or "open")
     cached = _FC_CACHE.get(key)
     if cached and cached.get("live"):
         return cached
-    fc = await _compute_week_forecast(model, start_date)
+    fc = await _compute_week_forecast(model, start_date, strict=strict)
     if fc.get("live"):
         _FC_CACHE[key] = fc
     return fc
@@ -313,6 +316,27 @@ async def run(req: RunRequest, _rl=Depends(security.rate_limit("heavy")),
         engine.optimize, forecast, staff, items,
         req.kappa, req.service_level, req.weekly_budget_zar, current, observed,
     )
+
+
+def run_for_pipeline(model: str) -> dict[str, Any]:
+    """The /run body for the pipeline job thread (no event loop there), with
+    RunRequest defaults. Two differences, both what a run needs: the forecast
+    is strict, so a missing G1 raises instead of planning from demo data, and
+    the supply half plans within the standing policy family, which it never
+    changes. Returns the published plan (the /last payload). Raises HTTPException."""
+    req = RunRequest(model=model)
+
+    async def _inputs():
+        return (await _get_week_forecast(req.model, req.start_date, strict=True),
+                await _load_staff(), await _load_items(),
+                await _current_weekly_staff_cost())
+
+    forecast, staff, items, (current, observed) = asyncio.run(_inputs())
+    state = engine.get_policy_state()
+    engine.run_staff(forecast, staff, req.kappa, req.weekly_budget_zar, current, observed)
+    engine.run_supply_policy(forecast, items, state["policy"], req.service_level,
+                             state["params_by_item"])
+    return dict(engine.get_last())
 
 
 @router.get("/forecast-options")

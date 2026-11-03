@@ -87,12 +87,14 @@ def _run():
 def test_run_completes_stages_in_order():
     before = job.status()
     assert before["source"] == {"mode": "default"}
-    assert [s["status"] for s in before["stages"]] == ["pending"] * 5
+    assert [s["status"] for s in before["stages"]] == ["pending"] * 7
 
     s = _run()
     assert [st["id"] for st in s["stages"]] == ["check", "transform", "operations",
-                                               "consolidate", "analyse"]
-    assert _statuses() == ["done", "skipped", "done", "done", "done"]
+                                               "consolidate", "analyse", "forecast",
+                                               "optimise"]
+    # Forecast is amber: the seed clinical file lacks three optional specialties.
+    assert _statuses() == ["done", "skipped", "done", "done", "done", "amber", "done"]
     assert s["running"] is False and s["started_at"] and s["finished_at"]
     assert s["source"]["mode"] == "uploaded" and s["source"]["run"] == 1
     assert s["source"]["finished_at"] == s["finished_at"]
@@ -210,7 +212,8 @@ def test_consolidate_failing_on_g3_leaves_no_group(monkeypatch):
     _seed_old_groups()
     monkeypatch.setattr(prep, "build", fail_on_g3)
     s = _run()
-    assert _statuses() == ["done", "skipped", "done", "failed", "skipped"]
+    assert _statuses() == ["done", "skipped", "done", "failed", "skipped", "skipped",
+                           "skipped"]
     assert s["stages"][3]["receipt"] == "Cannot build G3: missing."
     assert _no_groups_left()
 
@@ -225,7 +228,7 @@ def test_operations_failing_after_transform_leaves_no_group(monkeypatch):
     staging.put(_month(2024, 3))
     monkeypatch.setattr(ops_derive, "derive", bad)
     s = _run()
-    assert _statuses() == ["done", "done", "failed", "skipped", "skipped"]
+    assert _statuses() == ["done", "done", "failed"] + ["skipped"] * 4
     assert registry.get_metadata("daily_arrival")["filename"] == "transformed"
     assert _no_groups_left()
 
@@ -234,7 +237,7 @@ def test_check_failure_keeps_previously_built_groups():
     _seed_old_groups()
     registry.clear("calendar")
     _run()
-    assert _statuses() == ["failed", "skipped", "skipped", "skipped", "skipped"]
+    assert _statuses() == ["failed"] + ["skipped"] * 6
     assert all(prepare_registry.get(g) is not None for g in GROUPS)
 
 
@@ -293,7 +296,7 @@ def test_no_arrivals_after_transform_stops_the_run():
                                  arrival_after_hours=0),
         hourly=month.hourly.assign(arrival_count=0)))
     s = _run()
-    assert _statuses() == ["done", "failed", "skipped", "skipped", "skipped"]
+    assert _statuses() == ["done", "failed"] + ["skipped"] * 5
     assert "arrivals" in s["stages"][1]["receipt"]
     assert registry.get_df("daily_arrival") is None
     assert staging.unapplied() == ["2025-01"]
@@ -315,7 +318,7 @@ def test_groups_built_sequentially(monkeypatch):
 
     monkeypatch.setattr(prep, "build", spy)
     s = _run()
-    assert _statuses() == ["done", "skipped", "done", "done", "done"]
+    assert _statuses() == ["done", "skipped", "done", "done", "done", "amber", "done"]
     assert calls == ["g1", "g2", "g3", "g4"] and max(overlap) == 1
     for g in GROUPS:
         assert prepare_registry.get_df(g) is not None, g

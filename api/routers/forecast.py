@@ -349,6 +349,7 @@ def _remember_run(kind: str, result: Dict[str, Any]) -> None:
     _LAST_RUN = {
         "kind":   kind,  # "total" | "specialty"
         "ran_at": datetime.now().isoformat(timespec="seconds"),
+        "data_version": data_version.current(),
         "result": result,
     }
 

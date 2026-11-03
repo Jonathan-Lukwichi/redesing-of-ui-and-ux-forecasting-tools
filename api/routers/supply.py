@@ -319,6 +319,7 @@ async def supply_compare_demo(
         items, basket = await _engine_items()
     res = optimize_supply_multi_arm(items, service_level=service_level, lead_time_mean=lead_time)
     res["basket"] = basket
+    res["data_version"] = data_version.current()
     _LAST_COMPARE["result"] = res
     return res
 
@@ -337,6 +338,7 @@ async def supply_sweep_demo(
         items, service_level=service_level, lead_times=list(DEFAULT_LEAD_TIME_SWEEP),
     )
     res["basket"] = basket
+    res["data_version"] = data_version.current()
     _LAST_SWEEP["result"] = res
     return res
 

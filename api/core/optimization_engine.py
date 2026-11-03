@@ -716,7 +716,8 @@ def _meta(forecast: dict, **kw) -> dict[str, Any]:
          "forecast_error_basis": forecast.get("error_basis", "one_step_holdout"),
          "forecast_validated": bool(forecast.get("validated")),
          "forecast_validation_summary": forecast.get("validation_summary"),
-         "forecast_mase": forecast.get("mase")}
+         "forecast_mase": forecast.get("mase"),
+         "data_version": data_version.current()}
     m.update(kw)
     return m
 
@@ -1412,7 +1413,22 @@ def _clear_last() -> None:
         _LAST[k] = None
 
 
-data_version.register("optimization_engine", lambda: (_clear_last(), reset_tuned_params()))
+# Whether the most recent invalidation threw tuned settings away, so a run can
+# tell the user to re-tune (a run never re-tunes on its own).
+_TUNED_WAS_RESET = False
+
+
+def tuned_was_reset() -> bool:
+    return _TUNED_WAS_RESET
+
+
+def _invalidate() -> None:
+    global _TUNED_WAS_RESET
+    _clear_last()
+    _TUNED_WAS_RESET = reset_tuned_params()
+
+
+data_version.register("optimization_engine", _invalidate)
 
 
 def tune_policy(

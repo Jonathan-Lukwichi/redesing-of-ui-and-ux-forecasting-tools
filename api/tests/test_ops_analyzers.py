@@ -198,8 +198,9 @@ def test_analyse_stage_reports_counts_and_failures(monkeypatch):
     assert all("secret" not in w for w in bad.warnings)
 
 
-def test_analyse_is_the_last_stage():
-    assert stages.STAGES[-1][0] == "analyse"
+def test_analyse_follows_consolidate_and_precedes_forecast():
+    ids = [sid for sid, _label, _fn in stages.STAGES]
+    assert ids.index("consolidate") < ids.index("analyse") < ids.index("forecast")
 
 
 class _BoomToo(_Boom):
