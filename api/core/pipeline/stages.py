@@ -69,6 +69,11 @@ def check() -> StageResult:
 
 # --- 1. Transform ---------------------------------------------------------------
 
+def _clear_groups() -> None:
+    for g in (*GROUP_IDS, "ops_daily"):
+        prepare_registry.clear(g)
+
+
 def _slot_metadata(sid: str, df: pd.DataFrame, signature: bytes) -> dict:
     # Imported lazily, as core/bootstrap.py does, to avoid a circular import.
     from routers.datasets import _build_metadata
@@ -78,6 +83,9 @@ def _slot_metadata(sid: str, df: pd.DataFrame, signature: bytes) -> dict:
 
 
 def transform() -> StageResult:
+    # The checks have passed, so the inputs are about to change: drop the built
+    # groups now, so a later failure leaves them absent, never half-replaced.
+    _clear_groups()
     months = staging.months()
     if not months:
         return StageResult("No registers staged; the uploaded daily tables are used as "
@@ -138,6 +146,14 @@ def _build_failure(group: str, exc) -> str:
 
 
 def consolidate() -> StageResult:
+    try:
+        return _consolidate()
+    except BaseException:
+        _clear_groups()   # groups built before the failure go too: none half-replaced
+        raise
+
+
+def _consolidate() -> StageResult:
     # Imported lazily, as core/bootstrap.py does, to avoid a circular import.
     from fastapi import HTTPException
     from routers.prepare import BuildRequest, build

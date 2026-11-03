@@ -186,6 +186,58 @@ def test_failed_run_leaves_results_cleared(client, monkeypatch):
     assert client.get("/api/optimization/last").json()["status"] == "no_solution_yet"
 
 
+def _seed_old_groups():
+    for g in GROUPS:
+        prepare_registry.put(g, pd.DataFrame({"date": ["2020-01-01"]}), {"id": g, "rows": 1})
+
+
+def _no_groups_left():
+    return all(prepare_registry.get(g) is None for g in GROUPS)
+
+
+def test_consolidate_failing_on_g3_leaves_no_group(monkeypatch):
+    from fastapi import HTTPException
+    import routers.prepare as prep
+    real = prep.build
+
+    async def fail_on_g3(req, _user=None):
+        if req.group == "g3":
+            raise HTTPException(400, {"error": "missing_sources", "group": "g3",
+                                      "missing": ["clinical_daily"],
+                                      "message": "Cannot build G3: missing."})
+        return await real(req)
+
+    _seed_old_groups()
+    monkeypatch.setattr(prep, "build", fail_on_g3)
+    s = _run()
+    assert _statuses() == ["done", "skipped", "done", "failed"]
+    assert s["stages"][3]["receipt"] == "Cannot build G3: missing."
+    assert _no_groups_left()
+
+
+def test_operations_failing_after_transform_leaves_no_group(monkeypatch):
+    from core import ops_derive
+
+    def bad(*_a, **_k):
+        raise ValueError("staffing_daily: dates must be written YYYY-MM-DD.")
+
+    _seed_old_groups()
+    staging.put(_month(2024, 3))
+    monkeypatch.setattr(ops_derive, "derive", bad)
+    s = _run()
+    assert _statuses() == ["done", "done", "failed", "skipped"]
+    assert registry.get_metadata("daily_arrival")["filename"] == "transformed"
+    assert _no_groups_left()
+
+
+def test_check_failure_keeps_previously_built_groups():
+    _seed_old_groups()
+    registry.clear("calendar")
+    _run()
+    assert _statuses() == ["failed", "skipped", "skipped", "skipped"]
+    assert all(prepare_registry.get(g) is not None for g in GROUPS)
+
+
 def test_status_survives_a_new_client(client, monkeypatch):
     entered, release = _hold(monkeypatch)
     try:
