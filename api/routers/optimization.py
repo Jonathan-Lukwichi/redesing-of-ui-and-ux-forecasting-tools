@@ -301,7 +301,7 @@ async def tune_policy(req: PolicyRequest, _rl=Depends(security.rate_limit("heavy
 @router.get("/policy/tune/last")
 async def tune_last() -> dict[str, Any]:
     """Most recent tuning results per policy (for Load-last-result buttons)."""
-    return {"results": _LAST_TUNE}
+    return {"results": _LAST_TUNE, "data_version": data_version.current()}
 
 
 @router.post("/run")

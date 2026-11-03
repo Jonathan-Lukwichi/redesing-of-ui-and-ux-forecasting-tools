@@ -622,7 +622,7 @@ async def validation_index() -> Dict[str, Any]:
          "beats_seasonal_naive": v.get("beats_seasonal_naive"),
          "pi_coverage_pct": v.get("pi_coverage_pct"), "summary": v.get("summary")}
         for v in _VALIDATION_CACHE.values()
-    ]}
+    ], "data_version": data_version.current()}
 
 
 @router.get("/coverage")

@@ -2,12 +2,16 @@
 the read-only tools, then asks the cheap model to turn them into a ranked,
 plain-English action list. Suggestions only — humans approve."""
 from __future__ import annotations
+import copy
 import json
 import re
+import threading
+from datetime import datetime, timezone
 from typing import Any
 
 from ai import config, prompts, tools, redact
 from ai.client import _client, with_fallback
+from core import data_version
 
 
 def gather_signals() -> dict[str, Any]:
@@ -108,3 +112,56 @@ def generate() -> dict[str, Any]:
         a["title"] = redact.scrub(a.get("title", ""))   # confidentiality safety-net
         a["reason"] = redact.scrub(a.get("reason", ""))
     return {"actions": actions, "usage": {"in": usage[0], "out": usage[1]}, "model": model}
+
+
+# --- The stored list ----------------------------------------------------------
+# The pipeline rebuilds the list once per run; the Action Center then reads that
+# stored list, so opening the page never spends an AI call. The on-demand path
+# in the route is the fallback only when nothing is stored.
+
+_LOCK = threading.Lock()
+_STORED: dict[str, Any] | None = None
+
+
+def stored() -> dict[str, Any] | None:
+    """A copy of the stored list, or None. A copy, because callers decorate it."""
+    with _LOCK:
+        return copy.deepcopy(_STORED)
+
+
+def clear_stored() -> None:
+    global _STORED
+    with _LOCK:
+        _STORED = None
+
+
+def record_usage(out: dict[str, Any]) -> dict[str, Any]:
+    """Telemetry and audit for one generation, once, when the list is made.
+    Removes `usage` and `model` from `out` and returns it."""
+    from ai import audit, telemetry
+    u = out.pop("usage", None)
+    model = out.pop("model", None) or config.model_fast()
+    in_t = (u or {}).get("in", 0)
+    out_t = (u or {}).get("out", 0)
+    if u:
+        telemetry.record("actions", model, in_t, out_t)
+    audit.log_event("actions", model, "live forecast/staff/supply/optimization signals",
+                    json.dumps(out.get("actions", []), default=str), in_t, out_t)
+    return out
+
+
+def build_and_store() -> dict[str, Any]:
+    """Generate the list, record its usage, keep it. Raises what generate() raises."""
+    global _STORED
+    version = data_version.current()
+    out = record_usage(generate())
+    out["built_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    out["data_version"] = version
+    with _LOCK:
+        # A run that invalidated the data while we were generating owns the cache.
+        if data_version.current() == version:
+            _STORED = copy.deepcopy(out)
+    return out
+
+
+data_version.register("actions", clear_stored)

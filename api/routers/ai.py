@@ -195,27 +195,22 @@ async def chat(request: Request,
 async def actions(request: Request,
                   _rl=Depends(security.rate_limit("ai")),
                   _user=security.ReadAccess):
-    if not config.configured():
-        return _err(503, "ai_not_configured",
-                    "Set ANTHROPIC_API_KEY or GEMINI_API_KEY in api/.env to enable the assistant.")
-    if telemetry.over_budget():
-        return _err(429, "budget_exhausted", "Daily budget reached.")
-    try:
-        # Runs in a threadpool so its self-calls don't deadlock the event loop.
-        out = await run_in_threadpool(ai_actions.generate)
-    except Exception as e:
-        return _err(503, "ai_error", ai_client.friendly(e).strip("\n[]"))
-    u = out.pop("usage", None)
-    model = out.pop("model", None) or config.model_fast()
-    in_t = (u or {}).get("in", 0)
-    out_t = (u or {}).get("out", 0)
-    if u:
-        telemetry.record("actions", model, in_t, out_t)
-    import json as _json
-    audit.log_event("actions", model, "live forecast/staff/supply/optimization signals",
-                    _json.dumps(out.get("actions", []), default=str), in_t, out_t)
+    # A stored list needs no AI, so it is served before any AI configuration check.
+    out = ai_actions.stored()
+    if out is None:
+        if not config.configured():
+            return _err(503, "ai_not_configured",
+                        "Set ANTHROPIC_API_KEY or GEMINI_API_KEY in api/.env to enable the assistant.")
+        if telemetry.over_budget():
+            return _err(429, "budget_exhausted", "Daily budget reached.")
+        try:
+            # Runs in a threadpool so its self-calls don't deadlock the event loop.
+            # Telemetry and audit happen inside, once, when the list is made.
+            out = await run_in_threadpool(ai_actions.build_and_store)
+        except Exception as e:
+            return _err(503, "ai_error", ai_client.friendly(e).strip("\n[]"))
 
-    # The list is regenerated on every call and the generator gives items no
+    # The list is served as stored and the generator gives items no
     # stable id, so each one is matched back to its stored decision by content.
     # Without this the page would keep re-raising something already dismissed.
     out["actions"] = action_store.apply_decisions(out.get("actions", []))

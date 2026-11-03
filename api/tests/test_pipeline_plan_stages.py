@@ -282,4 +282,4 @@ def test_optimise_failure_when_g1_missing_is_not_a_fallback(ran):
 
 
 def test_stages_run_in_order():
-    assert [sid for sid, _l, _f in stages.STAGES][-2:] == ["forecast", "optimise"]
+    assert [sid for sid, _l, _f in stages.STAGES][-3:] == ["forecast", "optimise", "recommend"]

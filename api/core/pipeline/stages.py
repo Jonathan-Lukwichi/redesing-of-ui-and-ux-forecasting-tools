@@ -352,7 +352,34 @@ def optimise_stage() -> StageResult:
     return StageResult(receipt, warnings)
 
 
-# Run order. Task 12 appends recommend.
+# --- 7. Recommend -------------------------------------------------------------
+
+NEEDS_AI_KEY = "Recommendations need an AI key"
+
+
+def recommend_stage() -> StageResult:
+    """Rebuild the stored Action Center list from the run's own results. It is the
+    one stage that needs an AI provider, so every way it can not finish ends amber:
+    stages 1 to 6 stand alone and the run still completes."""
+    from ai import config, telemetry, actions
+
+    if not config.configured():
+        return StageResult(NEEDS_AI_KEY, status="amber")
+    if telemetry.over_budget():
+        return StageResult("Recommendations were not rebuilt: the assistant's daily "
+                           "budget is reached.", status="amber")
+    try:
+        out = actions.build_and_store()
+    except Exception:  # noqa: BLE001 - provider errors can carry request text
+        return StageResult("Recommendations could not be rebuilt; the Action Center "
+                           "will build them on demand.",
+                           ["The AI provider did not return a usable list."], "amber")
+    n = len(out.get("actions") or [])
+    return StageResult(f"{_plural(n, 'recommendation')} rebuilt from this run's forecast, "
+                       "roster and supply plan")
+
+
+# Run order.
 STAGES: list[tuple[str, str, Callable[[], StageResult]]] = [
     ("check", "Check", check),
     ("transform", "Transform", transform),
@@ -361,4 +388,5 @@ STAGES: list[tuple[str, str, Callable[[], StageResult]]] = [
     ("analyse", "Analyse", analyse_stage),
     ("forecast", "Forecast", forecast_stage),
     ("optimise", "Optimise", optimise_stage),
+    ("recommend", "Recommend", recommend_stage),
 ]

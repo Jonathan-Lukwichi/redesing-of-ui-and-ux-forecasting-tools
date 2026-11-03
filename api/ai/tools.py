@@ -139,6 +139,32 @@ def _post(path: str, body: dict) -> dict:
         return r.json() if r.headers.get("content-type", "").startswith("application/json") else {"error": r.text[:300]}
 
 
+def _origin_phrase() -> str:
+    """Where the stock and staffing numbers come from. Read in-process from the
+    data layer. No upload yet (None) counts as simulated: the bundled data is."""
+    from core import simulation_data
+    return "UPLOADED" if simulation_data.origin() == "real" else "SIMULATED"
+
+
+def _supply_source() -> str:
+    if _origin_phrase() == "UPLOADED":
+        return ("UPLOADED supply data (the hospital's own inventory files from the latest "
+                "pipeline run). Say so if asked where the numbers come from.")
+    return ("SIMULATED supply data (a 30-item catalogue, 13-month panel) "
+            "built for this study, not live hospital stock records. Say so "
+            "if asked where the numbers come from.")
+
+
+def _staff_source(n_active, days) -> str:
+    pool = f"a {n_active}-nurse pool" if n_active else "a nurse pool"
+    if _origin_phrase() == "UPLOADED":
+        return (f"UPLOADED staffing data ({pool} over {days} days) from the hospital's own "
+                "files in the latest pipeline run. Say so if asked where the numbers come from.")
+    return (f"SIMULATED staffing data ({pool} over {days} days) built "
+            "for this study, not live hospital rosters. Say so if asked "
+            "where the numbers come from.")
+
+
 def execute(name: str, inp: dict[str, Any], user=None) -> dict[str, Any]:
     """Run a tool, return a compact result dict (or an error explaining the fix).
 
@@ -207,9 +233,7 @@ def execute(name: str, inp: dict[str, Any], user=None) -> dict[str, Any]:
             if d.get("error") or d.get("detail"):
                 return {"error": "Supply data not available — the simulation files may not be loaded."}
             return {
-                "source": ("SIMULATED supply data (a 30-item catalogue, 13-month panel) "
-                           "built for this study, not live hospital stock records. Say so "
-                           "if asked where the numbers come from."),
+                "source": (_supply_source()),
                 "kpis": d.get("kpis"),
                 "items_at_risk": d.get("items_at_risk"),
                 "at_risk": [{"item": i["item_name"], "class": i["abc_class"],
@@ -235,9 +259,7 @@ def execute(name: str, inp: dict[str, Any], user=None) -> dict[str, Any]:
                 "locum_hours_total_over_period": s.get("locum_hours"),
             } for s in (d.get("shifts") or [])]
             return {
-                "source": (f"SIMULATED staffing data (a 23-nurse pool over {days} days) built "
-                           "for this study, not live hospital rosters. Say so if asked "
-                           "where the numbers come from."),
+                "source": _staff_source(k.get("n_active_staff"), days),
                 "period_days": days,
                 "note": ("Current state only. For the demand-matched BEST roster use "
                          "get_optimization; if that plan is unavailable, tell the user to "
