@@ -26,7 +26,7 @@ _SERVE_FRONTEND = _STATIC_DIR.is_dir()
 from core import auth as core_auth, disclosure, security
 from routers import (forecast, staff, supply, upload, datasets, prepare, explore,
                      task1, task2, ai, optimization, reports, auth_routes,
-                     action_items)
+                     action_items, pipeline)
 
 app = FastAPI(
     title="HealthForecast AI — Backend API",
@@ -41,6 +41,7 @@ app = FastAPI(
 _HEAVY_PREFIXES = (
     "/api/forecast", "/api/optimization", "/api/supply/compare",
     "/api/supply/sweep", "/api/staff/strategy", "/api/task1", "/api/task2",
+    "/api/pipeline/registers",
 )
 
 
@@ -79,6 +80,7 @@ app.include_router(ai.router)
 app.include_router(optimization.router)
 app.include_router(reports.router)
 app.include_router(action_items.router)
+app.include_router(pipeline.router)
 
 
 @app.on_event("startup")
