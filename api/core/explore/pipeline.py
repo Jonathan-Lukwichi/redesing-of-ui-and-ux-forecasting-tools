@@ -275,7 +275,8 @@ class FindingPipeline:
                 out.append((a, ""))
         return out
 
-    def run(self, ctx: AnalysisContext) -> list[Finding]:
+    def run(self, ctx: AnalysisContext, failed: list[str] | None = None) -> list[Finding]:
+        """`failed`, if given, collects the codes that failed in THIS call."""
         findings: list[Finding] = []
         for a in self.analyzers:
             target_groups: list[str]
@@ -292,6 +293,8 @@ class FindingPipeline:
                 except Exception as e:  # one bad analyzer should not break the page
                     f = None
                     _record_failure(a, gid, e)
+                    if failed is not None:
+                        failed.append(a.code)
                 if f is not None:
                     findings.append(f)
                     if a.preferred_group_ids:
@@ -304,7 +307,8 @@ class MetricPipeline:
     def __init__(self, analyzers: list[MetricAnalyzer]):
         self.analyzers = list(analyzers)
 
-    def run(self, ctx: AnalysisContext) -> list[Metric]:
+    def run(self, ctx: AnalysisContext, failed: list[str] | None = None) -> list[Metric]:
+        """`failed`, if given, collects the codes that failed in THIS call."""
         out: list[Metric] = []
         for a in self.analyzers:
             target_groups: list[str]
@@ -321,6 +325,8 @@ class MetricPipeline:
                 except Exception as e:
                     m = None
                     _record_failure(a, gid, e)
+                    if failed is not None:
+                        failed.append(a.code)
                 if m is not None:
                     out.append(m)
                     if a.preferred_group_ids:

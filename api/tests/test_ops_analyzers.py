@@ -200,3 +200,31 @@ def test_analyse_stage_reports_counts_and_failures(monkeypatch):
 
 def test_analyse_is_the_last_stage():
     assert stages.STAGES[-1][0] == "analyse"
+
+
+class _BoomToo(_Boom):
+    code = "FY"
+
+
+def _seed_g1():
+    n = 100
+    prepare_registry.put("g1", _g1(np.arange(n) % 9 + 50, np.arange(n) % 7, 1), {"id": "g1"})
+
+
+def test_analyse_stage_goes_amber_when_the_failure_log_is_full(monkeypatch):
+    _seed_g1()
+    monkeypatch.setattr(findings.PIPELINE, "analyzers",
+                        findings.PIPELINE.analyzers + [_Boom(), _BoomToo()])
+    for _ in range(3):   # the same analyzers fail every run; the log stays at its cap
+        pipeline._FAILURES[:] = [{"analyzer": "x", "code": "FX", "group_id": "g1",
+                                  "error": "e"}] * 50
+        r = stages.analyse_stage()
+        assert len(pipeline.recent_failures()) == 50
+        assert r.status == "amber" and "FX" in r.warnings[0] and "FY" in r.warnings[0]
+
+
+def test_analyse_stage_ignores_failures_logged_by_other_requests():
+    _seed_g1()
+    pipeline._FAILURES.append({"analyzer": "x", "code": "FZ", "group_id": "g1", "error": "e"})
+    r = stages.analyse_stage()
+    assert r.status == "done" and r.warnings == []

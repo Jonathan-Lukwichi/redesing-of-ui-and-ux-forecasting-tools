@@ -16,7 +16,6 @@ import pandas as pd
 
 from core import datasets, ops_derive, prepare_registry, registry, simulation_data
 from core.explore import findings
-from core.explore.pipeline import recent_failures
 from core.pipeline import preflight, staging
 from core.pipeline.consolidate import build_ops_daily
 from core.transform.assemble import assemble, overlay, quality_checks
@@ -192,19 +191,14 @@ def _consolidate() -> StageResult:
 # --- 4. Analyse ---------------------------------------------------------------
 
 def analyse_stage() -> StageResult:
-    before = recent_failures()
-    n_findings = findings.run_findings()["count"]
-    n_metrics = findings.run_metrics("all")["count"]
-    after = recent_failures()
-    receipt = f"{n_findings} findings, {n_metrics} metrics"
-    # The failure log keeps only the last 50, so at that cap compare contents.
-    grew = len(after) > len(before) or (len(before) >= 50 and after != before)
-    if not grew:
+    f = findings.run_findings()
+    m = findings.run_metrics("all")
+    receipt = f"{f['count']} findings, {m['count']} metrics"
+    codes = sorted(set(f["failed_codes"]) | set(m["failed_codes"]))   # this run only
+    if not codes:
         return StageResult(receipt)
-    new = after[-max(1, len(after) - len(before)):]
-    codes = ", ".join(sorted({f["code"] for f in new}))
-    return StageResult(receipt, [f"Some analyses did not finish ({codes}); the rest are shown."],
-                       status="amber")
+    return StageResult(receipt, [f"Some analyses did not finish ({', '.join(codes)}); "
+                                 "the rest are shown."], status="amber")
 
 
 # Run order. Later tasks append forecast, optimise and recommend.

@@ -45,7 +45,8 @@ def _build_context(time_range: str = "all_time", specialty: str | None = None) -
 
 def run_findings(time_range: str = "all_time", specialty: str | None = None) -> dict[str, Any]:
     ctx = _build_context(time_range=time_range, specialty=specialty)
-    findings = PIPELINE.run(ctx)
+    failed: list[str] = []
+    findings = PIPELINE.run(ctx, failed)
     return {
         "findings": [f.to_dict() for f in findings],
         "count":    len(findings),
@@ -53,6 +54,7 @@ def run_findings(time_range: str = "all_time", specialty: str | None = None) -> 
         "groups_seen": list(ctx.groups.keys()),
         "raw_datasets_seen": list(ctx.raw_datasets.keys()),
         "recent_failures": recent_failures(),
+        "failed_codes": sorted(set(failed)),   # this call only
     }
 
 
@@ -71,10 +73,12 @@ def run_metrics(section: str = "forecast", time_range: str = "all_time",
     else:
         pipeline = FORECAST_PIPELINE
     ctx = _build_context(time_range=time_range, specialty=specialty)
-    metrics = pipeline.run(ctx)
+    failed: list[str] = []
+    metrics = pipeline.run(ctx, failed)
     return {
         "metrics": [m.to_dict() for m in metrics],
         "count":   len(metrics),
+        "failed_codes": sorted(set(failed)),   # this call only
         "section": section,
         "time_range": time_range,
         "groups_seen": list(ctx.groups.keys()),
