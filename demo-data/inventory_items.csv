@@ -1,0 +1,31 @@
+item_id,item_name,category,abc_class,unit,unit_price_zar,on_current_tender,lead_time_mean_days,ordering_cost_zar,holding_cost_rate_per_year,stockout_penalty_zar,shelf_life_months,data_origin
+A01,paracetamol IV 1g infusion,medicine,A,vial,38.0,True,10,450,0.22,380,24,simulated
+A02,sodium chloride 0.9 percent 1L,medicine,A,bag,18.5,True,7,450,0.22,200,36,simulated
+A03,ceftriaxone 1g vial,medicine,A,vial,22.0,True,10,450,0.22,330,24,simulated
+A04,adrenaline 1mg ampoule,medicine,A,ampoule,8.5,True,14,450,0.22,170,24,simulated
+A05,IV cannula 18G,consumable,A,each,12.0,True,21,650,0.22,120,36,simulated
+A06,surgical gloves sterile pair,PPE,A,pair,9.5,True,14,650,0.22,95,60,simulated
+A07,oxygen mask non-rebreather adult,consumable,A,each,55.0,True,21,650,0.22,550,48,simulated
+A08,blood culture bottle pair aerobic anaerobic,consumable,A,pair,95.0,False,14,650,0.22,950,18,simulated
+A09,morphine 10mg ampoule,medicine,A,ampoule,18.0,True,28,450,0.22,360,36,simulated
+A10,syringe 10mL with needle,consumable,A,each,4.2,True,14,650,0.22,42,60,simulated
+B01,paracetamol paediatric suspension 120mg per 5mL 100mL,medicine,B,bottle,28.0,True,14,450,0.22,280,18,simulated
+B02,salbutamol nebule 5mg per 2.5mL,medicine,B,nebule,6.5,True,14,450,0.22,65,24,simulated
+B03,hydrocortisone 100mg vial,medicine,B,vial,14.0,True,14,450,0.22,210,24,simulated
+B04,promethazine 25mg ampoule,medicine,B,ampoule,9.0,True,14,450,0.22,90,24,simulated
+B05,atropine 1mg ampoule,medicine,B,ampoule,7.5,False,14,450,0.22,150,36,simulated
+B06,plaster of Paris 15cm bandage,consumable,B,roll,18.0,False,21,650,0.22,90,60,simulated
+B07,sterile gauze pack 10x10 cm pack of 5,consumable,B,pack,7.0,True,14,650,0.22,35,60,simulated
+B08,three way stopcock,consumable,B,each,11.5,True,21,650,0.22,115,60,simulated
+B09,urinary catheter Foley 16Fr,consumable,B,each,32.0,True,21,650,0.22,320,60,simulated
+B10,ECG electrodes pack of 50,consumable,B,pack,85.0,False,28,650,0.22,425,24,simulated
+B11,suture nylon 3-0 with needle,consumable,B,each,24.0,False,21,650,0.22,240,48,simulated
+B12,Hartmanns solution 1L,medicine,B,bag,22.0,True,7,450,0.22,220,36,simulated
+C01,snake antivenom polyvalent vial,medicine,C,vial,1850.0,True,30,450,0.22,18500,24,simulated
+C02,ipratropium nebule 250mcg per mL 2mL,medicine,C,nebule,8.5,False,14,450,0.22,85,24,simulated
+C03,naloxone 0.4mg ampoule,medicine,C,ampoule,32.0,True,21,450,0.22,640,24,simulated
+C04,flucloxacillin 500mg vial,medicine,C,vial,18.0,True,14,450,0.22,270,24,simulated
+C05,vitamin K phytomenadione 10mg ampoule,medicine,C,ampoule,12.0,False,21,450,0.22,180,24,simulated
+C06,magnesium sulfate 2g in 10mL ampoule,medicine,C,ampoule,11.0,False,14,450,0.22,165,24,simulated
+C07,dextrose 50 percent 50mL ampoule,medicine,C,ampoule,9.5,False,14,450,0.22,142,24,simulated
+C08,charcoal activated 50g bottle,medicine,C,bottle,75.0,False,30,450,0.22,375,36,simulated

@@ -15,6 +15,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile, Depends
 from core import registry, prepare_registry, data_source
 from core.datasets import (
     ALL_SCHEMAS,
+    CORE_CATEGORIES,
     DatasetSchema,
     get_schema,
     schema_ids,
@@ -188,7 +189,8 @@ def _invalidate_dependent_groups(dataset_id: str) -> list[str]:
 
 @router.get("/inventory")
 async def inventory() -> dict[str, Any]:
-    """List all 7 dataset slots with their schema and current load state."""
+    """List every dataset slot with its schema and current load state. The
+    counts cover the 7 hospital and external source files only."""
     loaded = set(registry.loaded_ids())
     items = []
     for s in ALL_SCHEMAS:
@@ -198,7 +200,8 @@ async def inventory() -> dict[str, Any]:
             "loaded": s.id in loaded,
             "metadata": meta,
         })
-    return {"items": items, "loaded_count": len(loaded), "total": len(ALL_SCHEMAS)}
+    core = {s.id for s in ALL_SCHEMAS if s.category in CORE_CATEGORIES}
+    return {"items": items, "loaded_count": len(loaded & core), "total": len(core)}
 
 
 def _ingest_csv(schema: DatasetSchema, raw: bytes, filename: str) -> dict[str, Any]:

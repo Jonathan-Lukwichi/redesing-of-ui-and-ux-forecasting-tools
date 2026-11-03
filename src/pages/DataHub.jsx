@@ -12,7 +12,15 @@ const ICON_BY_ID = {
   calendar: 'file',
   weather_daily: 'cloud',
   weather_hourly: 'cloud',
+  inventory_items: 'file',
+  inventory_movements: 'chart',
+  staff_list: 'file',
+  shift_log: 'file',
+  staffing_daily: 'chart',
 };
+
+// Inventory and scheduling files are uploaded only; there is no private repo copy to fetch.
+const UPLOAD_ONLY = ['inventory', 'scheduling'];
 
 export default function DataHub() {
   const [inventory, setInventory] = useState(null);
@@ -157,11 +165,12 @@ export default function DataHub() {
     }
   };
 
-  const { hospitalItems, externalItems } = useMemo(() => {
-    if (!inventory) return { hospitalItems: [], externalItems: [] };
+  const { hospitalItems, externalItems, opsItems } = useMemo(() => {
+    if (!inventory) return { hospitalItems: [], externalItems: [], opsItems: [] };
     return {
       hospitalItems: inventory.items.filter((it) => it.schema.category === 'hospital'),
       externalItems: inventory.items.filter((it) => it.schema.category === 'external'),
+      opsItems: inventory.items.filter((it) => UPLOAD_ONLY.includes(it.schema.category)),
     };
   }, [inventory]);
 
@@ -251,6 +260,30 @@ export default function DataHub() {
         ))}
       </CardGrid>
 
+      <SectionHeader
+        kicker="Section C · Operations"
+        title="Inventory and staffing"
+        sub="Supply catalogue, stock movements, staff list and shift logs · 5 files · upload only · simulated demo pack in demo-data/"
+      />
+      <CardGrid columns={3} minItemWidth={240}>
+        {opsItems.map((item) => (
+          <DatasetTile
+            key={item.schema.id}
+            item={item}
+            uploadState={uploadState[item.schema.id]}
+            selected={selectedId === item.schema.id}
+            fetchAvailable={false}
+            uploadOnly
+            onUpload={() => onPickFile(item.schema.id)}
+            onFetch={() => onFetch(item.schema.id)}
+            onClear={() => onClear(item.schema.id)}
+            onSelect={() => onSelect(item.schema.id, item.loaded)}
+            onDismiss={() => clearUploadState(item.schema.id)}
+            onSendToBestFit={(bestFitId) => onSendToBestFit(item.schema.id, bestFitId)}
+          />
+        ))}
+      </CardGrid>
+
       {selectedItem && selectedItem.loaded && (
         <PreviewPanel
           item={selectedItem}
@@ -264,7 +297,7 @@ export default function DataHub() {
 // ---- Tile -------------------------------------------------------------------
 
 function DatasetTile({
-  item, uploadState, selected, fetchAvailable,
+  item, uploadState, selected, fetchAvailable, uploadOnly = false,
   onUpload, onFetch, onClear, onSelect, onDismiss, onSendToBestFit,
 }) {
   const { schema, loaded, metadata } = item;
@@ -376,17 +409,19 @@ function DatasetTile({
           </>
         ) : (
           <>
+            {!uploadOnly && (
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={onFetch}
+                disabled={!fetchAvailable}
+                title={fetchAvailable ? '' : 'Configure DATA_REPO + GITHUB_TOKEN in api/.env to enable Fetch'}
+                style={{ flex: 1, justifyContent: 'center', opacity: fetchAvailable ? 1 : 0.55 }}
+              >
+                <Icon name="download" size={12} /> Fetch
+              </button>
+            )}
             <button
-              className="btn btn-primary btn-sm"
-              onClick={onFetch}
-              disabled={!fetchAvailable}
-              title={fetchAvailable ? '' : 'Configure DATA_REPO + GITHUB_TOKEN in api/.env to enable Fetch'}
-              style={{ flex: 1, justifyContent: 'center', opacity: fetchAvailable ? 1 : 0.55 }}
-            >
-              <Icon name="download" size={12} /> Fetch
-            </button>
-            <button
-              className="btn btn-sm"
+              className={uploadOnly ? 'btn btn-primary btn-sm' : 'btn btn-sm'}
               onClick={onUpload}
               style={{ flex: 1, justifyContent: 'center' }}
             >

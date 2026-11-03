@@ -1,6 +1,7 @@
 """
 Dataset schemas for the 7 source files of the hospital forecasting
-project. Used by /api/datasets/* routes to validate uploads against the
+project, plus 5 inventory and scheduling files (the simulated demo pack).
+Used by /api/datasets/* routes to validate uploads against the
 DATA_DICTIONARY column contracts.
 
 Schemas are intentionally lean:
@@ -14,7 +15,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 
-Category = Literal["hospital", "external"]
+Category = Literal["hospital", "external", "inventory", "scheduling"]
 Grain = Literal["daily", "hourly"]
 
 
@@ -237,10 +238,72 @@ WEATHER_HOURLY = DatasetSchema(
 )
 
 
+# --- Inventory and scheduling (simulated demo pack, or a hospital's own) -----
+
+def _ops(id, label, description, category, grain, key, cols, rows):
+    return DatasetSchema(
+        id=id, label=label, description=description, category=category,
+        grain=grain, key_columns=key, required_columns=cols,
+        expected_columns=cols, expected_rows_hint=rows,
+        source_filename_hint=f"{id}.csv",
+    )
+
+
+INVENTORY_ITEMS = _ops(
+    "inventory_items", "Inventory items",
+    "Supply catalogue: price, lead time, ordering, holding and stockout costs.",
+    "inventory", "daily", ("item_id",),
+    ("item_id", "item_name", "category", "abc_class", "unit", "unit_price_zar",
+     "on_current_tender", "lead_time_mean_days", "ordering_cost_zar",
+     "holding_cost_rate_per_year", "stockout_penalty_zar", "shelf_life_months",
+     "data_origin"), 30)
+
+INVENTORY_MOVEMENTS = _ops(
+    "inventory_movements", "Inventory movements",
+    "Daily stock movements per item: consumption, stock, orders, stockouts, expiry.",
+    "inventory", "daily", ("date", "item_id"),
+    ("date", "item_id", "daily_consumption_units", "recorded_stock_on_hand_units",
+     "stock_on_order_units", "order_placed_today", "stockout_today_units",
+     "expiry_today_units"), 11880)
+
+STAFF_LIST = _ops(
+    "staff_list", "Staff list",
+    "Nurse posts with category, skill, salary, hours worked and payroll summary.",
+    "scheduling", "daily", ("staff_id",),
+    ("staff_id", "category", "skill_level", "annual_salary_zar",
+     "standard_shift_length_hours", "max_weekly_hours", "is_vacant",
+     "total_days_worked", "total_regular_hours", "total_overtime_hours",
+     "total_payroll_cost_zar", "average_weekly_hours",
+     "bcea_45hour_violations_count", "max_weekly_hours_observed",
+     "total_days_sick", "data_origin"), 30)
+
+SHIFT_LOG = _ops(
+    "shift_log", "Shift log",
+    "One row per day and shift: arrivals, nurses required and assigned, locum use.",
+    "scheduling", "daily", ("date", "shift"),
+    ("date", "shift", "arrivals_for_shift", "required_nurses",
+     "filled_staff_assigned", "locum_hours_used", "locum_cost_zar",
+     "shift_total_cost_zar", "unfilled_positions_after_locum"), 1188)
+
+STAFFING_DAILY = _ops(
+    "staffing_daily", "Staffing daily",
+    "Daily staffing totals: required vs staffed nurses, hours, payroll, unfilled shifts.",
+    "scheduling", "daily", ("date",),
+    ("date", "day_of_week", "is_weekend", "is_public_holiday", "total_arrivals",
+     "total_required_nurses", "total_staffed_nurses", "total_regular_hours",
+     "total_overtime_hours", "total_locum_hours", "total_payroll_cost_zar",
+     "total_unfilled_shifts", "bcea_violations_today"), 396)
+
+
 ALL_SCHEMAS: tuple[DatasetSchema, ...] = (
     DAILY_ARRIVAL, HOURLY_ARRIVAL, CLINICAL_DAILY, CLINICAL_HOURLY,
     CALENDAR, WEATHER_DAILY, WEATHER_HOURLY,
+    INVENTORY_ITEMS, INVENTORY_MOVEMENTS, STAFF_LIST, SHIFT_LOG, STAFFING_DAILY,
 )
+
+# The seven original source files. The Data Hub counter and the pipeline gates
+# count these only; inventory and scheduling slots are separate extras.
+CORE_CATEGORIES = ("hospital", "external")
 
 _BY_ID = {s.id: s for s in ALL_SCHEMAS}
 

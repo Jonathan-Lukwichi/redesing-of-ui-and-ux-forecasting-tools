@@ -593,7 +593,9 @@ const PIPELINE_STEPS = [
     fix: { page: 'upload', label: 'Go to Data Hub' },
     check: async () => {
       const inv = await api.datasets.inventory();
-      const items = inv.items || [];
+      // Only the seven hospital and external source files gate Explore; the
+      // inventory and scheduling slots are optional.
+      const items = (inv.items || []).filter((it) => ['hospital', 'external'].includes(it.schema?.category));
       const missing = items.filter((it) => !it.loaded);
       if (missing.length > 0) {
         const names = missing.map((it) => it.schema?.label || it.schema?.id).join(', ');
@@ -608,7 +610,7 @@ const PIPELINE_STEPS = [
     fix: { page: 'upload', label: 'Fix in Data Hub' },
     check: async () => {
       const inv = await api.datasets.inventory();
-      const loaded = (inv.items || []).filter((it) => it.loaded);
+      const loaded = (inv.items || []).filter((it) => it.loaded && ['hospital', 'external'].includes(it.schema?.category));
       const invalid = loaded.filter((it) => it.metadata && it.metadata.schema_valid === false);
       if (invalid.length > 0) {
         const names = invalid.map((it) => it.schema?.label || it.schema?.id).join(', ');
