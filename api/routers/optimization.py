@@ -51,7 +51,7 @@ def _arm_items(items: list[dict]) -> list[dict]:
         "sku": str(it.get("item_id") or it.get("item_name")),
         "daily_demand_avg": float(it.get("mean_daily_consumption") or 0),
         "unit_cost": float(it.get("unit_price_zar") or 0),
-        "holding_rate": 0.25,
+        "holding_rate": float(it.get("holding_cost_rate_per_year") or 0.25),
         "ordering_cost": float(it.get("ordering_cost_zar") or 50.0),
         "lead_time_days": float(it.get("lead_time_mean_days") or 7),
     } for it in items if float(it.get("mean_daily_consumption") or 0) > 0]
@@ -90,41 +90,58 @@ async def _get_week_forecast(model: str, start_date: Optional[str]) -> dict[str,
     return fc
 
 
-async def _compute_week_forecast(model: str, start_date: Optional[str]) -> dict[str, Any]:
+def week_forecast_from_result(res: dict[str, Any], model: str) -> dict[str, Any]:
+    """Turn a forecast result (the shape `_forecast_from_series` returns) into
+    the next-7-day dict the staff and supply planners consume. Always `live`."""
+    days = res.get("forecast", [])
+    if not days:
+        raise ValueError("forecast result has no days")
+    return {
+        "week_starting": days[0]["date"],
+        "dates": [d["date"] for d in days],
+        "daily_total": [float(d["predicted"]) for d in days],
+        "lower": [float(d["lower"]) for d in days],
+        "upper": [float(d["upper"]) for d in days],
+        # Prefer the rolling-origin, horizon-matched error when the
+        # engine has been backtested. The engine's own `mae` is a
+        # one-step figure, so using it to size a 7-day staffing buffer
+        # and safety stock understates the uncertainty being planned
+        # against. `error_basis` records which one was used, so the page
+        # and the assistant can say so rather than imply a backtest.
+        "mae": res.get("validated_mae") or res.get("mae"),
+        "error_basis": "rolling_origin" if res.get("validated_mae") else "one_step_holdout",
+        "validated": bool(res.get("validated")),
+        "validation_summary": res.get("validation_summary"),
+        "mase": res.get("validated_mase"),
+        "accuracy_pct": res.get("confidence_pct"),
+        "baseline_avg": res.get("avg_actual"),
+        "model": model,
+        "model_label": _MODEL_LABEL[model],
+        "live": True,
+        "source": f"Live forecast on real ED arrivals — {_MODEL_LABEL[model]}",
+    }
+
+
+async def _compute_week_forecast(model: str, start_date: Optional[str],
+                                 strict: bool = False) -> dict[str, Any]:
+    """Next-7-day forecast. With strict=True a failure of the live G1 forecast
+    is raised instead of silently falling back to demo data (background jobs
+    must never plan from numbers the user is not looking at)."""
     # Primary: live G1 forecast.
     try:
         s, _ = _series_for("g1", None)
         res = _forecast_from_series(s, model, 7, weekly=False, start_date=start_date)
-        days = res.get("forecast", [])
-        if days:
-            return {
-                "week_starting": days[0]["date"],
-                "dates": [d["date"] for d in days],
-                "daily_total": [float(d["predicted"]) for d in days],
-                "lower": [float(d["lower"]) for d in days],
-                "upper": [float(d["upper"]) for d in days],
-                # Prefer the rolling-origin, horizon-matched error when the
-                # engine has been backtested. The engine's own `mae` is a
-                # one-step figure, so using it to size a 7-day staffing buffer
-                # and safety stock understates the uncertainty being planned
-                # against. `error_basis` records which one was used, so the page
-                # and the assistant can say so rather than imply a backtest.
-                "mae": res.get("validated_mae") or res.get("mae"),
-                "error_basis": "rolling_origin" if res.get("validated_mae") else "one_step_holdout",
-                "validated": bool(res.get("validated")),
-                "validation_summary": res.get("validation_summary"),
-                "mase": res.get("validated_mase"),
-                "accuracy_pct": res.get("confidence_pct"),
-                "baseline_avg": res.get("avg_actual"),
-                "model": model,
-                "model_label": _MODEL_LABEL[model],
-                "live": True,
-                "source": f"Live forecast on real ED arrivals — {_MODEL_LABEL[model]}",
-            }
+        if res.get("forecast"):
+            return week_forecast_from_result(res, model)
+        if strict:
+            raise ValueError("live forecast returned no days")
     except HTTPException:
-        pass  # G1 not merged → fall back
+        if strict:
+            raise
+        # G1 not merged -> fall back
     except Exception:
-        pass
+        if strict:
+            raise
 
     # Fallback: forecast the simulation's own daily arrivals — with the SELECTED
     # engine, so the statistical vs ML comparison is genuine.
@@ -188,7 +205,7 @@ async def _current_weekly_staff_cost() -> tuple[Optional[float], Optional[float]
         return None, None
     daily_mean = float(df[col].mean())
     if daily_mean <= 0:
-        return None
+        return None, None
     arrivals = ("total_arrivals" in df.columns) and float(df["total_arrivals"].mean()) or None
     return daily_mean * 7.0, arrivals
 

@@ -461,7 +461,7 @@ def _item_cost_params(it: dict, price: float) -> tuple[float, float, float, floa
     K = (float(it.get("total_ordering_cost_zar") or 0) / orders_placed) if orders_placed > 0 else 350.0
     avg_stock = float(it.get("avg_stock_on_hand") or 0)
     hold_total = float(it.get("total_holding_cost_zar") or 0)
-    h = (hold_total / (avg_stock * 396.0)) if (avg_stock > 0 and hold_total > 0) else price * 0.25 / 365.0
+    h = (hold_total / (avg_stock * float(it.get("observed_days") or OBSERVED_PERIOD_DAYS))) if (avg_stock > 0 and hold_total > 0) else price * 0.25 / 365.0
     so_units = float(it.get("total_stockout_units") or 0)
     so_cost = float(it.get("total_stockout_cost_zar") or 0)
     p = (so_cost / so_units) if (so_units > 0 and so_cost > 0) else max(price * 5.0, 1.0)
@@ -1270,6 +1270,7 @@ def compare_staff_strategies(
     mean_arrivals: Optional[float] = None,
     service_z: float = 1.282,
     strategies: tuple = STAFF_STRATEGIES,
+    n_active: Optional[int] = None,
 ) -> dict[str, Any]:
     """Compare six rostering strategies for the fixed 23-nurse pool.
 
@@ -1291,7 +1292,7 @@ def compare_staff_strategies(
 
     req_w = weekly(actual_arr)                 # actual weekly nurse-hours demanded
     fc_w = weekly(forecast_arr)                # forecast of that demand
-    N = STAFF_N_ACTIVE
+    N = int(n_active or STAFF_N_ACTIVE)
     lawful_cap = N * LEGAL_WEEKLY_HOURS        # 23 × 45h
     max_cap = N * STAFF_MAX_WEEKLY_H           # 23 × 58h
     peak = float(req_w.max())

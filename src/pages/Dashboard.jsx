@@ -29,9 +29,15 @@ export default function Dashboard({ onNavigate }) {
 
   useEffect(() => {
     let alive = true;
-    api.forecast.run({ model: 'ml', horizon: 7 })   // most accurate engine (matches Forecast & Optimization pages)
-      .then((d) => { if (alive) setFc(d); })
-      .catch((e) => { if (alive) setError(e.detail?.error === 'g1_not_merged' ? 'g1' : (e.message || 'Request failed')); });
+    // Plan C: read the materialized last forecast; never compute on page load.
+    api.forecast.last()
+      .then((d) => {
+        if (!alive) return;
+        // {available, result} -> fc. Not available = the existing empty state.
+        if (d?.available && d.result) setFc(d.result);
+        else setError('g1');
+      })
+      .catch((e) => { if (alive) setError(e.message || 'Request failed'); });
     api.supply.overview().then((d) => alive && setSupply(d)).catch(() => {});
     api.staff.overview().then((d) => alive && setStaff(d)).catch(() => {});
     return () => { alive = false; };
@@ -120,10 +126,11 @@ export default function Dashboard({ onNavigate }) {
         <div className="card notice-card notice-empty">
           <div style={{ fontWeight: 600, marginBottom: 6 }}>No arrival history loaded for this hospital yet</div>
           <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 16, maxWidth: '52ch', marginInline: 'auto' }}>
-            Forecasts need G1 · Daily demand built first — two columns, date and count, is enough to start.
+            No forecast has been run yet. Forecasts need G1 · Daily demand built first — two columns, date and count, is enough to start.
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button className="btn" onClick={() => onNavigate('upload')}>See the format</button>
+            <button className="btn" onClick={() => onNavigate('forecast-total')}>Run a forecast</button>
             <button className="btn btn-primary" onClick={() => onNavigate('prepare')}>Go to Prepare →</button>
           </div>
         </div>

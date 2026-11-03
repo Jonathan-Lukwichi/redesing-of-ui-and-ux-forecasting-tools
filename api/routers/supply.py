@@ -278,7 +278,7 @@ async def _engine_items() -> tuple[list[dict], str]:
             "category": str(r.get("category") or ""),
             "unit_cost": float(r.get("unit_price_zar") or 0) or 1.0,
             "ordering_cost": ordering_cost,
-            "holding_rate": _HOLDING_RATE,
+            "holding_rate": float(r.get("holding_cost_rate_per_year") or _HOLDING_RATE),
             "lead_time_days": int(round(float(r.get("lead_time_mean_days") or 5))),
             "daily_demand_avg": mean_daily,
             "daily_demand_std": float(r.get("sd_daily_consumption") or 0),

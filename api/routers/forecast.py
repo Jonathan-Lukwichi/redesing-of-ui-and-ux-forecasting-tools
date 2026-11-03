@@ -372,10 +372,12 @@ async def last_run() -> Dict[str, Any]:
     return {"available": True, **_LAST_RUN}
 
 
-@router.post("/run")
-async def run_from_pipeline(req: RunRequest) -> Dict[str, Any]:
+def compute_total(model: str, horizon: int, start_date: Optional[str] = None,
+                  alias: Optional[str] = None) -> Dict[str, Any]:
+    """Synchronous total-ED forecast from G1. Safe to call from a worker thread
+    (the HTTP route and the pipeline job both use it). Raises HTTPException."""
     # Forecast pulls history from G1 in-memory; frontend only sends model + horizon.
-    if req.horizon not in _ALLOWED_HORIZONS:
+    if horizon not in _ALLOWED_HORIZONS:
         raise HTTPException(
             400, f"horizon must be one of {_ALLOWED_HORIZONS} days.")
 
@@ -402,12 +404,19 @@ async def run_from_pipeline(req: RunRequest) -> Dict[str, Any]:
     weather_df = (df[["date"] + WEATHER_FEATURES].copy()
                   if all(c in df.columns for c in WEATHER_FEATURES) else None)
     result = _forecast_from_series(
-        s, req.model, req.horizon, weekly=False, start_date=req.start_date,
+        s, model, horizon, weekly=False, start_date=start_date,
         weather_df=weather_df,
     )
-    result["requested_model"]   = req.model
-    result["requested_alias"]   = req.alias
-    result["requested_horizon"] = req.horizon
+    result["requested_model"]   = model
+    result["requested_alias"]   = alias
+    result["requested_horizon"] = horizon
+    return result
+
+
+@router.post("/run")
+async def run_from_pipeline(req: RunRequest) -> Dict[str, Any]:
+    result = await run_in_threadpool(
+        compute_total, req.model, req.horizon, req.start_date, req.alias)
     _remember_run("total", result)
     return result
 
@@ -439,12 +448,15 @@ class SpecialtyForecastRequest(BaseModel):
     start_date: Optional[str] = None
 
 
-@router.post("/specialty")
-async def run_specialty_forecast(req: SpecialtyForecastRequest) -> Dict[str, Any]:
-    col = SPECIALTY_COLUMN.get(req.specialty)
+def compute_specialty(specialty: str, model: str, horizon: int, resolution: str,
+                      start_date: Optional[str] = None,
+                      alias: Optional[str] = None) -> Dict[str, Any]:
+    """Synchronous per-specialty forecast from G3. Safe to call from a worker
+    thread. Raises HTTPException."""
+    col = SPECIALTY_COLUMN.get(specialty)
     if col is None:
-        raise HTTPException(400, f"Unknown specialty '{req.specialty}'.")
-    if req.horizon not in _ALLOWED_HORIZONS:
+        raise HTTPException(400, f"Unknown specialty '{specialty}'.")
+    if horizon not in _ALLOWED_HORIZONS:
         raise HTTPException(400, f"horizon must be one of {_ALLOWED_HORIZONS}.")
 
     df = prepare_registry.get_df("g3")
@@ -465,18 +477,35 @@ async def run_specialty_forecast(req: SpecialtyForecastRequest) -> Dict[str, Any
     weather_df = (df[["date"] + WEATHER_FEATURES].copy()
                   if all(c in df.columns for c in WEATHER_FEATURES) else None)
     result = _forecast_from_series(
-        s, req.model, req.horizon,
-        weekly=(req.resolution == "weekly"),
-        start_date=req.start_date,
+        s, model, horizon,
+        weekly=(resolution == "weekly"),
+        start_date=start_date,
         weather_df=weather_df,
     )
-    result["requested_model"]     = req.model
-    result["requested_alias"]     = req.alias
-    result["requested_horizon"]   = req.horizon
-    result["requested_specialty"] = req.specialty
-    result["resolution"]          = req.resolution
+    result["requested_model"]     = model
+    result["requested_alias"]     = alias
+    result["requested_horizon"]   = horizon
+    result["requested_specialty"] = specialty
+    result["resolution"]          = resolution
+    return result
+
+
+@router.post("/specialty")
+async def run_specialty_forecast(req: SpecialtyForecastRequest) -> Dict[str, Any]:
+    result = await run_in_threadpool(
+        compute_specialty, req.specialty, req.model, req.horizon,
+        req.resolution, req.start_date, req.alias)
     _remember_run("specialty", result)
     return result
+
+
+@router.get("/specialty/last")
+async def last_specialty(specialty: str) -> Dict[str, Any]:
+    """The last per-specialty forecast materialised for `specialty` (read-only)."""
+    result = _LAST_SPECIALTY.get(specialty)
+    if result is None:
+        return {"available": False}
+    return {"available": True, "result": result}
 
 
 def _series_for(group: str, specialty: Optional[str]):

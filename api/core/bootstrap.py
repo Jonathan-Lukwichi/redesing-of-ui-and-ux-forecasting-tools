@@ -9,7 +9,7 @@ the repo isn't reachable, we skip silently and the pages fall back to demo data.
 from __future__ import annotations
 import logging
 
-from core import prepare_registry
+from core import prepare_registry, data_version
 
 log = logging.getLogger("bootstrap")
 
@@ -20,6 +20,10 @@ G1_DATASETS = ("daily_arrival", "calendar", "weather_daily")
 async def ensure_g1() -> bool:
     """Build G1 if it isn't already loaded. Returns True if G1 is available."""
     if prepare_registry.get_df("g1") is not None:
+        return True
+    # A pipeline run (or any invalidation) has happened: the user's own data is
+    # in charge now, so never re-fetch the hospital repo behind their back.
+    if data_version.current() > 0:
         return True
 
     # Imported lazily to avoid a circular import at module load.
