@@ -148,6 +148,18 @@ def test_download_gives_transformed_csv(client):
     assert r.text.splitlines()[1].startswith("2024-03-01")
 
 
+def test_download_requires_data_write(client):
+    cols = list(datasets.DAILY_ARRIVAL.expected_columns)
+    registry.put("daily_arrival", pd.DataFrame([["2024-03-01", 10, 5, 15]], columns=cols), {})
+    url = "/api/pipeline/transformed/daily_arrival.csv"
+    assert client.get(url).status_code == 401
+    _login(client, "viv")
+    assert client.get(url).status_code == 403
+    client.post("/api/auth/logout")
+    _login(client)
+    assert client.get(url).status_code == 200
+
+
 def test_download_unknown_table_404(client):
     _login(client)
     assert client.get("/api/pipeline/transformed/nope.csv").status_code == 404

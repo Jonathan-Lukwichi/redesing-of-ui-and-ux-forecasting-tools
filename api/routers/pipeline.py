@@ -89,7 +89,8 @@ async def clear_staged(_user=security.DataWriteAccess) -> dict[str, Any]:
 
 
 @router.get("/transformed/{dataset_id}.csv")
-async def download_transformed(dataset_id: str) -> Response:
+async def download_transformed(dataset_id: str,
+                               _user=security.DataWriteAccess) -> Response:
     if dataset_id not in PURE_IDS:
         raise HTTPException(404, "Unknown table.")
     df = registry.get_df(dataset_id)
