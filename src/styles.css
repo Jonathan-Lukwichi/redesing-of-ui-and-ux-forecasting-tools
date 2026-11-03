@@ -1170,6 +1170,104 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
 }
 
 /* =============================================================================
+   DATA HUB PIPELINE — drop zone, file checklist, run panel, stage tracker.
+   Built on the card primitives; these classes only lay out their insides.
+   ============================================================================= */
+/* Direct children of the .content flex column: a .ui-card clips its overflow,
+   so without this it shrinks to its header when the page is taller than the view. */
+.pl-drop-card, .pl-summary, .pl-tracker { flex-shrink: 0; }
+/* .btn has no disabled look of its own; a disabled Run must not read as ready. */
+:is(.pl-drop, .pl-run, .pl-staged) .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+:is(.pl-drop, .pl-run, .pl-staged) .btn-primary:disabled:hover { background: var(--brand); color: white; }
+
+.pl-drop {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: 10px; padding: clamp(16px, 4vw, 28px) 12px;
+  border: 1.5px dashed var(--border-2); border-radius: 8px;
+  background: var(--surface-2); text-align: center;
+}
+.pl-drop[data-over="1"] { border-color: var(--brand); background: var(--brand-soft); }
+.pl-drop[data-disabled="1"] { opacity: 0.7; }
+.pl-drop-text { min-width: 0; font-size: 13px; color: var(--text-3); }
+
+.pl-progress { font-size: 13px; font-weight: 600; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
+
+.pl-results, .pl-check-rows, .pl-stages, .pl-stage-warnings { list-style: none; margin: 0; padding: 0; }
+.pl-results {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 320px; overflow-y: auto;
+  border-top: 1px solid var(--divider); padding-top: 8px;
+}
+.pl-result, .pl-check-row { display: flex; gap: 8px; align-items: flex-start; min-width: 0; }
+.pl-result-mark, .pl-check-mark {
+  flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; background: var(--surface-3); color: var(--text-3);
+}
+.pl-result-body, .pl-check-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+.pl-result-msg, .pl-check-note { min-width: 0; overflow-wrap: anywhere; font-size: 12px; color: var(--text-3); line-height: 1.45; }
+/* "Upload there (label)" may be longer than a phone-width card: let it wrap. */
+.pl-result-body .btn { white-space: normal; height: auto; min-height: 30px; text-align: left; }
+.pl-result[data-state="ok"] .pl-result-mark,
+.pl-check-row[data-state="present"] .pl-check-mark { background: var(--success-soft); color: var(--success); }
+.pl-result[data-state="failed"] .pl-result-mark,
+.pl-result[data-state="rejected"] .pl-result-mark,
+.pl-check-row[data-state="missing"] .pl-check-mark,
+.pl-check-row[data-state="problem"] .pl-check-mark { background: var(--danger-soft); color: var(--danger); }
+.pl-check-row[data-state="warning"] .pl-check-mark { background: var(--warning-soft); color: var(--warning); }
+.pl-result[data-state="failed"] .pl-result-msg,
+.pl-result[data-state="rejected"] .pl-result-msg { color: var(--danger); }
+
+.pl-checklist { display: flex; flex-direction: column; gap: var(--card-gap); min-width: 0; }
+.pl-check-rows { display: flex; flex-direction: column; gap: 8px; }
+.pl-check-issue { min-width: 0; overflow-wrap: anywhere; font-size: 12px; line-height: 1.45; color: var(--danger); }
+.pl-check-issue[data-level="warning"] { color: var(--warning); }
+.pl-check-cross {
+  display: flex; flex-direction: column; gap: 6px; min-width: 0;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+}
+
+.pl-note { min-width: 0; overflow-wrap: anywhere; font-size: 13px; color: var(--text-2); line-height: 1.5; }
+.pl-note[data-level="error"] { color: var(--danger); }
+.pl-note[data-level="ok"] { color: var(--success); }
+.pl-confirm {
+  display: flex; flex-direction: column; gap: 8px; min-width: 0;
+  padding: 10px 12px; border-radius: 8px; font-size: 13px; line-height: 1.5;
+  border: 1px solid var(--notice-warn-border); background: var(--notice-warn-bg); color: var(--text);
+}
+.pl-confirm > div { min-width: 0; overflow-wrap: anywhere; }
+
+.pl-stages { display: flex; flex-direction: column; }
+.pl-stage {
+  display: flex; gap: 10px; align-items: flex-start; min-width: 0;
+  padding: 10px 0; border-top: 1px solid var(--divider);
+}
+.pl-stage:first-child { border-top: 0; }
+.pl-stage-num {
+  flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600; background: var(--surface-3); color: var(--text-3);
+}
+.pl-stage[data-status="running"] .pl-stage-num { background: var(--info-soft); color: var(--info); }
+.pl-stage[data-status="done"] .pl-stage-num { background: var(--success-soft); color: var(--success); }
+.pl-stage[data-status="amber"] .pl-stage-num { background: var(--warning-soft); color: var(--warning); }
+.pl-stage[data-status="failed"] .pl-stage-num { background: var(--danger-soft); color: var(--danger); }
+.pl-stage-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.pl-stage-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+.pl-stage-label { min-width: 0; font-weight: 600; font-size: 14px; color: var(--text); }
+.pl-stage-time { flex-shrink: 0; white-space: nowrap; font-size: 12px; color: var(--text-3); }
+.pl-stage-receipt { min-width: 0; overflow-wrap: anywhere; font-size: 13px; color: var(--text-2); line-height: 1.45; }
+.pl-stage-warnings { display: flex; flex-direction: column; gap: 2px; }
+.pl-stage-warnings li { min-width: 0; overflow-wrap: anywhere; font-size: 12px; color: var(--warning); line-height: 1.45; }
+
+.pl-advanced { min-width: 0; border-top: 1px solid var(--divider); padding-top: 8px; }
+.pl-advanced > summary {
+  cursor: pointer; padding: 10px 0; min-height: 24px;
+  font-size: 14px; font-weight: 600; color: var(--brand);
+}
+.pl-advanced-body { display: flex; flex-direction: column; gap: clamp(16px, 2vw, 28px); margin-top: 8px; min-width: 0; }
+
+/* =============================================================================
    LANDING & LOGIN — mobile-first marketing layer (fluid, no fixed px layout)
    ============================================================================= */
 .lp-pad { padding-left: clamp(16px, 5vw, 56px); padding-right: clamp(16px, 5vw, 56px); }

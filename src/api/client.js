@@ -3,12 +3,14 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL
   || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '');
 
-async function request(path, { method = 'GET', body, signal } = {}) {
+// `as: 'blob'` returns the body as a Blob (file downloads); otherwise JSON.
+async function request(path, { method = 'GET', body, signal, as = 'json' } = {}) {
   // credentials:'include' so the HttpOnly session cookie travels in dev, where
   // the SPA is on :5173 and the API on :8000. In production both are the same
   // origin and this is a no-op.
   const opts = { method, signal, credentials: 'include' };
-  if (body instanceof FormData) {
+  // FormData goes as multipart; a File/Blob goes as the raw body, unwrapped.
+  if (body instanceof FormData || body instanceof Blob) {
     opts.body = body;
   } else if (body !== undefined) {
     opts.headers = { 'Content-Type': 'application/json' };
@@ -37,7 +39,7 @@ async function request(path, { method = 'GET', body, signal } = {}) {
     err.detail = detail;
     throw err;
   }
-  return res.json();
+  return as === 'blob' ? res.blob() : res.json();
 }
 
 export const api = {
@@ -106,6 +108,24 @@ export const api = {
     sourceStatus: (signal) => request('/api/datasets/source/status', { signal }),
     clear: (id) => request(`/api/datasets/${id}`, { method: 'DELETE' }),
     clearAll: () => request('/api/datasets', { method: 'DELETE' }),
+  },
+
+  // The one-button pipeline. Registers go one file per request as the raw
+  // body (never multipart, so the server never spools a hospital file to
+  // disk) and are transformed as they arrive.
+  pipeline: {
+    uploadRegister: (file) =>
+      request(`/api/pipeline/registers?filename=${encodeURIComponent(file.name)}`,
+        { method: 'POST', body: file }),
+    staged:      (signal) => request('/api/pipeline/staged', { signal }),
+    clearStaged: () => request('/api/pipeline/staged', { method: 'DELETE' }),
+    preflight:   (signal) => request('/api/pipeline/preflight', { signal }),
+    run:         () => request('/api/pipeline/run', { method: 'POST' }),
+    status:      (signal) => request('/api/pipeline/status', { signal }),
+    transformedUrl: (id) => `${API_BASE}/api/pipeline/transformed/${encodeURIComponent(id)}.csv`,
+    // Needs data:write, so it is fetched with the session cookie, not linked.
+    transformed: (id) =>
+      request(`/api/pipeline/transformed/${encodeURIComponent(id)}.csv`, { as: 'blob' }),
   },
 
   prepare: {

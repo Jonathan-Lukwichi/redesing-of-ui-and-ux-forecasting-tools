@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PageHero from '../components/PageHero';
 import Icon from '../components/Icon';
 import Card, { CardGrid } from '../components/ui/Card';
+import DropZone from '../components/pipeline/DropZone';
+import FileChecklist from '../components/pipeline/FileChecklist';
+import StageTracker from '../components/pipeline/StageTracker';
+import { classify, unknownReason } from '../components/pipeline/classify';
 import { api } from '../api/client';
 
 const ICON_BY_ID = {
@@ -22,7 +26,17 @@ const ICON_BY_ID = {
 // Inventory and scheduling files are uploaded only; there is no private repo copy to fetch.
 const UPLOAD_ONLY = ['inventory', 'scheduling'];
 
-export default function DataHub() {
+// The four transformed tables a run builds from the registers.
+const TRANSFORMED_IDS = ['daily_arrival', 'hourly_arrival', 'clinical_daily', 'clinical_hourly'];
+const POLL_MS = 2000;
+
+// Where a finished run's results can be read.
+const RESULT_LINKS = [
+  ['Explore', 'explore'], ['Forecast', 'forecast-total'], ['Staffing', 'staff'],
+  ['Supply', 'supply'], ['Optimization', 'optimize'], ['Action Center', 'actions'],
+];
+
+export default function DataHub({ onNavigate }) {
   const [inventory, setInventory] = useState(null);
   const [error, setError] = useState(null);
   const [uploadState, setUploadState] = useState({}); // {id: {status, error?, detail?, file?}}
@@ -31,6 +45,67 @@ export default function DataHub() {
   const [sourceStatus, setSourceStatus] = useState(null);
   const fileInputRef = useRef(null);
   const pendingIdRef = useRef(null);
+
+  // ---- Pipeline state: load reads status, staged and preflight (GETs only).
+  const [runStatus, setRunStatus] = useState(null);
+  const [runStatusError, setRunStatusError] = useState(false);
+  const [staged, setStaged] = useState(null);
+  const [preflight, setPreflight] = useState(null);
+  const [preflightError, setPreflightError] = useState(false);
+  const [dropResults, setDropResults] = useState([]);
+  const [progress, setProgress] = useState(null);
+  const [confirmMonths, setConfirmMonths] = useState(null);
+  const [runMessage, setRunMessage] = useState(null);
+  const [starting, setStarting] = useState(false);
+
+  const refreshStatus = useCallback((signal) => api.pipeline.status(signal)
+    .then((s) => { setRunStatus(s); setRunStatusError(false); })
+    .catch((e) => { if (e.name !== 'AbortError') setRunStatusError(true); }), []);
+
+  const refreshStaging = useCallback((signal) => Promise.all([
+    api.pipeline.staged(signal).then(setStaged).catch(() => {}),
+    api.pipeline.preflight(signal)
+      .then((p) => { setPreflight(p); setPreflightError(false); })
+      .catch((e) => { if (e.name !== 'AbortError') setPreflightError(true); }),
+  ]), []);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    refreshStatus(ctrl.signal);
+    refreshStaging(ctrl.signal);
+    return () => ctrl.abort();
+  }, [refreshStatus, refreshStaging]);
+
+  // Poll only while a run is active. A reload reads status first, so a run
+  // started earlier is picked up again. When it ends, re-read what it changed.
+  const running = !!runStatus?.running;
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    if (!running) {
+      if (wasRunning.current) {
+        wasRunning.current = false;
+        setRunMessage(null);
+        refreshStaging();
+        api.datasets.inventory().then(setInventory).catch(() => {});
+      }
+      return undefined;
+    }
+    wasRunning.current = true;
+    let alive = true;
+    const timer = setInterval(() => {
+      api.pipeline.status().then((s) => { if (alive) setRunStatus(s); }).catch(() => {});
+    }, POLL_MS);
+    return () => { alive = false; clearInterval(timer); };
+  }, [running, refreshStaging]);
+
+  // Registers are transformed as they arrive: closing the tab mid-way stops the rest.
+  const uploading = !!progress && !progress.finished;
+  useEffect(() => {
+    if (!uploading) return undefined;
+    const warn = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [uploading]);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -165,6 +240,99 @@ export default function DataHub() {
     }
   };
 
+  // ---- Drop zone: classify by name, then upload one file at a time --------
+  const patchResult = (key, patch) =>
+    setDropResults((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+
+  const uploadOne = async (entry) => {
+    if (entry.kind === 'register') {
+      return registerReceipt(await api.pipeline.uploadRegister(entry.file));
+    }
+    const meta = await api.datasets.upload(entry.id, entry.file);
+    const label = inventory?.items.find((it) => it.schema.id === entry.id)?.schema.label || entry.id;
+    return `${(meta.rows ?? 0).toLocaleString()} rows loaded as ${label}.`;
+  };
+
+  const onDropFiles = async (fileList) => {
+    const files = Array.from(fileList || []);
+    if (!files.length || uploading) return;
+    const schemas = (inventory?.items || []).map((it) => it.schema);
+    const stamp = Date.now();
+    const entries = files.map((file, i) => {
+      const c = classify(file.name, schemas);
+      return {
+        key: `${stamp}-${i}`, file, name: file.name, kind: c.kind, id: c.id,
+        state: c.kind === 'unknown' ? 'rejected' : 'waiting',
+        message: c.kind === 'unknown' ? unknownReason(file.name) : 'Waiting.',
+      };
+    });
+    // CSVs take seconds; registers are transformed one at a time after them.
+    const queue = [...entries.filter((e) => e.kind === 'slot'), ...entries.filter((e) => e.kind === 'register')];
+    setDropResults([...entries.filter((e) => e.kind === 'unknown'), ...queue]);
+    if (!queue.length) { setProgress(null); return; }
+
+    let ok = 0;
+    for (let i = 0; i < queue.length; i += 1) {
+      const e = queue[i];
+      setProgress({ current: i + 1, total: queue.length, name: e.name });
+      patchResult(e.key, { state: 'uploading', message: 'Uploading…' });
+      try {
+        const message = await uploadOne(e);
+        ok += 1;
+        patchResult(e.key, { state: 'ok', message, file: null });
+      } catch (err) {
+        const bestFit = err?.detail && typeof err.detail === 'object' ? err.detail.best_fit : null;
+        patchResult(e.key, { state: 'failed', message: extractMessage(err), bestFit: bestFit || null });
+      }
+    }
+    // Re-read the checklist before saying "Finished", so it never shows stale problems.
+    await Promise.all([refreshInventory(), refreshStaging()]);
+    setProgress({ finished: true, total: queue.length, ok, failed: queue.length - ok });
+  };
+
+  const onDropBestFit = async (result) => {
+    patchResult(result.key, { state: 'uploading', message: 'Uploading…', bestFit: null });
+    try {
+      const message = await uploadOne({ kind: 'slot', id: result.bestFit.id, file: result.file });
+      patchResult(result.key, { state: 'ok', message, file: null });
+    } catch (err) {
+      patchResult(result.key, { state: 'failed', message: extractMessage(err) });
+    }
+    await Promise.all([refreshInventory(), refreshStaging()]);
+  };
+
+  // ---- Run ------------------------------------------------------------------
+  const startRun = async () => {
+    setConfirmMonths(null);
+    setRunMessage(null);
+    setStarting(true);
+    try {
+      setRunStatus(await api.pipeline.run());
+    } catch (e) {
+      if (e.status === 409) {
+        setRunMessage('A run is already in progress. Its progress is shown below.');
+        // Start polling now; the first poll replaces this with the real stages.
+        setRunStatus((prev) => ({ ...(prev || {}), stages: prev?.stages || [], running: true }));
+      } else {
+        setRunMessage(extractMessage(e));
+      }
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  // Months the staged registers would overwrite are confirmed in the page first.
+  const onRunClick = () => {
+    const months = preflight?.replaced_months || [];
+    if (months.length) setConfirmMonths(months);
+    else startRun();
+  };
+
+  const goTo = (page) => {
+    if (onNavigate) onNavigate(page);
+    else window.location.hash = page;
+  };
+
   const { hospitalItems, externalItems, opsItems } = useMemo(() => {
     if (!inventory) return { hospitalItems: [], externalItems: [], opsItems: [] };
     return {
@@ -190,7 +358,7 @@ export default function DataHub() {
       <PageHero
         kicker="Data · Sources"
         title="Data Hub"
-        sub="Upload the seven source files (four hospital datasets, three external) · privacy-safe: in-memory only, never persisted to disk"
+        sub="Drop the monthly registers and the source files, then run the whole pipeline · privacy-safe: in-memory only, never persisted to disk"
         image="/images/hero-bg1.jpg"
         actions={
           <>
@@ -214,6 +382,57 @@ export default function DataHub() {
         </div>
       )}
 
+      <SectionHeader
+        kicker="Step 1 · Upload"
+        title="Upload everything"
+        sub="Registers are transformed as they arrive · CSVs go to the slot their name matches"
+      />
+      <DropZone
+        disabled={uploading || running}
+        disabledReason={running ? 'A run is in progress. Upload again when it finishes.' : 'Uploading…'}
+        progress={progress}
+        results={dropResults}
+        onFiles={onDropFiles}
+        onSendToBestFit={onDropBestFit}
+      />
+      <FileChecklist
+        items={inventory?.items || []}
+        staged={staged}
+        preflight={preflight}
+        preflightError={preflightError}
+      />
+
+      <SectionHeader
+        kicker="Step 2 · Run"
+        title="Run the full pipeline"
+        sub="Check, transform, consolidate, analyse, forecast, optimise and rebuild the recommendations"
+      />
+      <CardGrid columns={2} minItemWidth={300}>
+        <RunPanel
+          preflight={preflight}
+          preflightError={preflightError}
+          running={running}
+          uploading={uploading}
+          starting={starting}
+          confirmMonths={confirmMonths}
+          message={runMessage}
+          onRun={onRunClick}
+          onConfirm={startRun}
+          onCancel={() => setConfirmMonths(null)}
+        />
+        <StagedPanel
+          staged={staged}
+          items={inventory?.items || []}
+          running={running}
+          onChanged={refreshStaging}
+        />
+      </CardGrid>
+      <RunSummary status={runStatus} onGo={goTo} />
+      <StageTracker status={runStatus} error={runStatusError} />
+
+      <details className="pl-advanced">
+        <summary>Advanced: upload or fetch one file at a time</summary>
+        <div className="pl-advanced-body">
       <SectionHeader
         kicker="Section A · Private"
         title="Hospital data"
@@ -290,7 +509,193 @@ export default function DataHub() {
           preview={previews[selectedItem.schema.id]}
         />
       )}
+        </div>
+      </details>
     </div>
+  );
+}
+
+// ---- Pipeline panels ----------------------------------------------------------
+
+function registerReceipt(r) {
+  const tail = { replaced: ' Replaced the staged copy of that month.', unchanged: ' Already staged, unchanged.' }[r.status] || '';
+  return `${r.month}: ${r.days} days, ${(r.arrivals ?? 0).toLocaleString()} arrivals.${tail}`;
+}
+
+function RunPanel({ preflight, preflightError, running, uploading, starting, confirmMonths, message, onRun, onConfirm, onCancel }) {
+  const canRun = !!preflight?.ok && !running && !uploading && !starting && !confirmMonths;
+  let reason = 'All required files are present and agree with each other.';
+  if (running) reason = 'A run is in progress.';
+  else if (uploading) reason = 'Wait for the uploads to finish.';
+  else if (preflightError) reason = 'The checks could not be loaded. Is the server running?';
+  else if (!preflight) reason = 'Checking the files…';
+  else if (!preflight.ok) reason = 'Fix what the checklist marks as missing or a problem first.';
+  else if (preflight.replaced_months?.length) {
+    const n = preflight.replaced_months.length;
+    reason = `Ready. The staged registers will replace ${n} month${n === 1 ? '' : 's'} of the uploaded history.`;
+  }
+
+  return (
+    <Card className="pl-run">
+      <Card.Header icon={<Icon name="play" size={16} />}>
+        <Card.Title>Run full pipeline</Card.Title>
+        <Card.Description>{reason}</Card.Description>
+      </Card.Header>
+      <Card.Actions>
+        <button className="btn btn-primary" disabled={!canRun} onClick={onRun}>
+          <Icon name="play" size={12} /> Run full pipeline
+        </button>
+      </Card.Actions>
+      {confirmMonths && (
+        <div className="pl-confirm" role="group" aria-label="Confirm replacing months">
+          <div>
+            <strong>Replace {confirmMonths.length} month{confirmMonths.length === 1 ? '' : 's'}?</strong>{' '}
+            The staged registers will replace these months of the uploaded history:{' '}
+            <span className="tnum">{confirmMonths.join(', ')}</span>.
+          </div>
+          <Card.Actions>
+            <button className="btn btn-primary btn-sm" onClick={onConfirm} autoFocus>Replace and run</button>
+            <button className="btn btn-sm" onClick={onCancel}>Cancel</button>
+          </Card.Actions>
+        </div>
+      )}
+      {message && <div className="pl-note" role="status">{message}</div>}
+    </Card>
+  );
+}
+
+function RunSummary({ status, onGo }) {
+  if (!status || status.running || !status.finished_at) return null;
+  const stages = status.stages || [];
+  const failed = stages.find((s) => s.status === 'failed');
+  const amber = stages.filter((s) => s.status === 'amber').length;
+  if (failed) {
+    return (
+      <Card className="pl-summary" tone="danger">
+        <Card.Title>The run stopped at {failed.label}</Card.Title>
+        <Card.Description>
+          {failed.receipt} Earlier results were cleared, not half-replaced. Fix the problem and run again.
+        </Card.Description>
+      </Card>
+    );
+  }
+  return (
+    <Card className="pl-summary">
+      <Card.Header icon={<Icon name="check" size={16} />}>
+        <Card.Title>Run complete</Card.Title>
+        <Card.Description>
+          Every page now reads this run's results.
+          {amber ? ` ${amber} stage${amber === 1 ? '' : 's'} need${amber === 1 ? 's' : ''} attention; see the stages below.` : ''}
+        </Card.Description>
+      </Card.Header>
+      <Card.Actions>
+        {RESULT_LINKS.map(([label, page]) => (
+          <button key={page} className="btn btn-sm" onClick={() => onGo(page)}>{label}</button>
+        ))}
+      </Card.Actions>
+    </Card>
+  );
+}
+
+function saveBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function downloadRefusal(e) {
+  if (e?.status === 401) return 'Sign in again to download the transformed tables.';
+  if (e?.status === 403) return `Download refused. ${extractMessage(e)}`;
+  if (e?.status === 404) return 'Nothing to download yet: run the pipeline with registers first.';
+  return `The download failed. ${extractMessage(e)}`;
+}
+
+function StagedPanel({ staged, items, running, onChanged }) {
+  const [askClear, setAskClear] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState(null);
+  const months = staged?.months || [];
+  const unapplied = staged?.unapplied || [];
+  const arrivals = months.reduce((n, m) => n + (m.arrivals || 0), 0);
+
+  const onDownload = async () => {
+    setNote(null);
+    setBusy(true);
+    try {
+      // Fetch all four first, so a refusal saves nothing.
+      const blobs = [];
+      for (const id of TRANSFORMED_IDS) blobs.push([id, await api.pipeline.transformed(id)]);
+      // Saved under the slot file names, so they can be dropped straight back in.
+      for (const [id, blob] of blobs) {
+        const hint = items.find((it) => it.schema.id === id)?.schema.source_filename_hint || `${id}.csv`;
+        saveBlob(blob, hint);
+      }
+      setNote({ level: 'ok', text: 'Downloaded the four transformed tables under the names the drop zone accepts.' });
+    } catch (e) {
+      setNote({ level: 'error', text: downloadRefusal(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onClear = async () => {
+    setAskClear(false);
+    setBusy(true);
+    try {
+      const r = await api.pipeline.clearStaged();
+      setNote({ level: 'ok', text: `Cleared ${r.cleared} staged month${r.cleared === 1 ? '' : 's'}.` });
+      await onChanged();
+    } catch (e) {
+      setNote({ level: 'error', text: extractMessage(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card className="pl-staged">
+      <Card.Header
+        icon={<Icon name="file" size={16} />}
+        chip={<Card.StatusChip tone={months.length ? 'loaded' : 'empty'}>{months.length} month{months.length === 1 ? '' : 's'}</Card.StatusChip>}
+      >
+        <Card.Title>Staged registers</Card.Title>
+        <Card.Description>
+          Staged files are held in memory until you clear them or the server restarts. A run uses
+          them and keeps them, so the next run needs only the files that changed.
+        </Card.Description>
+      </Card.Header>
+      <div className="pl-note">
+        {months.length
+          ? `${months[0].month} to ${months[months.length - 1].month}, ${arrivals.toLocaleString()} arrivals.`
+          : 'No registers staged.'}
+        {unapplied.length > 0 && (
+          <> Not yet used by a run: <span className="tnum">{unapplied.slice(0, 6).join(', ')}{unapplied.length > 6 ? `, and ${unapplied.length - 6} more` : ''}</span>.</>
+        )}
+      </div>
+      <Card.Actions>
+        <button className="btn btn-sm" onClick={onDownload} disabled={busy}>
+          <Icon name="download" size={12} /> Download transformed CSVs
+        </button>
+        <button className="btn btn-sm" onClick={() => setAskClear(true)} disabled={busy || running || !months.length}>
+          <Icon name="logout" size={12} /> Clear
+        </button>
+      </Card.Actions>
+      {askClear && (
+        <div className="pl-confirm" role="group" aria-label="Confirm clearing staged months">
+          <div>Clear all {months.length} staged months? They would need uploading again.</div>
+          <Card.Actions>
+            <button className="btn btn-primary btn-sm" onClick={onClear} autoFocus>Clear staged</button>
+            <button className="btn btn-sm" onClick={() => setAskClear(false)}>Cancel</button>
+          </Card.Actions>
+        </div>
+      )}
+      {note && <div className="pl-note" data-level={note.level} role="status">{note.text}</div>}
+    </Card>
   );
 }
 
