@@ -18,3 +18,5 @@ pulp>=2.7,<4  # 4.0 removed LpStatus and PULP_CBC_CMD, which the engine imports;
 orjson>=3.9  # numpy-native JSON responses (memory diet: float32 registry dtypes)
 holidays>=0.40  # deterministic SA public-holiday features for the ML forecaster
 email-validator>=2.2  # pydantic EmailStr — validates the recipient on /api/reports/email
+python-calamine>=0.3  # reads uploaded register workbooks (core/transform); same grid as openpyxl, ~5x faster
+openpyxl>=3.1  # the offline pipeline's Excel reader; the tests build synthetic registers with it
