@@ -21,3 +21,20 @@ From the repo root:
 Use the `simulation` subfolder, not the `chapter7_simulation` root. The script
 fails if the filled-post count is not 23 or a filled staff id has no match in
 `api/data/simulation/staff_members.csv`.
+
+## Round trip against the bundled simulation files
+
+Deriving `supply_items` from this pack (`core/ops_derive.py`) reproduces the
+bundled `api/data/simulation/supply_items.csv`. Consumption, stockout, order
+and ordering/stockout-cost figures, service level, CV, average stock and
+inventory value match exactly. Two figures differ slightly:
+
+- `total_holding_cost_zar` (and so `total_cost_zar`): at most R52.83 on one
+  item, 0.45 percent of that item's holding cost (0.18 percent of total cost).
+  Probable cause (not isolated): the simulator accrued holding cost day by day
+  on its own unrounded stock, while the app computes
+  sum(recorded stock) x price x rate / 365 from the recorded column, which is
+  rounded to one decimal.
+- `mean_daily_consumption` and `sd_daily_consumption` agree within 0.01.
+
+All are inside the tolerances in `tests/test_ops_derive.py`.

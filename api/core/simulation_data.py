@@ -16,9 +16,46 @@ from core import data_source
 _LOCAL = Path(__file__).resolve().parent.parent / "data" / "simulation"
 _CACHE: dict[str, pd.DataFrame] = {}
 
+# Frames derived from uploaded operations files (core/ops_derive.py). When set,
+# ``load`` serves these and never fetches. Deliberately NOT registered with
+# data_version: a run invalidates results first, then publishes the new frames.
+_UPLOADED: dict[str, pd.DataFrame] = {}
+_META: dict[str, object] = {"origin": None, "posts": None}
+
+
+def publish(frames: dict[str, pd.DataFrame], origin: str, posts: int | None = None) -> None:
+    """Serve ``frames`` from ``load`` in place of the bundled simulation files."""
+    _UPLOADED.clear()
+    _UPLOADED.update(frames)
+    _META["origin"] = origin
+    _META["posts"] = posts
+
+
+def unpublish() -> None:
+    """Go back to the repo / bundled simulation files."""
+    _UPLOADED.clear()
+    _META["origin"] = None
+    _META["posts"] = None
+
+
+def is_uploaded() -> bool:
+    return bool(_UPLOADED)
+
+
+def origin() -> str | None:
+    return _META["origin"]  # type: ignore[return-value]
+
+
+def posts() -> int | None:
+    return _META["posts"]  # type: ignore[return-value]
+
 
 async def load(name: str) -> pd.DataFrame:
     """Load one simulation CSV by filename (e.g. 'supply_items.csv')."""
+    if _UPLOADED:
+        if name not in _UPLOADED:
+            raise FileNotFoundError(f"{name} is not part of the uploaded operations data.")
+        return _UPLOADED[name]
     if name in _CACHE:
         return _CACHE[name]
 

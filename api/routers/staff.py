@@ -12,7 +12,7 @@ from typing import Any, Optional
 import numpy as np
 from fastapi import APIRouter, HTTPException
 
-from core import simulation_data, data_version
+from core import simulation_data, data_version, prepare_registry
 from core.optimization_engine import compare_staff_strategies
 
 router = APIRouter(prefix="/api/staff", tags=["staff"])
@@ -127,7 +127,7 @@ async def overview() -> dict[str, Any]:
         "bcea_per_nurse":        int(round(float(members["bcea_45hour_violations_count"].mean()))),
         "locum_hours":           round(float(daily["total_locum_hours"].sum()), 0),
         "n_active_staff":        n_active,
-        "n_posts":               30,
+        "n_posts":               (simulation_data.posts() or 30) if simulation_data.is_uploaded() else 30,
     }
     return {
         "kpis": headline,        # this run (consistent with the roster table)
@@ -164,7 +164,19 @@ async def staff_strategy_compare_demo(
     lets the UI explore lighter/heavier demand regimes."""
     if mean_arrivals is not None and not (10 <= mean_arrivals <= 300):
         raise HTTPException(400, "mean_arrivals must be between 10 and 300.")
-    res = compare_staff_strategies(mean_arrivals=mean_arrivals)
+    n_active = None
+    if simulation_data.is_uploaded():
+        # Uploaded pool: size it from the uploaded roster, and when the caller
+        # gave no demand level use the real mean arrivals (G1) instead of the
+        # thesis constant.
+        members = await simulation_data.load("staff_members.csv")
+        n_active = int(len(members))
+        g1 = prepare_registry.get_df("g1")
+        if mean_arrivals is None and g1 is not None and "total_daily_arrivals" in g1.columns:
+            m = float(g1["total_daily_arrivals"].astype("float64").mean())
+            if 10 <= m <= 300:
+                mean_arrivals = m
+    res = compare_staff_strategies(mean_arrivals=mean_arrivals, n_active=n_active)
     _LAST_STRATEGY["result"] = res
     return res
 

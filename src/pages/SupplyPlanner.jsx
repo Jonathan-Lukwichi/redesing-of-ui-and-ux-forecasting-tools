@@ -91,7 +91,7 @@ export default function SupplyPlanner() {
   );
 
   const k = data?.kpis;     // this representative run (matches the table/ABC)
-  const ci = data?.ci;      // 30-seed aggregated means + 95% CIs
+  const ci = data?.ci && Object.keys(data.ci).length ? data.ci : null;      // 30-seed aggregated means + 95% CIs
   return (
     <div className="content">
       <PageHero

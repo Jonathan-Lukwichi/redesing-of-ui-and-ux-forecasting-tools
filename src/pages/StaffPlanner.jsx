@@ -64,7 +64,7 @@ export default function StaffPlanner() {
   );
 
   const k = data?.kpis;   // this representative run
-  const ci = data?.ci;    // 30-seed aggregated means + 95% CIs
+  const ci = data?.ci && Object.keys(data.ci).length ? data.ci : null;    // 30-seed aggregated means + 95% CIs
   const daily = data?.daily || [];
   const required = daily.map((d) => d.required);
   const staffed = daily.map((d) => d.staffed);
