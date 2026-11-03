@@ -9,6 +9,8 @@ from .category_independence   import CategoryIndependenceAnalyzer
 from .subtotal_reconciliation import SubtotalReconciliationAnalyzer
 from .growth_trend            import GrowthTrendAnalyzer
 from .busy_day_threshold      import BusyDayThresholdAnalyzer
+from .ops_links               import ArrivalsVsConsumption, ArrivalsVsNurses, StockoutsOnBusyDays
+from .seasonality_test        import KruskalWallisAnalyzer
 
 
 DEFAULT = [
@@ -20,4 +22,8 @@ DEFAULT = [
     CategoryIndependenceAnalyzer(),
     SubtotalReconciliationAnalyzer(),
     GrowthTrendAnalyzer(),
+    ArrivalsVsConsumption(),      # F9  — arrivals vs stock use
+    ArrivalsVsNurses(),           # F10 — arrivals vs nurses required
+    StockoutsOnBusyDays(),        # F11 — stockouts on busy days
+    KruskalWallisAnalyzer(),      # F12 — weekday / month differences
 ]

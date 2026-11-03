@@ -7,8 +7,10 @@ The ADF p-value is preserved in the detail field for technical users; the
 card itself shows only the operational summary.
 """
 from __future__ import annotations
+import warnings
+
 import pandas as pd
-from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.stattools import adfuller, kpss
 
 from ..pipeline import Metric, MetricAnalyzer, GroupProfile
 
@@ -29,6 +31,12 @@ class StationarityMetric(MetricAnalyzer):
         except Exception:
             return None
         is_stable = p < 0.05
+        try:   # KPSS reads the other way round: a small p means NOT stationary
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")   # InterpolationWarning at the p-value limits
+                kpss_p = round(float(kpss(s.to_numpy(), regression="c", nlags="auto")[1]), 4)
+        except Exception:
+            kpss_p = None
         return Metric(
             id=f"{self.code}:{group_id}",
             code=self.code,
@@ -45,5 +53,6 @@ class StationarityMetric(MetricAnalyzer):
             accent="stable" if is_stable else "watch",
             polarity="neutral",
             source_group=group_id,
-            detail={"adf_statistic": round(float(stat), 3), "p_value": round(float(p), 4)},
+            detail={"adf_statistic": round(float(stat), 3), "p_value": round(float(p), 4),
+                    "kpss_p": kpss_p},
         )

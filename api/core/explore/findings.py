@@ -10,7 +10,7 @@ from typing import Any
 from core import prepare_registry, registry
 from core.joins import GROUPS
 
-from .pipeline import AnalysisContext, FindingPipeline, MetricPipeline, recent_failures, slice_by_range
+from .pipeline import AnalysisContext, FindingPipeline, GroupProfile, MetricPipeline, recent_failures, slice_by_range
 from .profiles import profile_for
 from .analyzers import DEFAULT as DEFAULT_ANALYZERS
 from .metrics   import DEFAULT_FORECAST, DEFAULT_DATA_HEALTH, DEFAULT_METRICS
@@ -30,6 +30,11 @@ def _build_context(time_range: str = "all_time", specialty: str | None = None) -
             continue
         sliced = slice_by_range(df, time_range, date_col="date")
         groups[g.id] = (sliced, profile_for(g.id, sliced))
+    ops = prepare_registry.get_df("ops_daily")
+    if ops is not None:
+        groups["ops"] = (slice_by_range(ops, time_range, date_col="date"),
+                         GroupProfile(group_id="ops", grain="daily", date="date",
+                                      target="total_daily_arrivals"))
     raw = {}
     for d_id in registry.loaded_ids():
         df = registry.get_df(d_id)
