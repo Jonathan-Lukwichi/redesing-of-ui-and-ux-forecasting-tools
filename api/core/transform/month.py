@@ -21,7 +21,7 @@ class MonthTables:
     year: int
     month: int
     sha256: str
-    daily: pd.DataFrame      # reconciled and cleaned, one row per day
+    daily: pd.DataFrame      # cleaned, then reconciled, one row per day
     hourly: pd.DataFrame     # days x 24 grid of arrival_count
     clinical: pd.DataFrame   # per-day clinical counts, before unify/aggregate
     receipt: dict
@@ -50,12 +50,15 @@ def transform_month(raw: bytes, filename: str) -> MonthTables:
         hourly = _nonempty(extract.extract_hourly_data(sheet, year, month, filename, log))
         phase = "clinical reasons"
         clin = _nonempty(clinical.extract_clinical_data(sheet, year, month, filename, log))
-        phase = "reconciliation"
-        daily = extract.reconcile_daily_with_hourly(daily, hourly, log)
+        # The offline pipeline's order: clean (phase 2), then reconcile (2b).
         phase = "cleaning"
         daily = extract.clean_data(daily, log)
-    except Exception:
+        phase = "reconciliation"
+        daily = extract.reconcile_daily_with_hourly(daily, hourly, log)
+    except Exception as e:
         failed = phase
+        # The type name only: the message may quote a register cell.
+        failed_type = type(e).__name__
     finally:
         # The grid holds patient rows: drop it, and this frame's reference to
         # the bytes, before returning or raising.
@@ -63,6 +66,7 @@ def transform_month(raw: bytes, filename: str) -> MonthTables:
     # Raised outside the except block so neither __cause__ nor __context__
     # holds the original exception, whose text may quote a cell value.
     if failed is not None:
+        log.warning("  %s: %s in the %s phase", filename, failed_type, failed)
         raise TransformError(f"{filename}: could not read the {failed} section")
 
     receipt = {

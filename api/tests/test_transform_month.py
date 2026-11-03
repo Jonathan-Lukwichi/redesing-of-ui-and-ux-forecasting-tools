@@ -131,6 +131,22 @@ def test_failed_clinical_extraction_fails_the_month(march, monkeypatch):
     assert "clinical" in e.value.public_message
 
 
+def test_failure_logs_file_type_and_phase_only(march, monkeypatch, caplog):
+    def boom(*a, **k):
+        raise ValueError(f"cell said {FAKE_NAME}")
+
+    monkeypatch.setattr(clinical, "extract_clinical_data", boom)
+    caplog.set_level(logging.DEBUG)
+    with pytest.raises(TransformError):
+        transform_month(march, NAME)
+    warned = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warned) == 1
+    msg = warned[0].getMessage()
+    assert NAME in msg and "ValueError" in msg and "clinical reasons" in msg
+    assert FAKE_NAME not in msg and "cell said" not in msg
+    assert warned[0].exc_info is None
+
+
 def test_empty_clinical_extraction_fails_the_month(march, monkeypatch):
     monkeypatch.setattr(clinical, "extract_clinical_data", lambda *a, **k: pd.DataFrame())
     with pytest.raises(TransformError):
