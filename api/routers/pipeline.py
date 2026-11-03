@@ -1,6 +1,6 @@
-"""/api/pipeline/* — raw register upload (transformed as it arrives), staging
-and download of the transformed tables. HTTP concerns only; the work lives in
-core/transform and core/pipeline.
+"""/api/pipeline/* — raw register upload (transformed as it arrives), staging,
+download of the transformed tables, and the pipeline run. HTTP concerns only;
+the work lives in core/transform and core/pipeline.
 
 The body is read from request.stream() into memory, never as multipart:
 Starlette spools multipart uploads over 1MB to a temp file, and hospital files
@@ -14,10 +14,10 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 from core import pipeline, registry, security
-from core.pipeline import preflight, staging
+from core.pipeline import job, preflight, staging
 from core.transform import TransformError
 from core.transform.month import transform_month
 
@@ -42,6 +42,10 @@ def _transform_and_stage(raw: bytearray, filename: str) -> dict[str, Any]:
                          if (m.year, m.month) == (month.year, month.month)), None)
         if previous is not None and previous.sha256 == month.sha256:
             return {**previous.receipt, "status": "unchanged"}
+        # A run may have started while this file was transforming: never hand
+        # it a half-staged month.
+        if pipeline.is_running():
+            raise HTTPException(409, _BUSY)
         staging.put(month)
         return {**month.receipt,
                 "status": "replaced" if previous is not None else "added"}
@@ -104,3 +108,17 @@ async def download_transformed(dataset_id: str,
     return Response(
         df.to_csv(index=False), media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{dataset_id}.csv"'})
+
+
+@router.post("/run")
+async def run(_user=security.DataWriteAccess) -> Any:
+    try:
+        return job.start()
+    except job.Busy:
+        return JSONResponse(status_code=409,
+                            content={"error": "already_running", "message": _BUSY})
+
+
+@router.get("/status")
+async def status() -> dict[str, Any]:
+    return job.status()

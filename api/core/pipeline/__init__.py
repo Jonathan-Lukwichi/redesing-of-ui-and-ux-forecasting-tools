@@ -1,7 +1,8 @@
-"""One-button pipeline: staging of transformed months, and (later) the job."""
+"""One-button pipeline: staging of transformed months, and the job that runs
+the stages."""
 
 
 def is_running() -> bool:
-    """True while a pipeline run is active. Uploads are refused meanwhile.
-    Task 9 makes this delegate to the job."""
-    return False
+    """True while a pipeline run is active. Uploads are refused meanwhile."""
+    from core.pipeline import job   # lazily: job imports this package's modules
+    return job.is_running()
