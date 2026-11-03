@@ -17,7 +17,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
 
 from core import pipeline, registry, security
-from core.pipeline import staging
+from core.pipeline import preflight, staging
 from core.transform import TransformError
 from core.transform.month import transform_month
 
@@ -79,6 +79,11 @@ async def staged() -> dict[str, Any]:
         "months": [{**m.receipt, "sha256": m.sha256} for m in staging.months()],
         "unapplied": staging.unapplied(),
     }
+
+
+@router.get("/preflight")
+async def preflight_checks() -> dict[str, Any]:
+    return await run_in_threadpool(preflight.run_checks)
 
 
 @router.delete("/staged")
