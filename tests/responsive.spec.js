@@ -158,6 +158,17 @@ test(`${route} @ 390px — no heavy compute on page load`, async ({ page }) => {
 });
 }
 
+// The Dashboard shows total-ED KPIs; a last run of kind "specialty" must not feed it.
+test('dashboard @ 390px — a specialty last-run shows the empty state', async ({ page }) => {
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  await page.route('**/api/forecast/last', (r) => r.fulfill({
+    json: { available: true, kind: 'specialty', ran_at: 'x', result: { history: [], forecast: [] } },
+  }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#dashboard');
+  await expect(page.getByText('No forecast has been run yet')).toBeVisible();
+});
+
 for (const route of KEY_PAGES) {
   for (const width of OVERLAP_WIDTHS) {
     test(`${route} @ ${width}px — no overlapping text blocks`, async ({ page }) => {

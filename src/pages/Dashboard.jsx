@@ -33,8 +33,8 @@ export default function Dashboard({ onNavigate }) {
     api.forecast.last()
       .then((d) => {
         if (!alive) return;
-        // {available, result} -> fc. Not available = the existing empty state.
-        if (d?.available && d.result) setFc(d.result);
+        // {available, kind, result} -> fc. Only a total-ED run belongs here; a specialty run or nothing = the existing empty state.
+        if (d?.available && d.kind === 'total' && d.result) setFc(d.result);
         else setError('g1');
       })
       .catch((e) => { if (alive) setError(e.message || 'Request failed'); });
@@ -216,7 +216,7 @@ export default function Dashboard({ onNavigate }) {
             <div className="card-header">
               <div>
                 <div className="card-title">Patient arrivals — history + 7-day forecast</div>
-                <div className="card-sub">{hist.length} days history · live {fc?.requested_model === 'ml' ? 'best ML model' : 'best statistical model'} · likely range shaded</div>
+                <div className="card-sub">{hist.length} days history · latest forecast run · likely range shaded</div>
               </div>
               <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--text-3)' }}>
                 <span><span className="dot" style={{ color: '#475569' }} /> Historical</span>
