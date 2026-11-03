@@ -131,6 +131,30 @@ def test_failed_clinical_extraction_fails_the_month(march, monkeypatch):
     assert "clinical" in e.value.public_message
 
 
+def _with_chartsheets_first(raw):
+    """The register saved behind two chart sheets, as in 2025_04, 2025_05 and
+    2025_09: the register is the first WORKSHEET but not the first sheet."""
+    import io
+    from openpyxl import load_workbook
+    from openpyxl.chart import BarChart
+    wb = load_workbook(io.BytesIO(raw))
+    for title in ("Chart1", "Chart2"):
+        wb.create_chartsheet(title, 0).add_chart(BarChart())
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_register_behind_chart_sheets_is_read(march):
+    raw = _with_chartsheets_first(march)
+    out = transform_month(raw, NAME)
+    assert out.receipt["arrivals"] == 2 * PATIENTS_PER_DAY
+    # The same grid the offline pipeline's openpyxl read gives (sheet 0 skips charts).
+    import io
+    expected = pd.read_excel(io.BytesIO(raw), header=None, engine="openpyxl")
+    pd.testing.assert_frame_equal(reader.read_sheet(raw), expected)
+
+
 def test_failure_logs_file_type_and_phase_only(march, monkeypatch, caplog):
     def boom(*a, **k):
         raise ValueError(f"cell said {FAKE_NAME}")

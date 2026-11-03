@@ -35,5 +35,13 @@ def read_sheet(raw: bytes) -> pd.DataFrame:
     which used openpyxl. calamine gave an identical grid (values and dtypes)
     and identical extracted tables on one file per template era (2019_06,
     2021_03, 2023_04, 2026_01), 4.5x to 6.3x faster.
+
+    The sheet is chosen by name, the first WORKSHEET. pandas' calamine reader
+    resolves sheet index 0 against every sheet, chart sheets included, while
+    its openpyxl reader skips chart sheets. 2025_04, 2025_05 and 2025_09 keep
+    two chart sheets before the register, so index 0 gave calamine an empty
+    chart and the month failed. By name, calamine's grid equals openpyxl's
+    sheet 0 (values and dtypes) on those three files and the four era files.
     """
-    return pd.read_excel(io.BytesIO(raw), header=None, engine="calamine")
+    with pd.ExcelFile(io.BytesIO(raw), engine="calamine") as book:
+        return pd.read_excel(book, sheet_name=book.sheet_names[0], header=None)
