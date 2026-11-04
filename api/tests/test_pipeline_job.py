@@ -191,6 +191,79 @@ def test_failed_run_leaves_results_cleared(client, monkeypatch):
     assert client.get("/api/optimization/last").json()["status"] == "no_solution_yet"
 
 
+TUNED = {"params_by_item": {"X": {"s_mult": 1.0, "q_mult": 1.0}},
+         "tuned_at": "2026-01-01T00:00:00"}
+
+
+@pytest.fixture()
+def old_results(monkeypatch):
+    """Results from an earlier run, standing in the /last caches, the stored
+    Action Center list and the tuned reorder settings."""
+    from ai import actions
+    from core import optimization_engine as engine
+    from routers import forecast
+
+    monkeypatch.setattr(forecast, "_LAST_RUN", {"kind": "total", "ran_at": "earlier",
+                                                "data_version": 0, "result": {"old": True}})
+    monkeypatch.setattr(engine, "_LAST", dict(engine._LAST, staff={"old": True}))
+    monkeypatch.setattr(engine, "_POLICY_STATE", dict(engine._POLICY_STATE))
+    engine.set_policy("s_q", tuned=TUNED)
+    monkeypatch.setattr(actions, "_STORED", {"actions": [{"title": "Old"}], "built_at": "x"})
+    return engine
+
+
+def test_failed_check_keeps_results_and_tuned_settings(client, old_results):
+    from ai import actions
+    engine = old_results
+    version = job.status()["data_version"]
+    registry.clear("calendar")
+    s = _run()
+    assert _statuses() == ["failed"] + ["skipped"] * 7
+    assert s["data_version"] == version
+    last = client.get("/api/forecast/last").json()
+    assert last["available"] is True and last["result"] == {"old": True}
+    assert client.get("/api/optimization/last").json()["staff"] == {"old": True}
+    assert engine.get_policy_state()["params_by_item"] == TUNED["params_by_item"]
+    assert actions.stored()["actions"] == [{"title": "Old"}]
+
+
+def test_passing_check_clears_then_rebuilds_results(client, old_results):
+    from ai import actions
+    engine = old_results
+    version = job.status()["data_version"]
+    s = _run()
+    assert _statuses() == ["done", "skipped", "done", "done", "done", "amber", "done", "amber"]
+    assert s["data_version"] == version + 1
+    last = client.get("/api/forecast/last").json()
+    assert last["available"] is True and last["kind"] == "total"
+    assert last["result"] != {"old": True} and last["data_version"] == version + 1
+    plan = client.get("/api/optimization/last").json()
+    assert plan["staff"] != {"old": True} and plan["supply"]
+    state = engine.get_policy_state()
+    assert state["policy"] == "s_q" and state["params_by_item"] is None
+    assert stages.POLICY_NOTICE in s["stages"][6]["warnings"]
+    assert actions.stored() is None   # no AI key here: nothing rebuilt it
+
+
+def test_results_that_cannot_be_cleared_stop_the_run_after_check(monkeypatch):
+    from core import data_version
+    called = []
+
+    def boom():
+        raise RuntimeError("a clearer broke")
+
+    def never():
+        called.append("never")
+        return stages.StageResult("unreachable", [], "done")
+
+    monkeypatch.setattr(data_version, "invalidate_all", boom)
+    monkeypatch.setattr(stages, "STAGES", [("check", "Check", stages.check),
+                                           ("x", "X", never), ("y", "Y", never)])
+    s = _run()
+    assert _statuses() == ["done", "failed", "skipped"] and called == []
+    assert s["stages"][1]["receipt"] == job.CLEAR_FAILED
+
+
 def _seed_old_groups():
     for g in GROUPS:
         prepare_registry.put(g, pd.DataFrame({"date": ["2020-01-01"]}), {"id": g, "rows": 1})

@@ -109,3 +109,20 @@ def test_specialty_last_route_reads_cache():
     finally:
         forecast._LAST_SPECIALTY.clear()
         forecast._LAST_SPECIALTY.update(saved)
+
+
+def test_publish_swaps_the_uploaded_frames_in_one_step(monkeypatch):
+    """A reader holding the published frames never sees them emptied: a new
+    publish rebinds a complete dict instead of clearing the old one first."""
+    from core import simulation_data
+
+    monkeypatch.setattr(simulation_data, "_UPLOADED", {})
+    monkeypatch.setattr(simulation_data, "_META", dict(simulation_data._META))
+    simulation_data.publish({"a.csv": pd.DataFrame({"x": [1]})}, "simulated", posts=1)
+    seen = simulation_data._UPLOADED
+    simulation_data.publish({"b.csv": pd.DataFrame({"x": [2]})}, "real", posts=2)
+    assert list(seen) == ["a.csv"]                      # the earlier view stays whole
+    assert list(simulation_data._UPLOADED) == ["b.csv"]
+    simulation_data.unpublish()
+    assert list(seen) == ["a.csv"] and simulation_data._UPLOADED == {}
+    assert not simulation_data.is_uploaded()

@@ -12,6 +12,7 @@ from core.forecasting import auto_forecast, run_arima_forecast, run_ml_forecast,
 from core import prepare_registry, weather as live_weather, validation
 
 from core import security, data_version
+from ai import actions as ai_actions
 
 router = APIRouter(prefix="/api/forecast", tags=["forecast"])
 
@@ -415,10 +416,15 @@ def compute_total(model: str, horizon: int, start_date: Optional[str] = None,
 
 
 @router.post("/run")
-async def run_from_pipeline(req: RunRequest) -> Dict[str, Any]:
+async def run_from_pipeline(req: RunRequest,
+                            _idle=security.PipelineIdle) -> Dict[str, Any]:
     result = await run_in_threadpool(
         compute_total, req.model, req.horizon, req.start_date, req.alias)
     _remember_run("total", result)
+    # A forecast run by hand outdates the stored Action Center list, so the next
+    # visit rebuilds it. This route is refused during a pipeline run, whose own
+    # recommend stage rebuilds the list.
+    ai_actions.clear_stored()
     return result
 
 
@@ -492,7 +498,8 @@ def compute_specialty(specialty: str, model: str, horizon: int, resolution: str,
 
 
 @router.post("/specialty")
-async def run_specialty_forecast(req: SpecialtyForecastRequest) -> Dict[str, Any]:
+async def run_specialty_forecast(req: SpecialtyForecastRequest,
+                                 _idle=security.PipelineIdle) -> Dict[str, Any]:
     result = await run_in_threadpool(
         compute_specialty, req.specialty, req.model, req.horizon,
         req.resolution, req.start_date, req.alias)

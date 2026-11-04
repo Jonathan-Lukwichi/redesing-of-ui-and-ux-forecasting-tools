@@ -24,6 +24,7 @@ from core.forecasting import run_arima_forecast, run_ml_forecast
 from routers.forecast import _forecast_from_series, _series_for
 
 from core import security, data_version
+from ai import actions as ai_actions
 
 router = APIRouter(prefix="/api/optimization", tags=["optimization"])
 
@@ -229,20 +230,31 @@ async def _load_items() -> list[dict]:
     return items
 
 
+def _plan_published() -> None:
+    """A plan made by hand outdates the stored Action Center list, so the next
+    visit rebuilds it. These routes are refused during a pipeline run, whose own
+    recommend stage rebuilds the list."""
+    ai_actions.clear_stored()
+
+
 @router.post("/staff")
 async def run_staff(req: RunRequest, _rl=Depends(security.rate_limit("heavy")),
-                    _user=security.StaffPlanAccess) -> dict[str, Any]:
+                    _user=security.StaffPlanAccess,
+                    _idle=security.PipelineIdle) -> dict[str, Any]:
     """Run ONLY the staff (workforce IP) optimization."""
     forecast = await _get_week_forecast(req.model, req.start_date)
     staff = await _load_staff()
     current, observed = await _current_weekly_staff_cost()
-    return await run_in_threadpool(engine.run_staff, forecast, staff, req.kappa,
-                                   req.weekly_budget_zar, current, observed)
+    out = await run_in_threadpool(engine.run_staff, forecast, staff, req.kappa,
+                                  req.weekly_budget_zar, current, observed)
+    _plan_published()
+    return out
 
 
 @router.post("/supply")
 async def run_supply(req: RunRequest, _rl=Depends(security.rate_limit("heavy")),
-                     _user=security.SupplyPlanAccess) -> dict[str, Any]:
+                     _user=security.SupplyPlanAccess,
+                     _idle=security.PipelineIdle) -> dict[str, Any]:
     """Run ONLY the supply optimization — under the requested policy family,
     or the standing policy when none is given (Plan C)."""
     forecast = await _get_week_forecast(req.model, req.start_date)
@@ -252,8 +264,10 @@ async def run_supply(req: RunRequest, _rl=Depends(security.rate_limit("heavy")),
     if policy not in engine.DEPLOYABLE_POLICIES:
         raise HTTPException(400, f"'{policy}' is not a deployable policy.")
     params = state["params_by_item"] if policy == state["policy"] else None
-    return await run_in_threadpool(
+    out = await run_in_threadpool(
         engine.run_supply_policy, forecast, items, policy, req.service_level, params)
+    _plan_published()
+    return out
 
 
 @router.get("/policy")
@@ -267,7 +281,8 @@ async def get_policy() -> dict[str, Any]:
 
 
 @router.put("/policy")
-async def put_policy(req: PolicyRequest, _user=security.SupplyPlanAccess) -> dict[str, Any]:
+async def put_policy(req: PolicyRequest, _user=security.SupplyPlanAccess,
+                     _idle=security.PipelineIdle) -> dict[str, Any]:
     """Adopt a standing policy family (untuned: textbook parameters apply
     until /policy/tune is run)."""
     try:
@@ -279,7 +294,8 @@ async def put_policy(req: PolicyRequest, _user=security.SupplyPlanAccess) -> dic
 
 @router.post("/policy/tune")
 async def tune_policy(req: PolicyRequest, _rl=Depends(security.rate_limit("heavy")),
-                      _user=security.SupplyPlanAccess) -> dict[str, Any]:
+                      _user=security.SupplyPlanAccess,
+                      _idle=security.PipelineIdle) -> dict[str, Any]:
     """Grid-search the family's parameters per item on the shared simulator
     (on demand — nothing runs on page load)."""
     items = await _load_items()
@@ -306,16 +322,19 @@ async def tune_last() -> dict[str, Any]:
 
 @router.post("/run")
 async def run(req: RunRequest, _rl=Depends(security.rate_limit("heavy")),
-              _user=security.BothPlanAccess) -> dict[str, Any]:
+              _user=security.BothPlanAccess,
+              _idle=security.PipelineIdle) -> dict[str, Any]:
     """Run BOTH optimizations (combined; used by the Action Center)."""
     forecast = await _get_week_forecast(req.model, req.start_date)
     staff = await _load_staff()
     items = await _load_items()
     current, observed = await _current_weekly_staff_cost()
-    return await run_in_threadpool(
+    out = await run_in_threadpool(
         engine.optimize, forecast, staff, items,
         req.kappa, req.service_level, req.weekly_budget_zar, current, observed,
     )
+    _plan_published()
+    return out
 
 
 def run_for_pipeline(model: str) -> dict[str, Any]:

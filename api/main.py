@@ -4,7 +4,7 @@ from pathlib import Path
 import orjson
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, ORJSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, ORJSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
@@ -43,6 +43,11 @@ _HEAVY_PREFIXES = (
     "/api/supply/sweep", "/api/staff/strategy", "/api/task1", "/api/task2",
     "/api/pipeline/registers",
 )
+
+
+@app.exception_handler(security.PipelineBusy)
+async def _pipeline_busy(_request, _exc):
+    return JSONResponse(status_code=409, content=security.PIPELINE_BUSY)
 
 
 @app.middleware("http")

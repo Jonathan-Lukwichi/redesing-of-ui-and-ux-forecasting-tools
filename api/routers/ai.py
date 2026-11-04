@@ -192,12 +192,14 @@ async def chat(request: Request,
 
 
 @router.get("/actions")
-async def actions(request: Request,
+async def actions(request: Request, refresh: bool = False,
                   _rl=Depends(security.rate_limit("ai")),
                   _user=security.ReadAccess):
-    # A stored list needs no AI, so it is served before any AI configuration check.
-    out = ai_actions.stored()
-    if out is None:
+    # A stored list with items needs no AI, so it is served before any AI
+    # configuration check. refresh=1 (Re-generate) rebuilds it, and so does an
+    # empty one: "nothing to do" is never served as if it were final.
+    out = None if refresh else ai_actions.stored()
+    if out is None or not out.get("actions"):
         if not config.configured():
             return _err(503, "ai_not_configured",
                         "Set ANTHROPIC_API_KEY or GEMINI_API_KEY in api/.env to enable the assistant.")

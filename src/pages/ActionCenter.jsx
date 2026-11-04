@@ -47,9 +47,9 @@ export default function ActionCenter() {
   const [busyKey, setBusyKey] = useState(null);
   const [historyFor, setHistoryFor] = useState(null);
 
-  const load = useCallback(() => {
+  const load = useCallback((refresh = false) => {
     setActions(null); setError(null);
-    aiApi.actions()
+    aiApi.actions(refresh)
       .then((d) => {
         if (d.error) { setError(d.message || 'Could not generate actions.'); setActions([]); }
         else { setActions(d.actions || []); setSummary(d.summary || null); setBuiltAt(d.built_at || null); }
@@ -96,7 +96,7 @@ export default function ActionCenter() {
         sub="The assistant turns next week's plan — the lawful roster and reorder list — plus live forecast, staffing and supply signals into a ranked to-do list. Decisions are recorded against your name and kept."
         image="/images/actions-bg.jpg"
         actions={
-          <button className="btn" onClick={load}>
+          <button className="btn" onClick={() => load(true)}>
             <Icon name="refresh" size={14} />Re-generate
           </button>
         }

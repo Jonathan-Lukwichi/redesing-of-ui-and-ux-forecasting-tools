@@ -372,7 +372,8 @@ export default function DataHub({ onNavigate }) {
               <span className="dot" /> {inventory ? `${loadedCount}/${inventory.total} loaded` : 'Loading…'}
             </span>
             {loadedCount > 0 && (
-              <button className="btn btn-sm" onClick={onClearAll} title="Remove all uploaded datasets from memory">
+              <button className="btn btn-sm" onClick={onClearAll} disabled={running}
+                title={running ? 'A run is in progress. Clear the data when it finishes.' : 'Remove all uploaded datasets from memory'}>
                 <Icon name="logout" size={12} /> Clear all
               </button>
             )}
@@ -455,6 +456,7 @@ export default function DataHub({ onNavigate }) {
             item={item}
             uploadState={uploadState[item.schema.id]}
             selected={selectedId === item.schema.id}
+            running={running}
             fetchAvailable={!!sourceStatus?.configured}
             onUpload={() => onPickFile(item.schema.id)}
             onFetch={() => onFetch(item.schema.id)}
@@ -478,6 +480,7 @@ export default function DataHub({ onNavigate }) {
             item={item}
             uploadState={uploadState[item.schema.id]}
             selected={selectedId === item.schema.id}
+            running={running}
             fetchAvailable={!!sourceStatus?.configured}
             onUpload={() => onPickFile(item.schema.id)}
             onFetch={() => onFetch(item.schema.id)}
@@ -501,6 +504,7 @@ export default function DataHub({ onNavigate }) {
             item={item}
             uploadState={uploadState[item.schema.id]}
             selected={selectedId === item.schema.id}
+            running={running}
             fetchAvailable={false}
             uploadOnly
             onUpload={() => onPickFile(item.schema.id)}
@@ -712,7 +716,7 @@ function StagedPanel({ staged, items, running, onChanged }) {
 // ---- Tile -------------------------------------------------------------------
 
 function DatasetTile({
-  item, uploadState, selected, fetchAvailable, uploadOnly = false,
+  item, uploadState, selected, fetchAvailable, uploadOnly = false, running = false,
   onUpload, onFetch, onClear, onSelect, onDismiss, onSendToBestFit,
 }) {
   const { schema, loaded, metadata } = item;
@@ -721,6 +725,8 @@ function DatasetTile({
   const isError = state === 'error';
   const isUploading = state === 'uploading';
   const isEmpty = !loaded && !isError && !isUploading;
+  // Nothing may change the data while a pipeline run reads it (the server refuses too).
+  const busyTitle = running ? 'A run is in progress. Try again when it finishes.' : undefined;
 
   const borderStyle = isEmpty
     ? { border: '1.5px dashed #cbd5e1' }
@@ -801,7 +807,7 @@ function DatasetTile({
           </button>
         ) : isError ? (
           <>
-            <button className="btn btn-sm" onClick={onUpload} style={{ flex: 1, justifyContent: 'center' }}>
+            <button className="btn btn-sm" onClick={onUpload} disabled={running} title={busyTitle} style={{ flex: 1, justifyContent: 'center' }}>
               <Icon name="upload" size={12} /> Try another file
             </button>
             <button className="btn btn-sm" onClick={onDismiss} title="Dismiss error">
@@ -810,13 +816,14 @@ function DatasetTile({
           </>
         ) : loaded ? (
           <>
-            <button className="btn btn-sm" onClick={onUpload} style={{ flex: 1, justifyContent: 'center' }}>
+            <button className="btn btn-sm" onClick={onUpload} disabled={running} title={busyTitle} style={{ flex: 1, justifyContent: 'center' }}>
               <Icon name="refresh" size={12} /> Re-upload
             </button>
             <button
               className="btn btn-sm"
               onClick={onClear}
-              title="Remove this dataset from memory"
+              disabled={running}
+              title={busyTitle || 'Remove this dataset from memory'}
               style={{ color: '#b91c1c', borderColor: '#fecaca', background: '#fff7f7' }}
             >
               <Icon name="logout" size={12} /> Remove
@@ -828,9 +835,9 @@ function DatasetTile({
               <button
                 className="btn btn-primary btn-sm"
                 onClick={onFetch}
-                disabled={!fetchAvailable}
-                title={fetchAvailable ? '' : 'Configure DATA_REPO + GITHUB_TOKEN in api/.env to enable Fetch'}
-                style={{ flex: 1, justifyContent: 'center', opacity: fetchAvailable ? 1 : 0.55 }}
+                disabled={!fetchAvailable || running}
+                title={busyTitle || (fetchAvailable ? '' : 'Configure DATA_REPO + GITHUB_TOKEN in api/.env to enable Fetch')}
+                style={{ flex: 1, justifyContent: 'center', opacity: fetchAvailable && !running ? 1 : 0.55 }}
               >
                 <Icon name="download" size={12} /> Fetch
               </button>
@@ -838,6 +845,8 @@ function DatasetTile({
             <button
               className={uploadOnly ? 'btn btn-primary btn-sm' : 'btn btn-sm'}
               onClick={onUpload}
+              disabled={running}
+              title={busyTitle}
               style={{ flex: 1, justifyContent: 'center' }}
             >
               <Icon name="upload" size={12} /> Upload CSV
@@ -851,6 +860,7 @@ function DatasetTile({
         <ErrorPanel
           uploadState={uploadState}
           targetLabel={schema.label}
+          running={running}
           onSendToBestFit={onSendToBestFit}
         />
       )}
@@ -866,7 +876,7 @@ function StatusBadge({ state, loaded, schemaValid }) {
   return <span className="tag tag-warning" style={{ fontSize: 10 }}><span className="dot" /> Schema drift</span>;
 }
 
-function ErrorPanel({ uploadState, targetLabel, onSendToBestFit }) {
+function ErrorPanel({ uploadState, targetLabel, running, onSendToBestFit }) {
   const detail = uploadState?.detail;
   const filename = detail?.filename || uploadState?.file?.name;
   const missing = detail?.missing_required || [];
@@ -897,6 +907,7 @@ function ErrorPanel({ uploadState, targetLabel, onSendToBestFit }) {
           <button
             className="btn btn-sm"
             onClick={() => onSendToBestFit(bestFit.id)}
+            disabled={running}
             style={{ background: 'var(--accent)', color: 'white', borderColor: 'var(--accent)', flexShrink: 0 }}
           >
             <Icon name="check" size={12} /> Upload there

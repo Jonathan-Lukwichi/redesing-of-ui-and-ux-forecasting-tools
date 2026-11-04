@@ -288,6 +288,29 @@ ValidateAccess   = Depends(require_scope("forecast:validate"))
 DecideAccess     = Depends(require_scope("actions:decide"))
 BothPlanAccess   = Depends(require_all_scopes("staff:plan", "supply:plan"))
 
+# ── Pipeline run guard ───────────────────────────────────────────────────────
+# While a pipeline run is in progress nothing else may change the data or fit
+# models, so the run never reads half-replaced inputs. Every data-changing and
+# heavy compute route takes PipelineIdle (after its access gate, so auth errors
+# still come first). main.py turns PipelineBusy into a 409 with this body, the
+# same one POST /api/pipeline/run answers with when a run is already going.
+
+PIPELINE_BUSY = {"error": "already_running",
+                 "message": "A pipeline run is in progress. Wait for it to finish."}
+
+
+class PipelineBusy(Exception):
+    """A pipeline run is in progress."""
+
+
+def require_pipeline_idle() -> None:
+    from core import pipeline   # lazily: the pipeline imports routers that import this
+    if pipeline.is_running():
+        raise PipelineBusy()
+
+
+PipelineIdle = Depends(require_pipeline_idle)
+
 # Kept so nothing that still imports it breaks mid-migration. It maps to the
 # broadest "can change something" scope, which is what the old name implied.
 PlannerAccess = DataWriteAccess

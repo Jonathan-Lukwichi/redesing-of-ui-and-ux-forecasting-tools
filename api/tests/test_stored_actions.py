@@ -36,6 +36,9 @@ def clean(monkeypatch):
 
 @pytest.fixture()
 def client():
+    from core import security
+    for limiter in security.LIMITS.values():   # many reads in one minute here
+        limiter._hits.clear()
     import main
     return TestClient(main.app)
 
@@ -205,3 +208,110 @@ def test_tune_last_and_validation_last_carry_the_data_version(client):
     for path in ("/api/optimization/policy/tune/last", "/api/forecast/validate/last"):
         body = client.get(path).json()
         assert body["data_version"] == data_version.current(), path
+
+
+def test_over_budget_ends_amber(monkeypatch):
+    _forbid_generate(monkeypatch)
+    monkeypatch.setattr(config, "configured", lambda: True)
+    monkeypatch.setattr(telemetry, "over_budget", lambda: True)
+    r = stages.recommend_stage()
+    assert r.status == "amber" and "budget" in r.receipt
+    assert actions.stored() is None
+
+
+# --- Re-generate, and lists outdated by a hand-made plan or forecast ----------
+
+def _ai_ready(monkeypatch):
+    monkeypatch.setattr(config, "configured", lambda: True)
+    monkeypatch.setattr(telemetry, "over_budget", lambda: False)
+
+
+def _store(monkeypatch, items):
+    monkeypatch.setattr(actions, "generate",
+                        lambda: {"actions": items, "usage": {"in": 1, "out": 1}, "model": "m"})
+    actions.build_and_store()
+
+
+def test_refresh_rebuilds_the_stored_list(client, monkeypatch):
+    _store(monkeypatch, [dict(ITEMS[0], title="Old item", id=0)])
+    calls = []
+    monkeypatch.setattr(actions, "generate", lambda: calls.append(1) or _generated())
+    _ai_ready(monkeypatch)
+    body = client.get("/api/ai/actions?refresh=1").json()
+    assert calls == [1]
+    assert [a["title"] for a in body["actions"]] == [a["title"] for a in ITEMS]
+    assert [a["title"] for a in actions.stored()["actions"]] == [a["title"] for a in ITEMS]
+    client.get("/api/ai/actions")
+    assert calls == [1]            # a plain read serves the fresh list from the store
+
+
+@pytest.mark.parametrize("configured,over,status,error", [
+    (False, False, 503, "ai_not_configured"),
+    (True, True, 429, "budget_exhausted"),
+])
+def test_refresh_keeps_the_ai_checks(client, monkeypatch, configured, over, status, error):
+    _store(monkeypatch, list(ITEMS))
+    _forbid_generate(monkeypatch)
+    monkeypatch.setattr(config, "configured", lambda: configured)
+    monkeypatch.setattr(telemetry, "over_budget", lambda: over)
+    r = client.get("/api/ai/actions?refresh=1")
+    assert r.status_code == status and r.json()["error"] == error
+    assert len(actions.stored()["actions"]) == 2   # the stored list is not thrown away
+
+
+def test_refresh_is_rate_limited(client, monkeypatch):
+    from core import security
+    monkeypatch.setitem(security.LIMITS, "ai", security.RateLimiter(limit=1, window_seconds=60))
+    _store(monkeypatch, list(ITEMS))
+    monkeypatch.setattr(actions, "generate", _generated)
+    _ai_ready(monkeypatch)
+    assert client.get("/api/ai/actions?refresh=1").status_code == 200
+    assert client.get("/api/ai/actions?refresh=1").status_code == 429
+
+
+def test_an_empty_stored_list_is_regenerated(client, monkeypatch):
+    _store(monkeypatch, [])
+    calls = []
+    monkeypatch.setattr(actions, "generate", lambda: calls.append(1) or _generated())
+    _ai_ready(monkeypatch)
+    body = client.get("/api/ai/actions").json()
+    assert calls == [1] and len(body["actions"]) == 2
+
+
+def test_a_manual_optimisation_run_clears_the_stored_list(client, monkeypatch):
+    from core import optimization_engine as engine
+    from routers import optimization
+
+    async def week(*_a, **_k):
+        return {"daily_total": [1.0] * 7, "dates": [f"2026-01-0{i}" for i in range(1, 8)]}
+
+    monkeypatch.setattr(engine, "_LAST", dict(engine._LAST))
+    monkeypatch.setattr(optimization, "_get_week_forecast", week)
+    monkeypatch.setattr(engine, "run_staff", lambda *a, **k: {"staff": "planned"})
+    monkeypatch.setattr(engine, "run_supply_policy", lambda *a, **k: {"supply": "planned"})
+    monkeypatch.setattr(engine, "optimize", lambda *a, **k: {"both": "planned"})
+    for path in ("/api/optimization/run", "/api/optimization/staff", "/api/optimization/supply"):
+        _store(monkeypatch, list(ITEMS))
+        r = client.post(path, json={})
+        assert r.status_code == 200, (path, r.text)
+        assert actions.stored() is None, path
+
+
+def test_a_manual_total_forecast_clears_the_stored_list(client, monkeypatch):
+    from routers import forecast
+
+    monkeypatch.setattr(forecast, "_LAST_RUN", None)
+    monkeypatch.setattr(forecast, "compute_total", lambda *a, **k: {"forecast": []})
+    _store(monkeypatch, list(ITEMS))
+    assert client.post("/api/forecast/run", json={}).status_code == 200
+    assert actions.stored() is None
+
+
+def test_a_specialty_forecast_keeps_the_stored_list(client, monkeypatch):
+    from routers import forecast
+
+    monkeypatch.setattr(forecast, "_LAST_RUN", None)
+    monkeypatch.setattr(forecast, "compute_specialty", lambda *a, **k: {"forecast": []})
+    _store(monkeypatch, list(ITEMS))
+    assert client.post("/api/forecast/specialty", json={"specialty": "Medicine"}).status_code == 200
+    assert len(actions.stored()["actions"]) == 2

@@ -43,8 +43,9 @@ export const aiApi = {
   chat: (messages, onDelta, signal) =>
     streamPost('/api/ai/chat', { messages }, onDelta, signal),
 
-  // AI-ranked action list from live signals.
-  actions: () => fetch(`${API_BASE}/api/ai/actions`, { credentials: 'include' }).then((r) => r.json()),
+  // AI-ranked action list from live signals. A plain read serves the stored
+  // list; refresh asks the server to rebuild it (Re-generate).
+  actions: (refresh = false) => fetch(`${API_BASE}/api/ai/actions${refresh ? '?refresh=1' : ''}`, { credentials: 'include' }).then((r) => r.json()),
 
   // Admin / governance: durable AI audit trail.
   audit: (n = 50) => fetch(`${API_BASE}/api/ai/audit?n=${n}`, { credentials: 'include' }).then((r) => r.json()),

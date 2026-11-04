@@ -24,16 +24,20 @@ _META: dict[str, object] = {"origin": None, "posts": None}
 
 
 def publish(frames: dict[str, pd.DataFrame], origin: str, posts: int | None = None) -> None:
-    """Serve ``frames`` from ``load`` in place of the bundled simulation files."""
-    _UPLOADED.clear()
-    _UPLOADED.update(frames)
+    """Serve ``frames`` from ``load`` in place of the bundled simulation files.
+
+    The new dict is built first and rebound in one assignment, so a reader never
+    sees it emptied mid-publish and falls back to the bundled data."""
+    global _UPLOADED
+    _UPLOADED = dict(frames)
     _META["origin"] = origin
     _META["posts"] = posts
 
 
 def unpublish() -> None:
     """Go back to the repo / bundled simulation files."""
-    _UPLOADED.clear()
+    global _UPLOADED
+    _UPLOADED = {}
     _META["origin"] = None
     _META["posts"] = None
 
@@ -52,10 +56,11 @@ def posts() -> int | None:
 
 async def load(name: str) -> pd.DataFrame:
     """Load one simulation CSV by filename (e.g. 'supply_items.csv')."""
-    if _UPLOADED:
-        if name not in _UPLOADED:
+    uploaded = _UPLOADED   # one read: a publish may rebind it meanwhile
+    if uploaded:
+        if name not in uploaded:
             raise FileNotFoundError(f"{name} is not part of the uploaded operations data.")
-        return _UPLOADED[name]
+        return uploaded[name]
     if name in _CACHE:
         return _CACHE[name]
 

@@ -123,7 +123,8 @@ class BuildRequest(BaseModel):
 
 
 @router.post("/build")
-async def build(req: BuildRequest, _user=security.DataWriteAccess) -> dict[str, Any]:
+async def build(req: BuildRequest, _user=security.DataWriteAccess,
+                _idle=security.PipelineIdle) -> dict[str, Any]:
     spec = get_group(req.group)
     if spec is None:
         raise HTTPException(404, f"Unknown group '{req.group}'. Valid: {[g.id for g in GROUPS]}")
@@ -237,7 +238,8 @@ async def quality(group_id: str) -> dict[str, Any]:
 
 
 @router.delete("/{group_id}")
-async def clear(group_id: str, _user=security.DataWriteAccess) -> dict[str, Any]:
+async def clear(group_id: str, _user=security.DataWriteAccess,
+                _idle=security.PipelineIdle) -> dict[str, Any]:
     if get_group(group_id) is None:
         raise HTTPException(404, f"Unknown group '{group_id}'")
     cleared = prepare_registry.clear(group_id)
@@ -245,7 +247,8 @@ async def clear(group_id: str, _user=security.DataWriteAccess) -> dict[str, Any]
 
 
 @router.delete("")
-async def clear_all(_user=security.DataWriteAccess) -> dict[str, Any]:
+async def clear_all(_user=security.DataWriteAccess,
+                    _idle=security.PipelineIdle) -> dict[str, Any]:
     ids = prepare_registry.loaded_ids()
     prepare_registry.clear_all()
     return {"cleared": ids, "count": len(ids)}

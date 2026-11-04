@@ -290,6 +290,54 @@ test('dashboard @ 390px — a specialty last-run shows the empty state', async (
   await expect(page.getByText('No forecast has been run yet')).toBeVisible();
 });
 
+// Opening the Action Center reads the stored list; Re-generate rebuilds it.
+test('actions @ 390px — Re-generate asks the server to rebuild the list', async ({ page }) => {
+  const reads = [];
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  await page.route(/\/api\/ai\/actions(\?.*)?$/, (r) => {
+    const u = new URL(r.request().url());
+    reads.push(u.search);
+    const title = u.searchParams.get('refresh') ? 'Fresh item' : 'Stored item';
+    return r.fulfill({ json: { actions: [{ id: 0, title, reason: 'r', category: 'staff', urgency: 'high', status: 'open', action_key: 'k' }],
+      built_at: '2026-11-02T12:00:00+00:00', summary: { counts: {} } } });
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#actions');
+  await expect(page.getByText('Stored item')).toBeVisible();
+  expect(reads).toEqual(['']);
+  await page.getByRole('button', { name: 'Re-generate' }).click();
+  await expect(page.getByText('Fresh item')).toBeVisible();
+  expect(reads).toEqual(['', '?refresh=1']);
+});
+
+// With no forecast yet, the heading says what is missing: the forecast when G1
+// is built, the arrival history only when G1 really is absent.
+const groupsWithG1 = (built) => ({ items: ['g1', 'g2', 'g3', 'g4'].map((id) => ({
+  spec: { id, label: id.toUpperCase() }, sources: { all_loaded: built }, can_build: built,
+  built: built && id === 'g1', metadata: null,
+})) });
+for (const built of [true, false]) {
+  test(`dashboard @ 390px — no forecast yet, G1 ${built ? 'built' : 'absent'}`, async ({ page }) => {
+    const posts = [];
+    page.on('request', (r) => { if (r.url().includes('/api/') && r.method() !== 'GET') posts.push(r.url()); });
+    await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+    await page.route('**/api/forecast/last', (r) => r.fulfill({ json: { available: false } }));
+    await page.route('**/api/prepare/groups', (r) => r.fulfill({ json: groupsWithG1(built) }));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/#dashboard');
+    const notice = page.locator('.notice-empty');
+    await expect(notice).toBeVisible();
+    if (built) {
+      await expect(notice.getByText('No forecast has been run yet', { exact: true })).toBeVisible();
+      await expect(notice).not.toContainText('No arrival history');
+    } else {
+      await expect(notice.getByText('No arrival history loaded for this hospital yet')).toBeVisible();
+    }
+    await expect(notice.getByRole('button', { name: 'Run a forecast' })).toBeVisible();
+    expect(posts).toHaveLength(0);
+  });
+}
+
 for (const route of KEY_PAGES) {
   for (const width of OVERLAP_WIDTHS) {
     test(`${route} @ ${width}px — no overlapping text blocks`, async ({ page }) => {
@@ -578,6 +626,38 @@ test('upload @ 390px — "Upload there" is disabled while uploading and while ru
   await page.getByRole('button', { name: 'Run full pipeline' }).click();
   await expect(page.locator('.pl-stage[data-status="running"]')).toHaveCount(1);
   await expect(uploadThere).toBeDisabled();
+});
+
+test('upload @ 390px — Advanced tiles and Clear all are disabled while a run is active', async ({ page }) => {
+  let running = true;
+  await mockDataHub(page, {
+    loaded: ['calendar'],
+    status: () => dhStatus(running ? { done: 1, running: true } : { done: 8 }),
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#upload');
+  await expect(page.locator('.pl-stage[data-status="running"]')).toHaveCount(1);
+  const clearAll = page.getByRole('button', { name: 'Clear all' });
+  await expect(clearAll).toBeDisabled();
+  await page.locator('details.pl-advanced summary').click();
+  const loadedTile = page.locator('.pl-advanced .ui-card', { has: page.locator('.ui-card-title', { hasText: /^Calendar features$/ }) });
+  const emptyTile = page.locator('.pl-advanced .ui-card', { has: page.locator('.ui-card-title', { hasText: /^Inventory items$/ }) });
+  for (const name of ['Re-upload', 'Remove']) await expect(loadedTile.getByRole('button', { name })).toBeDisabled();
+  await expect(emptyTile.getByRole('button', { name: 'Upload CSV' })).toBeDisabled();
+  // The run ends: the next status poll enables them again.
+  running = false;
+  await expect(clearAll).toBeEnabled({ timeout: 10_000 });
+  await expect(loadedTile.getByRole('button', { name: 'Remove' })).toBeEnabled();
+  await expect(emptyTile.getByRole('button', { name: 'Upload CSV' })).toBeEnabled();
+});
+
+test('upload @ 390px — a run whose start time is not known yet says Running.', async ({ page }) => {
+  await mockDataHub(page, { status: { ...dhStatus({ done: 0, running: true }), started_at: null } });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#upload');
+  const tracker = page.locator('.pl-tracker');
+  await expect(tracker).toContainText('Running. You can leave this page');
+  await expect(tracker).not.toContainText('null');
 });
 
 

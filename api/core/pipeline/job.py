@@ -1,10 +1,11 @@
 """The pipeline run: one background thread working through stages.STAGES.
 
 One job at a time. The state lives in this module, so any client polling
-status() sees the same run. A run first forgets every computed result
-(data_version.invalidate_all), so a failed stage leaves results cleared, never
-half-replaced. Error text from an unexpected exception is never shown: it may
-quote a cell value.
+status() sees the same run. Once Check has passed, the run forgets every
+computed result (data_version.invalidate_all) before the first stage that
+changes anything, so a later failure leaves results cleared, never
+half-replaced, while a run refused at Check changes nothing. Error text from an
+unexpected exception is never shown: it may quote a cell value.
 """
 from __future__ import annotations
 
@@ -21,6 +22,10 @@ from core import data_version, simulation_data
 from core.pipeline import stages
 
 log = logging.getLogger("healthforecast.pipeline")
+
+
+CHECK_ID = "check"
+CLEAR_FAILED = "Previous results could not be cleared, so the run stopped."
 
 
 class Busy(Exception):
@@ -121,19 +126,24 @@ def _update(i: int, **fields) -> None:
 
 def _run(plan: list) -> None:
     ok = False
+    cleared = False
     try:
-        try:
-            data_version.invalidate_all()
-        except Exception as e:  # noqa: BLE001
-            log.warning("pipeline: clearing results failed (%s)", type(e).__name__)
-            if plan:
-                _update(0, status="failed",
-                        receipt="Previous results could not be cleared, so the run stopped.")
-                _skip_from(1, len(plan))
-            return
         for i, (_sid, label, fn) in enumerate(plan):
             _update(i, status="running")
             t0 = time.perf_counter()
+            # Results are forgotten only once Check has passed, as the first
+            # changing stage starts: a run refused at Check leaves every /last
+            # result, the stored actions and the tuned settings as they were.
+            if not cleared and _sid != CHECK_ID:
+                try:
+                    data_version.invalidate_all()
+                except Exception as e:  # noqa: BLE001
+                    log.warning("pipeline: clearing results failed (%s)", type(e).__name__)
+                    _update(i, status="failed", receipt=CLEAR_FAILED,
+                            seconds=round(time.perf_counter() - t0, 2), peak_mb=_peak())
+                    _skip_from(i + 1, len(plan))
+                    return
+                cleared = True
             try:
                 result = fn()
             except stages.StageFailed as e:

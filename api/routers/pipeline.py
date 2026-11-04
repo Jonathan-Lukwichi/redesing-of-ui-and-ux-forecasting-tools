@@ -25,7 +25,7 @@ router = APIRouter(prefix="/api/pipeline", tags=["pipeline"])
 
 MAX_BODY_BYTES = 25 * 1024 * 1024
 PURE_IDS = ("daily_arrival", "hourly_arrival", "clinical_daily", "clinical_hourly")
-_BUSY = "A pipeline run is in progress. Wait for it to finish."
+_BUSY = security.PIPELINE_BUSY["message"]
 _TOO_BIG = "That file is larger than the 25 MB limit."
 
 # One month is held and transformed at a time (512MB budget).
@@ -115,8 +115,7 @@ async def run(_user=security.DataWriteAccess) -> Any:
     try:
         return job.start()
     except job.Busy:
-        return JSONResponse(status_code=409,
-                            content={"error": "already_running", "message": _BUSY})
+        return JSONResponse(status_code=409, content=security.PIPELINE_BUSY)
 
 
 @router.get("/status")

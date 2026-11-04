@@ -209,7 +209,9 @@ The processing is CPU-bound for about 8 to 18 minutes during an 80-month bulk lo
 
 # Appendix — Technical notes for the development team
 
-Engineers can use this as a build spec. Hospital staff can stop at section 9.
+> **Historical note.** This appendix is the original proposal and is kept for the record only. Its SQLite jobs table, BackgroundTasks and batches of five were not built. The design that was built is in [docs/superpowers/specs/2026-11-02-full-pipeline-design.md](superpowers/specs/2026-11-02-full-pipeline-design.md).
+
+Hospital staff can stop at section 9.
 
 ## A. New module layout
 

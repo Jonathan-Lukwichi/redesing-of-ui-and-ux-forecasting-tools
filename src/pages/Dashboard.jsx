@@ -17,6 +17,7 @@ export default function Dashboard({ onNavigate }) {
   const [supply, setSupply] = useState(null);
   const [staff, setStaff] = useState(null);
   const [error, setError] = useState(null);
+  const [g1Built, setG1Built] = useState(null); // only asked when there is no forecast
 
   // Download / Email Report
   const [reportBusy, setReportBusy] = useState(false);
@@ -34,8 +35,13 @@ export default function Dashboard({ onNavigate }) {
       .then((d) => {
         if (!alive) return;
         // {available, kind, result} -> fc. Only a total-ED run belongs here; a specialty run or nothing = the existing empty state.
-        if (d?.available && d.kind === 'total' && d.result) setFc(d.result);
-        else setError('g1');
+        if (d?.available && d.kind === 'total' && d.result) { setFc(d.result); return; }
+        // No forecast yet: ask (a light GET) whether the history is missing too,
+        // and show the empty state once that is known, so it never flips.
+        const empty = (built) => { if (alive) { setG1Built(built); setError('g1'); } };
+        api.prepare.groups()
+          .then((g) => empty(!!g?.items?.find((it) => it.spec?.id === 'g1')?.built))
+          .catch(() => empty(false));
       })
       .catch((e) => { if (alive) setError(e.message || 'Request failed'); });
     api.supply.overview().then((d) => alive && setSupply(d)).catch(() => {});
@@ -122,7 +128,19 @@ export default function Dashboard({ onNavigate }) {
         </>}
       />
 
-      {dashState === 'empty' && (
+      {dashState === 'empty' && g1Built && (
+        <div className="card notice-card notice-empty">
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>No forecast has been run yet</div>
+          <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 16, maxWidth: '52ch', marginInline: 'auto' }}>
+            G1 · Daily demand is built, so a forecast can run now. Run one on the Forecast page, or run the full pipeline from Data Hub.
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button className="btn btn-primary" onClick={() => onNavigate('forecast-total')}>Run a forecast</button>
+          </div>
+        </div>
+      )}
+
+      {dashState === 'empty' && !g1Built && (
         <div className="card notice-card notice-empty">
           <div style={{ fontWeight: 600, marginBottom: 6 }}>No arrival history loaded for this hospital yet</div>
           <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 16, maxWidth: '52ch', marginInline: 'auto' }}>
