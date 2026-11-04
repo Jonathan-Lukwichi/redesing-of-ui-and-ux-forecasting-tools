@@ -8,6 +8,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import PageHero from '../components/PageHero';
+import DataOriginBanner, { formatStamp } from '../components/DataOriginBanner';
 import Icon from '../components/Icon';
 import { aiApi } from '../api/aiClient';
 import { api } from '../api/client';
@@ -39,6 +40,7 @@ export default function ActionCenter() {
   const { can, user } = useSession();
   const [actions, setActions] = useState(null);
   const [summary, setSummary] = useState(null);
+  const [builtAt, setBuiltAt] = useState(null);
   const [error, setError] = useState(null);
   const [tab, setTab] = useState('All');
   const [showDecided, setShowDecided] = useState(false);
@@ -50,7 +52,7 @@ export default function ActionCenter() {
     aiApi.actions()
       .then((d) => {
         if (d.error) { setError(d.message || 'Could not generate actions.'); setActions([]); }
-        else { setActions(d.actions || []); setSummary(d.summary || null); }
+        else { setActions(d.actions || []); setSummary(d.summary || null); setBuiltAt(d.built_at || null); }
       })
       .catch((e) => { setError(e.message || 'Could not reach the assistant.'); setActions([]); });
   }, []);
@@ -99,6 +101,10 @@ export default function ActionCenter() {
           </button>
         }
       />
+      <DataOriginBanner />
+      {formatStamp(builtAt) && (
+        <div style={{ fontSize: 'var(--step--2)', color: 'var(--text-3)' }}>Built {formatStamp(builtAt)}</div>
+      )}
 
       {summary && (
         <div className="card" style={{ marginBottom: 14 }}>

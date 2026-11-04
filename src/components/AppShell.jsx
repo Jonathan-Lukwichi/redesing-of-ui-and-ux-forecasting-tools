@@ -3,6 +3,7 @@ import Icon from './Icon';
 import ThemeToggle from './ThemeToggle';
 import AskChat from './AskChat';
 import { api } from '../api/client';
+import { DataSourceNote } from './DataOriginBanner';
 import { useSession } from '../auth/SessionContext';
 
 const MOBILE_QUERY = '(max-width: 820px)';
@@ -194,7 +195,7 @@ function SignOutButton({ collapsed, onNavigate }) {
   );
 }
 
-function Topbar({ crumbs = [], onMenu, menuOpen, menuBtnRef }) {
+function Topbar({ crumbs = [], onMenu, menuOpen, menuBtnRef, routeKey }) {
   return (
     <div className="topbar">
       <button
@@ -217,6 +218,7 @@ function Topbar({ crumbs = [], onMenu, menuOpen, menuBtnRef }) {
         ))}
       </div>
       <div className="topbar-spacer" />
+      <DataSourceNote routeKey={routeKey} />
     </div>
   );
 }
@@ -314,7 +316,7 @@ export default function AppShell({ active = 'dashboard', onNavigate, children })
           skip link above move focus here without making it tab-stoppable. */}
       <main className="main" id="main-content" tabIndex={-1}>
         <Topbar crumbs={crumbs} onMenu={() => setMobileOpen(true)}
-          menuOpen={mobileOpen} menuBtnRef={menuBtnRef} />
+          menuOpen={mobileOpen} menuBtnRef={menuBtnRef} routeKey={active} />
         {children}
       </main>
       <AskChat />

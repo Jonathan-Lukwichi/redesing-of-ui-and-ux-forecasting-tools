@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import PageHero from '../components/PageHero';
+import DataOriginBanner, { usePipelineStatus } from '../components/DataOriginBanner';
 import KPI from '../components/KPI';
 import Icon from '../components/Icon';
 import { LineChart } from '../components/Charts';
@@ -29,6 +30,7 @@ export default function Optimization({ onNavigate }) {
   const seeSupply = can('supply:read');
   const runStaffOk = can('staff:plan');
   const runSupplyOk = can('supply:plan');
+  const uploaded = usePipelineStatus('optimize')?.source?.mode === 'uploaded';
   let step = 1;
 
   const [data, setData] = useState({});           // merged {forecast, staff, supply, impact, meta}
@@ -117,6 +119,7 @@ export default function Optimization({ onNavigate }) {
           </button>
         }
       />
+      <DataOriginBanner />
 
       {/* STEP 1 — which forecast drives the optimization */}
       <SectionHeader n={step++} title="Choose the forecast engine" desc="The demand signal everything downstream consumes." />
@@ -223,7 +226,7 @@ export default function Optimization({ onNavigate }) {
       {/* ════════════════ STAFF ════════════════ */}
       {seeStaff && <>
       <SectionHeader n={step++} title="Staff cost optimization" desc="Cost-minimal lawful roster (integer programme) — staff to the forecast instead of to the busy day. The strategy evidence explains why lawful is the only deployable regime." />
-      <StaffEvidence />
+      <StaffEvidence uploaded={uploaded} />
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
           <div className="card-title">Workforce scheduling model</div>

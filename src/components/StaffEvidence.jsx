@@ -36,7 +36,7 @@ function Row({ label, value, valueColor }) {
   );
 }
 
-export default function StaffEvidence() {
+export default function StaffEvidence({ uploaded = false }) {
   const [strat, setStrat] = useState(null);
   const [busy, setBusy] = useState(false);
   const [loadBusy, setLoadBusy] = useState(false);
@@ -70,6 +70,9 @@ export default function StaffEvidence() {
             it is exactly what <b>Run staff optimization</b> builds. The rest are benchmarks:
             they reach coverage only by scheduling unlawful hours.
           </div>
+          {uploaded && (
+            <div className="card-sub" style={{ fontStyle: 'italic' }}>Illustrative rates and error, from the thesis.</div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="btn btn-sm" onClick={loadLast} disabled={loadBusy}>

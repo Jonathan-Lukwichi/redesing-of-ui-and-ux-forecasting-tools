@@ -426,6 +426,15 @@ body {
 
 .topbar-spacer { flex: 1; }
 
+.topbar-source {
+  font-size: var(--step--2, 12px);
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
 .topbar-search {
   width: clamp(160px, 20vw, 320px);
   height: 36px;

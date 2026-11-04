@@ -342,6 +342,7 @@ test('upload @ 390px — checklist shows the four groups and Run is disabled whi
   // Load reads status, staged and preflight, with GETs only.
   expect(Object.keys(calls).sort()).toEqual(
     ['GET /api/pipeline/preflight', 'GET /api/pipeline/staged', 'GET /api/pipeline/status']);
+  expect(calls['GET /api/pipeline/status']).toBe(2); // the page plus the header data-source note
   // The per-slot tiles live in a collapsed Advanced section.
   const advanced = page.locator('details.pl-advanced');
   await expect(advanced).not.toHaveAttribute('open', '');
@@ -380,7 +381,7 @@ test('upload @ 390px — a finished run links to every results page', async ({ p
     await expect(summary.getByRole('button', { name, exact: true })).toBeVisible();
   }
   await page.waitForTimeout(2500);
-  expect(calls['GET /api/pipeline/status']).toBe(1); // no polling once finished
+  expect(calls['GET /api/pipeline/status']).toBe(2); // page + header note, no polling once finished
   await summary.getByRole('button', { name: 'Supply', exact: true }).click();
   await expect(page).toHaveURL(/#supply$/);
 });
@@ -577,4 +578,111 @@ test('upload @ 390px — "Upload there" is disabled while uploading and while ru
   await page.getByRole('button', { name: 'Run full pipeline' }).click();
   await expect(page.locator('.pl-stage[data-status="running"]')).toHaveCount(1);
   await expect(uploadThere).toBeDisabled();
+});
+
+
+// ---- Data origin banner, data-source note and consumers ----------------------
+const BANNER = 'Inventory and staffing are simulated demonstration data.';
+const LADDER = 'Illustrative rates and error, from the thesis.';
+
+async function mockOrigin(page, status) {
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  await page.route('**/api/auth/me', (r) => r.fulfill({ json: {
+    user: { username: 'admin', role: 'admin',
+      scopes: ['data:write', 'data:read', 'forecast:read', 'staff:read', 'supply:read', 'actions:read', 'staff:plan', 'supply:plan'],
+      action_categories: [] },
+    auth_mode: 'protected', auth_configured: true,
+  } }));
+  if (status === 'fail') await page.route('**/api/pipeline/status', (r) => r.abort());
+  else await page.route('**/api/pipeline/status', (r) => r.fulfill({ json: status }));
+}
+
+test.describe('data origin', () => {
+  test.use({ timezoneId: 'UTC' });
+
+  for (const route of ['staff', 'supply', 'optimize', 'actions']) {
+    test(`${route} @ 390px — simulated data shows the banner`, async ({ page }) => {
+      await mockOrigin(page, dhStatus({ done: 8 }));
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto(`/#${route}`);
+      await expect(page.getByText(BANNER)).toBeVisible();
+    });
+  }
+
+  test('dashboard @ 390px — no banner on a page without simulated inputs', async ({ page }) => {
+    await mockOrigin(page, dhStatus({ done: 8 }));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/#dashboard');
+    await expect(page.getByText('Default data')).toBeVisible();
+    await expect(page.getByText(BANNER)).toHaveCount(0);
+  });
+
+  test('staff @ 390px — real data hides the banner; a failed status shows nothing', async ({ page }) => {
+    await mockOrigin(page, { ...dhStatus({ done: 8 }), origin: 'real' });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/#staff');
+    await page.waitForTimeout(1500);
+    await expect(page.getByText(BANNER)).toHaveCount(0);
+  });
+
+  test('staff @ 390px — failed status renders neither banner nor note', async ({ page }) => {
+    await mockOrigin(page, 'fail');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/#staff');
+    await page.waitForTimeout(1500);
+    await expect(page.getByText(BANNER)).toHaveCount(0);
+    await expect(page.getByText('Default data')).toHaveCount(0);
+  });
+
+  test('dashboard @ 390px — uploaded run shows its date in the header', async ({ page }) => {
+    await mockOrigin(page, { ...dhStatus({ done: 8 }),
+      source: { mode: 'uploaded', run: 3, finished_at: '2026-11-02T14:05:00+00:00' } });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/#dashboard');
+    await expect(page.getByText('Uploaded run 3, 2 Nov 2026 14:05')).toBeVisible();
+  });
+
+  test('optimize @ 390px — the ladder label shows only for uploaded data', async ({ page }) => {
+    await mockOrigin(page, { ...dhStatus({ done: 8 }),
+      source: { mode: 'uploaded', run: 3, finished_at: '2026-11-02T14:05:00+00:00' } });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/#optimize');
+    await expect(page.getByText(LADDER)).toBeVisible();
+  });
+
+  test('optimize @ 390px — no ladder label on default data', async ({ page }) => {
+    await mockOrigin(page, dhStatus({ done: 8 }));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/#optimize');
+    await expect(page.getByText(BANNER)).toBeVisible();
+    await expect(page.getByText(LADDER)).toHaveCount(0);
+  });
+
+  test('actions @ 390px — a stored list says when it was built', async ({ page }) => {
+    await mockOrigin(page, dhStatus({ done: 8 }));
+    await page.route('**/api/ai/actions', (r) => r.fulfill({ json: {
+      actions: [], summary: null, built_at: '2026-11-02T14:05:00+00:00', data_version: 3 } }));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/#actions');
+    await expect(page.getByText('Built 2 Nov 2026 14:05')).toBeVisible();
+  });
+
+  test('forecast-specialty @ 390px — Load last run restores a stored forecast without running one', async ({ page }) => {
+    await mockOrigin(page, dhStatus({ done: 8 }));
+    const posts = [];
+    page.on('request', (r) => { if (r.url().includes('/api/') && r.method() === 'POST') posts.push(r.url()); });
+    let lastCalls = 0;
+    await page.route('**/api/task2/specialties', (r) => r.fulfill({ json: { items: [{ specialty: 'Medicine', resolution: 'daily' }] } }));
+    await page.route('**/api/forecast/specialty/last**', (r) => {
+      lastCalls += 1; return r.fulfill({ json: { available: false } });
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/#forecast-specialty');
+    await page.waitForTimeout(800);
+    expect(lastCalls).toBe(0);
+    await page.getByRole('button', { name: 'Load last run' }).click();
+    await expect(page.getByText('No previous run for this specialty on the server yet.')).toBeVisible();
+    expect(lastCalls).toBe(1);
+    expect(posts).toHaveLength(0);
+  });
 });

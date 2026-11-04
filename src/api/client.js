@@ -90,6 +90,9 @@ export const api = {
     engines: ({ group = 'g1', specialty = null } = {}, signal) =>
       request(`/api/forecast/engines?group=${group}${specialty ? `&specialty=${encodeURIComponent(specialty)}` : ''}`, { signal }),
     demo: (signal) => request('/api/forecast/demo', { signal }),
+    // The last per-specialty run for one specialty — read-only.
+    specialtyLast: (specialty, signal) =>
+      request(`/api/forecast/specialty/last?specialty=${encodeURIComponent(specialty)}`, { signal }),
     // The last materialized forecast run — read-only, never triggers a fresh run.
     last: (signal) => request('/api/forecast/last', { signal }),
   },

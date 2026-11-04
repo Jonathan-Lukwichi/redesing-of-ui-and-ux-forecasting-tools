@@ -171,6 +171,22 @@ export default function Task2Forecast({ onNavigate }) {
     }
   };
 
+  // Plan C: restores the server's last run for this specialty; never computes.
+  const [lastBusy, setLastBusy] = useState(false);
+  const [lastNote, setLastNote] = useState(null);
+  const loadLast = async () => {
+    setLastBusy(true); setLastNote(null);
+    try {
+      const d = await api.forecast.specialtyLast(specialty);
+      if (!d?.available) { setLastNote('No previous run for this specialty on the server yet.'); return; }
+      const r = d.result;
+      const weekly = r.resolution === 'weekly';
+      const h = (weekly ? WEEKLY_HORIZONS : DAILY_HORIZONS).find((x) => x.count === r.requested_horizon);
+      setResult({ ok: true, data: r, horizonId: h?.id || horizon, weekly });
+    } catch (e) { setLastNote(e.message || 'Could not load the last run.'); }
+    finally { setLastBusy(false); }
+  };
+
   const run = async () => {
     setRunning(true); setResult(null);
     try {
@@ -221,6 +237,13 @@ export default function Task2Forecast({ onNavigate }) {
           ? `${specialty} · ${engineMeta.name} · ${horizons.find((h) => h.id === horizon)?.label || horizon} · ${isBacktest ? `backtest from ${startDate}` : 'future'}`
           : 'Pick a specialty + method below, then start the prediction.'}
       />
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button className="btn btn-sm" onClick={loadLast} disabled={!specialty || lastBusy}>
+          {lastBusy ? 'Loading…' : 'Load last run'}
+        </button>
+        {lastNote && <span style={{ fontSize: 12, color: C.muted }}>{lastNote}</span>}
+      </div>
 
       {/* Step 1 — Specialty */}
       <Section step="1" title="Pick a specialty" sub="Each specialty is forecast from its own real history.">

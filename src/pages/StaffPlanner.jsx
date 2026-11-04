@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import PageHero from '../components/PageHero';
+import DataOriginBanner from '../components/DataOriginBanner';
 import KPI from '../components/KPI';
 import Icon from '../components/Icon';
 import { LineChart } from '../components/Charts';
@@ -49,6 +50,7 @@ export default function StaffPlanner() {
 
   if (error) return (
     <div className="content"><PageHero kicker="Operations · Staff" title="Staff Planner" sub="Scheduling simulation" />
+      <DataOriginBanner />
       <div className="card notice-card notice-offline">
         <div style={{ fontWeight: 600, marginBottom: 6 }}>Live staffing data isn't reachable right now</div>
         <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 12 }}>
@@ -85,6 +87,7 @@ export default function StaffPlanner() {
           <button className="btn btn-primary"><Icon name="check" size={14} />Approve roster</button>
         </>}
       />
+      <DataOriginBanner />
 
       <div className="grid-kpi">
         <KPI label="Coverage (lawful hours)" value={k ? Math.round(k.lawful_coverage_pct) : '—'} unit="%"
