@@ -47,7 +47,7 @@ That message also goes into an audit log that information governance can review 
 ## 3. Part A — the one-time historical load (80 files)
 
 ### Why we treat this differently
-80 files is roughly 5–12 minutes of pure processing time. We could ask hospital staff to do it through the browser, but on the very first try we do not want to discover that the WiFi dropped at file 47 or that one of the 2019 spreadsheets has a quirky header. The historical load is a **one-time risk** — we should take it once, in the safest place, with the IT team next to the screen.
+80 files is about 8 to 18 minutes of pure processing time (measured on the 80-month equivalence run). We could ask hospital staff to do it through the browser, but on the very first try we do not want to discover that the WiFi dropped at file 47 or that one of the 2019 spreadsheets has a quirky header. The historical load is a **one-time risk** — we should take it once, in the safest place, with the IT team next to the screen.
 
 ### What happens, step by step
 
@@ -94,10 +94,10 @@ They drag the new month's `Casualty_Daily_Register_2026_02.xlsx` into the zone. 
 
 If the filename is wrong (typo, wrong format), the file is shown in red with a clear message before anything is sent. They fix it locally and try again.
 
-**Step 3 — upload and anonymise (about 3 seconds with the fast reader; 14 seconds with the slow one)**
+**Step 3 — upload and anonymise (about 2.5 seconds to read one register with calamine; 14 seconds with openpyxl)**
 The file uploads. The anonymisation gate runs **in memory before anything is written to disk**. The raw file never lands on permanent storage. The user sees the receipt from §2.
 
-**Step 4 — background processing (a few seconds per file)**
+**Step 4 — background processing (about 2.5 s reading plus the transform, per file)**
 A progress card appears with the file's current phase:
 - *Queued → Anonymised → Extracting daily → Extracting hourly → Reconciling → Validating → Ready.*
 
@@ -111,7 +111,7 @@ When the file is ready, the platform offers two buttons:
 If the new month covers dates that already exist in the dataset, the platform **asks** what to do: *"This file overlaps with data from March 2026 already in the system. Replace, skip the overlapping days, or keep both?"* — never silently overwrites.
 
 ### What if the user drops 80 files into Part C?
-The same flow works for 80 files. The browser does not send one giant request — it sends **small batches of 5 files at a time**, sequentially, in the background. The progress board grows to 80 rows. Total time: roughly 10–15 minutes. The user can walk away and come back. This is why we can confidently say "one month or several — both work."
+The same flow works for 80 files. The browser does not send one giant request — it sends **small batches of 5 files at a time**, sequentially, in the background. The progress board grows to 80 rows. Total time: the full 80-month equivalence run measured about 8 to 18 minutes. The user can walk away and come back. This is why we can confidently say "one month or several — both work."
 
 ### What can go wrong, and what we do about it
 - *Network drops mid-upload.* Only the batch in flight fails. The other batches keep going. A "Retry failed" button re-sends just the broken ones.
@@ -127,7 +127,7 @@ The same flow works for 80 files. The browser does not send one giant request �
 | Who does it | IT team, on the server | Any authorised hospital staff member, in a browser |
 | Where | Inside the hospital's secure server | Through the Data Hub page |
 | Volume | 80 files at once | Usually 1 file; up to many at once |
-| Time | 30–60 minutes including review | About 3 seconds of reading plus transform for a single file (measured: 14 s with openpyxl, about 2.5 s with calamine) |
+| Time | 30–60 minutes including review | About 2.5 seconds to read one register with calamine (14 s with openpyxl), plus a few seconds to transform it; a 3-month quick run finished in 77 s |
 | When we use it | Once, to backfill seven years of data | Every month from then on, indefinitely |
 | Anonymisation gate | Yes — same gate as Part C | Yes — same gate as Part A |
 | Audit log entries produced | One per file (80 entries) | One per file (1 per month) |
@@ -201,7 +201,7 @@ The pipeline reads the year and month from the filename. Files outside the confi
 Yes, via the existing `/api/datasets/{id}` clear endpoints — but only authorised users, and every clear action is logged the same way as an upload. The audit trail is symmetrical.
 
 **Does any of this cost more in cloud spend?**
-The processing is CPU-bound for a few minutes during a bulk load and a few seconds for a monthly upload. Storage is tiny — aggregate CSVs are megabytes, not gigabytes. The cost impact is negligible compared to the AI assistant layer.
+The processing is CPU-bound for about 8 to 18 minutes during an 80-month bulk load and a few seconds (about 2.5 s read plus transform) for a monthly upload. Storage is tiny — aggregate CSVs are megabytes, not gigabytes. The cost impact is negligible compared to the AI assistant layer.
 
 ---
 
@@ -250,7 +250,7 @@ Three layers of defence:
 2. **Hard blocklist.** Even if the allowlist somehow accidentally permits one, the named PII columns from `pipeline_config.py:PII_COLUMNS` are explicitly blocked: `Pt Name & Surname`, `Hosp Number`, `Episode Number`, `ITI Number`, `ETI Number`.
 3. **Free-text scan.** Remaining cells are scanned for: 13-digit SA ID patterns, sequences that look like hospital numbers, and any string in a column declared numeric. A hit fails the upload and surfaces a governance alert — it never silently passes.
 
-The gate runs in memory using `openpyxl`'s read-only mode. The raw bytes never reach a `write()` call.
+The gate runs in memory using `python-calamine` (about 2.5 s per register; openpyxl took 14 s and is now used only for test fixtures). The raw bytes never reach a `write()` call.
 
 ## D. Background processing
 

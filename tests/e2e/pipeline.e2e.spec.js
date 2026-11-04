@@ -44,7 +44,18 @@ const DEMO_FILES = ['inventory_items.csv', 'inventory_movements.csv',
   'shift_log.csv', 'staff_list.csv', 'staffing_daily.csv'];
 const QUICK_MONTHS = ['2025_11', '2025_12', '2026_01'];
 const KNOWN_AMBER = new Set(['recommend']);
-const PAGES = ['explore', 'forecast-total', 'staff', 'supply', 'optimize', 'actions'];
+// Hashes are the keys of PAGES in src/App.jsx; each heading is specific to its
+// page, so seeing it proves the hash switched to that page.
+const PAGES = [
+  // Explore opens on its gate; the Start button runs it (on demand, Plan C).
+  ['explore', /Exploratory data analysis/],
+  ['forecast-total', /Daily Total ED Arrivals/],
+  ['staff', /Staff Planner/],
+  ['supply', /Supply Planner/],
+  ['optimize', /Forecast-driven Optimization/],
+  ['actions', /Recommended Actions/],
+];
+const REGISTER_SKIPPED = 'Casualty_Daily_Register_2019_04.xlsx';
 
 function need(name, v) {
   if (!v) throw new Error(`Set ${name} (see the header of this file).`);
@@ -103,25 +114,35 @@ async function runRoute(page, request, { months, expectRegisters }) {
   // Receipts appear one per file; wait for the progress line to show all done.
   await expect(page.locator('.pl-progress')).toContainText(`${files.length} of ${files.length}`,
     { timeout: 40 * 60_000 });
-  const refused = await page.locator('.pl-result[data-state="error"]').count();
-  console.log(`uploaded ${files.length} files in ${((Date.now() - t0) / 1000).toFixed(0)} s; refused: ${refused}`);
-  // A register that is out of range (e.g. 2019_04) may legitimately be skipped,
-  // but nothing else may be refused.
-  expect(refused).toBeLessThanOrEqual(1);
+  // Which files were refused, by name (names only, never contents).
+  const refusedNames = await page.locator('.pl-result[data-state="error"] .ui-card-file').allInnerTexts();
+  const refused = refusedNames.map((t) => t.trim()).sort();
+  console.log(`uploaded ${files.length} files in ${((Date.now() - t0) / 1000).toFixed(0)} s; refused: ${refused.join(', ') || 'none'}`);
+  // Quick: nothing may be refused. Full: exactly 2019_04 (out of range).
+  expect(refused).toEqual(months ? [] : [REGISTER_SKIPPED]);
 
   const run = page.getByRole('button', { name: 'Run full pipeline' });
   await expect(run).toBeEnabled({ timeout: 120_000 });
+  const versionBefore = (await (await request.get(`${API}/api/pipeline/status`)).json()).data_version;
   const tRun = Date.now();
   await run.click();
+  // On a re-run the replaced-months panel appears; wait briefly for it.
   const confirm = page.locator('.pl-confirm');
-  if (await confirm.isVisible().catch(() => false)) {
-    await confirm.getByRole('button', { name: /Replace and run/ }).click();
-  }
-  // Done when the summary card appears (finished or failed).
-  await expect(page.locator('.pl-summary')).toBeVisible({ timeout: 40 * 60_000 });
+  const asked = await confirm.waitFor({ state: 'visible', timeout: 5_000 }).then(() => true, () => false);
+  if (asked) await confirm.getByRole('button', { name: /Replace and run/ }).click();
+  // A summary card from an earlier run may already be on screen, so ask the
+  // server: done when this run has started and no longer runs.
+  await expect.poll(async () => {
+    const st = await (await request.get(`${API}/api/pipeline/status`)).json();
+    return !st.running && !!st.finished_at && st.data_version > versionBefore;
+  }, { timeout: 40 * 60_000, intervals: [2_000] }).toBe(true);
+  await expect(page.locator('.pl-summary')).toBeVisible({ timeout: 60_000 });
   const totalS = (Date.now() - tRun) / 1000;
 
   const status = await (await request.get(`${API}/api/pipeline/status`)).json();
+  expect(status.running).toBe(false);
+  expect(status.finished_at).toBeTruthy();
+  expect(status.data_version, 'data_version rose during the run').toBeGreaterThan(versionBefore);
   console.log(`run took ${totalS.toFixed(0)} s; data_version ${status.data_version}`);
   const bad = [];
   for (const s of status.stages) {
@@ -133,12 +154,22 @@ async function runRoute(page, request, { months, expectRegisters }) {
   expect(bad, `stages not done or knowingly amber: ${bad.join(', ')}`).toEqual([]);
   expect(status.stages.length).toBe(8);
 
-  // Every linked page renders something and throws nothing.
-  for (const p of PAGES) {
-    await page.goto(`/#${p}`);
+  // Every linked page switches to itself, shows its own heading and some
+  // content, and shows no "Could not ..." error text.
+  for (const [hash, heading] of PAGES) {
+    // The app reads the hash on load only, so reload to open the page fresh.
+    await page.goto(`/#${hash}`);
+    await page.reload();
+    await expect(page.getByRole('heading', { name: heading }).first()).toBeVisible({ timeout: 60_000 });
+    expect(new URL(page.url()).hash).toBe(`#${hash}`);
+    if (hash === 'explore') {
+      await page.getByRole('button', { name: /Start the analysis/ }).click();
+      await expect(page.getByRole('heading', { name: /What your hospital data is telling you/ }))
+        .toBeVisible({ timeout: 5 * 60_000 });
+    }
     await page.waitForLoadState('networkidle').catch(() => {});
-    await expect(page.locator('main, #root').first()).not.toBeEmpty();
-    await expect(page.getByText(/something went wrong|unexpected error/i)).toHaveCount(0);
+    expect(await page.locator('main svg, .card, .tbl').count(), `${hash} has content`).toBeGreaterThan(0);
+    await expect(page.getByText(/Could not/)).toHaveCount(0);
   }
   expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([]);
 }
