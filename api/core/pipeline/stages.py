@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import gc
+import logging
 from dataclasses import dataclass, field
 from typing import Callable, Literal
 
@@ -20,6 +21,8 @@ from core.explore import findings
 from core.pipeline import preflight, staging
 from core.pipeline.consolidate import build_ops_daily
 from core.transform.assemble import assemble, overlay, quality_checks
+
+log = logging.getLogger("healthforecast.pipeline")
 
 TRANSFORMED = preflight.TRANSFORMED
 GROUP_IDS = ("g1", "g2", "g3", "g4")
@@ -370,11 +373,16 @@ def recommend_stage() -> StageResult:
                            "budget is reached.", status="amber")
     try:
         out = actions.build_and_store()
-    except Exception:  # noqa: BLE001 - provider errors can carry request text
+    except Exception as e:  # noqa: BLE001 - provider errors can carry request text
+        log.warning("pipeline: recommendations failed (%s)", type(e).__name__)
         return StageResult("Recommendations could not be rebuilt; the Action Center "
                            "will build them on demand.",
                            ["The AI provider did not return a usable list."], "amber")
     n = len(out.get("actions") or [])
+    if n == 0:
+        # Stored all the same, so the page shows when it was built.
+        return StageResult("The AI returned no recommendations. Run again to rebuild them.",
+                           status="amber")
     return StageResult(f"{_plural(n, 'recommendation')} rebuilt from this run's forecast, "
                        "roster and supply plan")
 

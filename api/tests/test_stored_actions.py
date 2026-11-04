@@ -173,6 +173,29 @@ def test_tool_source_follows_data_origin(monkeypatch, fake_overview, origin, sim
     assert "17-nurse" in staff and "23" not in staff
 
 
+def test_empty_list_ends_amber_but_is_stored(monkeypatch):
+    monkeypatch.setattr(actions, "generate",
+                        lambda: {"actions": [], "usage": {"in": 1, "out": 1}, "model": "m"})
+    monkeypatch.setattr(config, "configured", lambda: True)
+    monkeypatch.setattr(telemetry, "over_budget", lambda: False)
+    r = stages.recommend_stage()
+    assert r.status == "amber"
+    assert r.receipt == "The AI returned no recommendations. Run again to rebuild them."
+    kept = actions.stored()
+    assert kept is not None and kept["actions"] == [] and kept["built_at"]
+
+
+def test_generation_failure_logs_the_exception_type_only(monkeypatch, caplog):
+    def boom():
+        raise RuntimeError("provider said: ZZSECRET")
+    monkeypatch.setattr(actions, "generate", boom)
+    monkeypatch.setattr(config, "configured", lambda: True)
+    monkeypatch.setattr(telemetry, "over_budget", lambda: False)
+    with caplog.at_level("WARNING", logger="healthforecast.pipeline"):
+        stages.recommend_stage()
+    assert "RuntimeError" in caplog.text and "ZZSECRET" not in caplog.text
+
+
 def test_pipeline_has_eight_stages():
     ids = [sid for sid, _label, _fn in stages.STAGES]
     assert len(ids) == 8 and ids[-2:] == ["optimise", "recommend"]

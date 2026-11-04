@@ -24,7 +24,7 @@
 // is written; default the OS temp dir).
 //
 // Rules this test enforces: every stage is done, or amber for the one known
-// reason (recommend, with no AI key or an unreachable provider). Any other
+// reason (recommend, with no AI key, an unreachable provider, or an empty list). Any other
 // amber or failed stage fails the test. Register contents are never printed.
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
