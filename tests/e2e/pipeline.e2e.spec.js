@@ -112,14 +112,18 @@ async function runRoute(page, request, { months, expectRegisters }) {
   const t0 = Date.now();
   await page.locator('.pl-drop input[type="file"]').setInputFiles(files);
   // Receipts appear one per file; wait for the progress line to show all done.
-  await expect(page.locator('.pl-progress')).toContainText(`${files.length} of ${files.length}`,
+  await expect(page.locator('.pl-progress')).toContainText(`Finished ${files.length} of ${files.length}`,
     { timeout: 40 * 60_000 });
   // Which files were refused, by name (names only, never contents).
-  const refusedNames = await page.locator('.pl-result[data-state="error"] .ui-card-file').allInnerTexts();
+  const refusedNames = await page.locator('.pl-result:is([data-state="failed"], [data-state="rejected"]) .ui-card-file').allInnerTexts();
   const refused = refusedNames.map((t) => t.trim()).sort();
   console.log(`uploaded ${files.length} files in ${((Date.now() - t0) / 1000).toFixed(0)} s; refused: ${refused.join(', ') || 'none'}`);
   // Quick: nothing may be refused. Full: exactly 2019_04 (out of range).
   expect(refused).toEqual(months ? [] : [REGISTER_SKIPPED]);
+  // Proves the rows were really read: every uploaded file has exactly one row,
+  // either ok or refused.
+  const okRows = await page.locator('.pl-result[data-state="ok"]').count();
+  expect(okRows).toBe(files.length - refused.length);
 
   const run = page.getByRole('button', { name: 'Run full pipeline' });
   await expect(run).toBeEnabled({ timeout: 120_000 });
