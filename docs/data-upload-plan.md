@@ -94,14 +94,14 @@ They drag the new month's `Casualty_Daily_Register_2026_02.xlsx` into the zone. 
 
 If the filename is wrong (typo, wrong format), the file is shown in red with a clear message before anything is sent. They fix it locally and try again.
 
-**Step 3 — upload and anonymise (5–10 seconds)**
+**Step 3 — upload and anonymise (about 3 seconds with the fast reader; 14 seconds with the slow one)**
 The file uploads. The anonymisation gate runs **in memory before anything is written to disk**. The raw file never lands on permanent storage. The user sees the receipt from §2.
 
 **Step 4 — background processing (a few seconds per file)**
 A progress card appears with the file's current phase:
 - *Queued → Anonymised → Extracting daily → Extracting hourly → Reconciling → Validating → Ready.*
 
-For a single month, this is roughly 5–10 seconds. The user can close the tab — the job continues. A small toast appears: *"Processing in background. You can leave this page."*
+For a single month, measured reading of one register takes about 14 seconds with openpyxl and about 2.5 seconds with calamine (the reader now used), plus the transform itself. The user can close the tab — the job continues. A small toast appears: *"Processing in background. You can leave this page."*
 
 **Step 5 — done**
 When the file is ready, the platform offers two buttons:
@@ -127,7 +127,7 @@ The same flow works for 80 files. The browser does not send one giant request �
 | Who does it | IT team, on the server | Any authorised hospital staff member, in a browser |
 | Where | Inside the hospital's secure server | Through the Data Hub page |
 | Volume | 80 files at once | Usually 1 file; up to many at once |
-| Time | 30–60 minutes including review | 5–15 seconds for a single file |
+| Time | 30–60 minutes including review | About 3 seconds of reading plus transform for a single file (measured: 14 s with openpyxl, about 2.5 s with calamine) |
 | When we use it | Once, to backfill seven years of data | Every month from then on, indefinitely |
 | Anonymisation gate | Yes — same gate as Part C | Yes — same gate as Part A |
 | Audit log entries produced | One per file (80 entries) | One per file (1 per month) |
@@ -254,7 +254,7 @@ The gate runs in memory using `openpyxl`'s read-only mode. The raw bytes never r
 
 ## D. Background processing
 
-FastAPI `BackgroundTasks` is sufficient for current volumes (5–12 min worst case for the bulk load, seconds for monthly). State lives in a SQLite jobs table:
+FastAPI `BackgroundTasks` is sufficient for current volumes (measured: the full 80-month equivalence run takes about 8 to 18 minutes; seconds per file for monthly). State lives in a SQLite jobs table:
 
 ```
 job_id, batch_id, filename, sha256, status (queued|anonymising|extracting|reconciling|validating|ready|failed),

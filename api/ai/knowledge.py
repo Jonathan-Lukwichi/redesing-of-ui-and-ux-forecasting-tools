@@ -663,6 +663,28 @@ CARDS: dict[str, dict] = {
             "actions."
         ),
     },
+    "data_hub_pipeline": {
+        "title": "How the Data Hub run works, simulated labels and staging",
+        "keywords": "data hub upload run pipeline full pipeline stages register registers monthly xlsx drop files checklist staging staged simulated simulation demo data labelled replace months privacy names stored memory restart one button",
+        "source": "HealthForecast app guide",
+        "body": (
+            "The Data Hub is where every number in the app comes from. You drop the files in "
+            "once: the monthly casualty registers (.xlsx) plus the other expected .csv files, "
+            "and a checklist shows what is present, missing or inconsistent. Then one button, "
+            "Run full pipeline, works through eight stages in order: check the files, "
+            "transform the registers, load operations data, consolidate everything into "
+            "analysis tables, analyse, forecast, optimise the roster and supply plan, and "
+            "rebuild the recommendations. Every page then reads that same run, so the "
+            "forecast, the roster and the action list always agree. Registers are turned into "
+            "daily and hourly counts in memory; patient names and episode numbers are dropped "
+            "and never kept. The uploaded months wait in memory (staging) rather than on disk, "
+            "so a server restart clears them and you simply upload again. If you upload a "
+            "month that is already staged, the page asks before replacing it. Inventory and "
+            "staffing data that did not come from a hospital is simulated, and the app says "
+            "so wherever it is used; uploading the hospital's own files replaces it. Only one "
+            "run can go at a time, and a stage marked amber finished but needs your attention."
+        ),
+    },
     "page_accounts_and_roles": {
         "title": "Page guide: signing in, the demo, roles and the Admin page",
         "keywords": "sign in login account password demo without signing roles admin director staff manager stock manager viewer permission cannot see page missing data hub hidden admin page audit",

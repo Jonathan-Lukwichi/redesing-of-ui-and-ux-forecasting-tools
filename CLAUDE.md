@@ -31,14 +31,16 @@ concepts in plain English before jargon.
 | Routers (thin) | `api/routers/` | HTTP concerns only; domain logic lives in core |
 | Core engines (fat) | `api/core/` | `forecasting.py`, `optimization_engine.py`, `joins.py` (G1–G4), registries |
 | Explore pipeline | `api/core/explore/` | plug-in analyzers/metrics/sections — adding an analysis = adding ONE file, register in `__init__` |
-| AI assistant | `api/ai/` | tool loop (read-only tools), `knowledge.py` (32 teaching cards), prompt-as-policy in `chat.py` |
+| AI assistant | `api/ai/` | tool loop (read-only tools), `knowledge.py` (44 teaching cards), prompt-as-policy in `chat.py` |
 | Thesis artefacts | `api/external/msc-modelling` | git SUBMODULE — if forecast pages 503, run `git submodule update --init --recursive` |
+| Pipeline | `api/core/pipeline/`, `api/core/transform/`, `api/routers/pipeline.py` | One-button run: `transform/` turns a monthly register .xlsx into the four pure tables; `pipeline/` stages (check, transform, operations, consolidate, analyse, forecast, optimise, recommend) run in one background job; status at `GET /api/pipeline/status` |
+| Demo data | `demo-data/` | Five simulated CSVs (inventory items/movements, shift log, staff list, staffing daily) for the Data Hub; labelled simulated everywhere |
 | Simulation data | `api/data/simulation/` | 23-nurse pool, 30-SKU catalog, 13-month panels |
 | Frontend | `src/` | React 18 + Vite SPA, hash navigation in `App.jsx` (`/#page`) |
 | Charts | `src/components/Charts.jsx` | hand-rolled SVG; axis charts measure width via `useMeasuredWidth` (ResizeObserver) and thin ticks — keep this pattern |
 | Design system | `src/styles.css` + `src/styles/tokens.css` | "Dash" tokens; fluid clamp() type/space scales; mobile drawer ≤820px |
 | Card system | `src/components/ui/Card.jsx` | THE canonical card primitives (CardGrid + slots). New cards never use bespoke markup; contract in `docs/RESPONSIVE.md`; full framework in the `/responsive-frontend-audit` skill (`reference/card-system.md`) |
-| E2E tests | `tests/responsive.spec.js` | 112 layout assertions at 8 viewports — must pass before claiming UI changes work |
+| E2E tests | `tests/responsive.spec.js` | 112 layout assertions at 8 viewports — must pass before claiming UI changes work. Real-server pipeline run: `tests/e2e/pipeline.e2e.spec.js` (`playwright.e2e.config.js`, `-g quick` or `-g full`; commands in its header) |
 | Docs | `docs/` | knowledge guide PDF (regen: `node scripts/make-pdf.cjs <html> <pdf>`), defense course, plans |
 
 ## Run / build / test
@@ -63,6 +65,7 @@ cd api; .venv\Scripts\python.exe -c "import main"       # backend import check
 - **Everything computes on demand (Plan C).** No heavy endpoint fires on page load, ever — a Playwright rule fails the suite if the Optimization page loads with any POST or evidence/tune/options call. Results appear only after a Run button; "Load last …" buttons restore cached results explicitly.
 - **The standing-policy pattern.** The supply reorder policy FAMILY is a server-side standing choice (`GET/PUT /api/optimization/policy`, tuner at `POST /policy/tune`); the weekly supply run optimizes parameters WITHIN the adopted family. Evidence ladders (policy + rostering strategies) live on the Optimization page. Naive is benchmark-only; oracle exists nowhere user-facing (research access via explicit `arms=`/`strategies=` args). Staffing deploys ONLY the lawful roster — unlawful strategies are badged benchmarks by construction. All simulation consumers share `_demand_stream` (common random numbers), so ladder, tuner and planner numbers agree.
 - **AI governance.** Assistant tools are read-only by construction; answers must be grounded in tool results; the public app NEVER states accuracy percentages/MAPE (admin view only); everything is audited. Scenario questions should pair live numbers with a `knowledge.py` card (stats/supply-chain/ML concepts) in plain English.
+- **The Data Hub pipeline flow.** Everything is uploaded on `/#upload` (drop zone, checklist, Run full pipeline), then one background job runs the stages in order; every page reads that run's `/last` results. Uploaded months are RAM-only staging: registers are transformed in memory, only the four pure tables (no names or episode numbers) are kept, nothing is written to disk, and a restart clears them. Replacing already-staged months asks for confirmation first. Simulated inventory/scheduling data is always labelled simulated; uploads from a hospital replace it. Runs need a `data:write` session, and only one run at a time (409 otherwise).
 - **Same-origin production.** The Docker image serves the built frontend from `api/static`; both frontend API clients (`src/api/client.js` AND `src/api/aiClient.js`) use empty base in prod, localhost only in dev. If you add a new client, follow this or phones break with "Load failed".
 - **Memory budget: 512MB** (Render Starter). Registries store numerics as float32/int32 (`slim_numeric`); orjson response class handles numpy types; heavy endpoints gc.collect() via middleware. Don't add unbounded caches or duplicate DataFrames; if OOM recurs, the agreed path is Railway migration, not code heroics.
 - **Data privacy model.** Hospital CSVs live in a private GitHub repo, fetched with a read-only PAT (`api/.env`), held in RAM only — never written to disk. Keep it that way.
