@@ -26,6 +26,8 @@ ended. Steps the run does not touch stay visible to both throughout.
 
 A run has a source: "upload" (the Data Hub's Run) or "sample" (the sample
 button, whose loader runs first in the same thread; see core/pipeline/sample.py).
+The results take the source of the run that prepared their data: a partial run
+adds to them under the source they already have.
 """
 from __future__ import annotations
 
@@ -214,7 +216,11 @@ def start(source: str = "upload", prepare: Callable[[], None] | None = None,
         _STATE.started_at = _now()
         _STATE.finished_at = None
         _STATE.stages = [_blank(sid, label) for sid, label, _ in run.entries]
-        _STATE.thread = threading.Thread(target=_run, args=(run, source, prepare, on_finish),
+        # Where the results came from changes only when the data is prepared
+        # again: a partial run keeps the label of the results it adds to.
+        relabel = run.wipes or not _STATE.ready
+        _STATE.thread = threading.Thread(target=_run,
+                                         args=(run, source, prepare, on_finish, relabel),
                                          daemon=True, name="pipeline-run")
         _STATE.thread.start()
     return status()
@@ -248,12 +254,15 @@ def _forget(run: _Plan) -> None:
         data_version.invalidate(run.clears)
 
 
-def _made(stage_id: str, source: str) -> None:
-    """A stage ended done or amber: the steps it produces are ready."""
+def _made(stage_id: str, source: str, relabel: bool) -> None:
+    """A stage ended done or amber: the steps it produces are ready. With
+    ``relabel`` (a run that wipes, or one onto no results) they take the run's
+    source; otherwise the results keep the source they already had."""
     fingerprint = preflight.inputs_fingerprint() if stage_id == CONSOLIDATE_ID else None
     with _LOCK:
         _STATE.ready |= set(stages.PRODUCES.get(stage_id, ()))
-        _STATE.results_source = source
+        if relabel:
+            _STATE.results_source = source
         if stage_id == CONSOLIDATE_ID:
             _STATE.prepared_fingerprint = fingerprint
 
@@ -290,7 +299,7 @@ def _prepare(prepare: Callable[[], None], run: _Plan) -> bool:
 
 def _run(run: _Plan, source: str = "upload",
          prepare: Callable[[], None] | None = None,
-         on_finish: Callable[[dict], None] | None = None) -> None:
+         on_finish: Callable[[dict], None] | None = None, relabel: bool = True) -> None:
     ok = False
     cleared = False
     plan = run.entries
@@ -335,7 +344,7 @@ def _run(run: _Plan, source: str = "upload",
                     warnings=list(result.warnings),
                     seconds=round(time.perf_counter() - t0, 2), peak_mb=_peak())
             if result.status in ("done", "amber"):
-                _made(_sid, source)
+                _made(_sid, source, relabel)
         ok = True
     finally:
         with _LOCK:

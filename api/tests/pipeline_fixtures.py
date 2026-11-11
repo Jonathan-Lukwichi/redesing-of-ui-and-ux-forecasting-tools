@@ -120,7 +120,12 @@ def seeded():
 def stub_stages(monkeypatch):
     """Replace every stage, pipeline and extra, with a stub under its real id
     that does nothing and ends done. Returns {stage id: function}: a function
-    put there runs in that stub's place (hold_in and fail_in use it)."""
+    put there runs in that stub's place (hold_in and fail_in use it).
+
+    It imports the modules that register the clearers stages.CLEARS names, as
+    main does, so a partial plan can clear its caches in any test module."""
+    from ai import actions  # noqa: F401
+    from routers import forecast, optimization, staff, supply  # noqa: F401
     instead: dict = {}
 
     def stub(sid):

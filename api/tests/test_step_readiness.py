@@ -7,9 +7,6 @@ import pytest
 
 from core import data_version, registry
 from core.pipeline import READY_STEPS, job, preflight
-# Each registers the clearers a plan's stages run (stages.CLEARS), as main does.
-from ai import actions  # noqa: F401
-from routers import forecast, optimization, staff, supply  # noqa: F401
 from tests.pipeline_fixtures import fail_in, hold_in, seeded, stub_stages  # noqa: F401
 
 
@@ -91,6 +88,26 @@ def test_an_unknown_stage_is_refused_before_starting(stub_stages):
     with pytest.raises(ValueError):
         job.start(plan=["forecast", "nope"])
     assert job.is_running() is False
+
+
+def test_a_partial_run_keeps_where_the_results_came_from(stub_stages):
+    job.start(source="sample")
+    assert job.wait(10)
+    mode = job.status()["source"]["mode"]
+    _run(plan=["forecast"])
+    assert job.results_source() == "sample" and job.status()["source"]["mode"] == mode == "sample"
+
+
+def test_a_partial_run_onto_no_results_takes_its_source(stub_stages):
+    _run(plan=["forecast"])
+    assert job.results_source() == "upload"
+
+
+def test_a_wiping_plan_takes_the_new_source(stub_stages):
+    job.start(source="sample")
+    assert job.wait(10)
+    s = _run(plan=["check", "transform", "operations", "consolidate", "analyse_arrivals"])
+    assert job.results_source() == "upload" and s["source"]["mode"] == "uploaded"
 
 
 def test_consolidate_records_the_inputs_fingerprint(stub_stages):
