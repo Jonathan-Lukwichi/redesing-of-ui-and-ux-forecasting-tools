@@ -4,13 +4,10 @@ import re
 
 import pytest
 
-from core import data_version, optimization_engine as engine, prepare_registry, registry
-from core import simulation_data
+from core import data_version, optimization_engine as engine
 from core.pipeline import READY_STEPS, stages
 from routers import optimization, staff, supply  # noqa: F401  (each registers its clearer)
-from tests import pipeline_fixtures as fx
-
-GROUPS = ("g1", "g2", "g3", "g4", "ops_daily")
+from tests.pipeline_fixtures import seeded  # noqa: F401  (a shared fixture)
 
 
 @pytest.fixture
@@ -20,29 +17,6 @@ def saved_policy():
     yield
     engine._POLICY_STATE.update(saved)
     engine._TUNED_WAS_RESET = was_reset
-
-
-@pytest.fixture
-def seeded():
-    saved_slots = {sid: registry.get(sid) for sid in fx.slot_ids()}
-    saved_groups = {g: prepare_registry.get(g) for g in GROUPS}
-    saved_uploaded = dict(simulation_data._UPLOADED)
-    saved_meta = dict(simulation_data._META)
-    fx.reset()
-    fx.seed_all()
-    yield
-    fx.reset()
-    for sid, entry in saved_slots.items():
-        if entry is not None:
-            registry.put(sid, entry.df, entry.metadata)
-    for g, entry in saved_groups.items():
-        prepare_registry.clear(g)
-        if entry is not None:
-            prepare_registry.put(g, entry.df, entry.metadata)
-    simulation_data._UPLOADED.clear()
-    simulation_data._UPLOADED.update(saved_uploaded)
-    simulation_data._META.clear()
-    simulation_data._META.update(saved_meta)
 
 
 def test_invalidate_runs_only_the_named_clearers_and_bumps_the_version(monkeypatch):

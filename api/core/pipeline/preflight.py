@@ -8,6 +8,8 @@ another error already reports the missing file.
 """
 from __future__ import annotations
 
+import hashlib
+
 import pandas as pd
 
 from core import datasets, ops_derive, registry
@@ -216,6 +218,18 @@ def _date_checks(issues: list) -> None:
                         issues.append(_issue("warning", "calendar",
                                              f"{name} cover {beyond} days past the end of "
                                              f"the calendar ({last.date()})."))
+
+
+def inputs_fingerprint() -> str:
+    """A sha256 hex of what data preparation would read now: each loaded file's
+    signature, row count and file name, and each staged month's hash. It changes
+    when a file is uploaded, replaced or cleared, or a month is staged."""
+    files = []
+    for sid in registry.loaded_ids():
+        meta = registry.get_metadata(sid) or {}
+        files.append((sid, meta.get("signature_hash"), meta.get("rows"), meta.get("filename")))
+    months = sorted((m.year, m.month, m.sha256) for m in staging.months())
+    return hashlib.sha256(repr((sorted(files), months)).encode("utf-8")).hexdigest()
 
 
 def run_checks() -> dict:

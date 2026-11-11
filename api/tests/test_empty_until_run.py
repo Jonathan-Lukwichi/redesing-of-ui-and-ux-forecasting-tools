@@ -15,7 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from core import auth, data_source, registry, security
-from core.pipeline import job, sample, stages, staging
+from core.pipeline import READY_STEPS, job, sample, stages, staging
 from tests import pipeline_fixtures as fx
 
 NO_RESULTS = {"error": "no_results",
@@ -212,7 +212,7 @@ def test_last_routes_say_nothing_is_available_before_a_run(open_client, not_read
 
 
 def test_result_routes_answer_once_results_are_ready(open_client, not_ready):
-    job._STATE.results_ok = True
+    job._STATE.ready = set(READY_STEPS)
     assert open_client.get("/api/staff/overview").status_code == 200
     assert open_client.get("/api/supply/overview").status_code == 200
     assert open_client.get("/api/explore/findings/index").status_code == 200
@@ -406,14 +406,14 @@ def test_staged_registers_count_as_uploaded_data(monkeypatch, not_ready, repo):
 
 
 def test_results_of_an_upload_run_are_protected_too(monkeypatch, repo):
-    monkeypatch.setattr(job, "_STATE", job._State(results_ok=True, results_source="upload",
+    monkeypatch.setattr(job, "_STATE", job._State(ready=set(READY_STEPS), results_source="upload",
                                                   successful_runs=1))
     c = _protected(monkeypatch)
     assert c.post("/api/pipeline/sample").status_code == 403
 
 
 def test_a_visitor_cannot_restart_the_sample_once_results_exist(monkeypatch, repo):
-    monkeypatch.setattr(job, "_STATE", job._State(results_ok=True, results_source="sample",
+    monkeypatch.setattr(job, "_STATE", job._State(ready=set(READY_STEPS), results_source="sample",
                                                   successful_runs=1))
     c = _protected(monkeypatch)
     r = c.post("/api/pipeline/sample")
