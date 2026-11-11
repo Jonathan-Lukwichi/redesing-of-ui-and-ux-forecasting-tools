@@ -31,11 +31,23 @@ def invalidate_all() -> int:
     A failing clearer never stops the others; the first error is re-raised
     after all of them have run.
     """
+    return _bump_and_run(None)
+
+
+def _bump_and_run(wanted: set[str] | None) -> int:
+    """Bump the version, then run the wanted clearers (all when None) in
+    registration order. Unknown names raise ValueError before anything runs or
+    the version moves. A failing clearer never stops the others; the first
+    error is re-raised after all of them have run."""
     global _VERSION
     with _LOCK:
+        if wanted is not None:
+            unknown = sorted(n for n in wanted if n not in _CLEARERS)
+            if unknown:
+                raise ValueError(f"Unknown cache owner(s): {', '.join(unknown)}")
         _VERSION += 1
         version = _VERSION
-        clearers = list(_CLEARERS.values())
+        clearers = [c for n, c in _CLEARERS.items() if wanted is None or n in wanted]
     first_error: Exception | None = None
     for clear in clearers:
         try:
@@ -55,22 +67,4 @@ def invalidate(names: Iterable[str]) -> int:
     An unknown name raises ValueError before any clearer runs. Like
     invalidate_all, the first clearer error is re-raised after all have run.
     """
-    global _VERSION
-    wanted = set(names)
-    with _LOCK:
-        unknown = sorted(n for n in wanted if n not in _CLEARERS)
-        if unknown:
-            raise ValueError(f"Unknown cache owner(s): {', '.join(unknown)}")
-        _VERSION += 1
-        version = _VERSION
-        clearers = [c for n, c in _CLEARERS.items() if n in wanted]
-    first_error: Exception | None = None
-    for clear in clearers:
-        try:
-            clear()
-        except Exception as exc:  # noqa: BLE001 - keep clearing the rest
-            if first_error is None:
-                first_error = exc
-    if first_error is not None:
-        raise first_error
-    return version
+    return _bump_and_run(set(names))
