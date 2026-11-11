@@ -7,7 +7,7 @@ so stale forecasts, rosters and supply plans can never sit beside new data.
 from __future__ import annotations
 
 import threading
-from typing import Callable
+from typing import Callable, Iterable
 
 _LOCK = threading.Lock()
 _VERSION = 0
@@ -36,6 +36,34 @@ def invalidate_all() -> int:
         _VERSION += 1
         version = _VERSION
         clearers = list(_CLEARERS.values())
+    first_error: Exception | None = None
+    for clear in clearers:
+        try:
+            clear()
+        except Exception as exc:  # noqa: BLE001 - keep clearing the rest
+            if first_error is None:
+                first_error = exc
+    if first_error is not None:
+        raise first_error
+    return version
+
+
+def invalidate(names: Iterable[str]) -> int:
+    """Run only the named clearers (in registration order), bump the version and
+    return it.
+
+    An unknown name raises ValueError before any clearer runs. Like
+    invalidate_all, the first clearer error is re-raised after all have run.
+    """
+    global _VERSION
+    wanted = set(names)
+    with _LOCK:
+        unknown = sorted(n for n in wanted if n not in _CLEARERS)
+        if unknown:
+            raise ValueError(f"Unknown cache owner(s): {', '.join(unknown)}")
+        _VERSION += 1
+        version = _VERSION
+        clearers = [c for n, c in _CLEARERS.items() if n in wanted]
     first_error: Exception | None = None
     for clear in clearers:
         try:

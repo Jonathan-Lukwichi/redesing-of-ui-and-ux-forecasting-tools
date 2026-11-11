@@ -186,13 +186,13 @@ class _Boom(Analyzer):
 def test_analyse_stage_reports_counts_and_failures(monkeypatch):
     n = 100
     prepare_registry.put("g1", _g1(np.arange(n) % 9 + 50, np.arange(n) % 7, 1), {"id": "g1"})
-    ok = stages.analyse_stage()
+    ok = stages.analyse_arrivals()
     assert ok.status == "done" and ok.warnings == []
     assert " findings, " in ok.receipt and ok.receipt.endswith(" metrics")
 
     monkeypatch.setattr(findings.PIPELINE, "analyzers",
                         findings.PIPELINE.analyzers + [_Boom()])
-    bad = stages.analyse_stage()
+    bad = stages.analyse_arrivals()
     assert bad.status == "amber"
     assert any("FX" in w for w in bad.warnings)
     assert all("secret" not in w for w in bad.warnings)
@@ -219,7 +219,7 @@ def test_analyse_stage_goes_amber_when_the_failure_log_is_full(monkeypatch):
     for _ in range(3):   # the same analyzers fail every run; the log stays at its cap
         pipeline._FAILURES[:] = [{"analyzer": "x", "code": "FX", "group_id": "g1",
                                   "error": "e"}] * 50
-        r = stages.analyse_stage()
+        r = stages.analyse_arrivals()
         assert len(pipeline.recent_failures()) == 50
         assert r.status == "amber" and "FX" in r.warnings[0] and "FY" in r.warnings[0]
 
@@ -227,5 +227,5 @@ def test_analyse_stage_goes_amber_when_the_failure_log_is_full(monkeypatch):
 def test_analyse_stage_ignores_failures_logged_by_other_requests():
     _seed_g1()
     pipeline._FAILURES.append({"analyzer": "x", "code": "FZ", "group_id": "g1", "error": "e"})
-    r = stages.analyse_stage()
+    r = stages.analyse_arrivals()
     assert r.status == "done" and r.warnings == []

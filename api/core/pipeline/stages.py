@@ -194,7 +194,44 @@ def _consolidate() -> StageResult:
 
 # --- 4. Analyse ---------------------------------------------------------------
 
+def analyse_staff() -> StageResult:
+    # Imported lazily to avoid a circular import.
+    from fastapi import HTTPException
+    from routers import staff
+
+    try:
+        out = asyncio.run(staff.overview())
+    except HTTPException:
+        raise StageFailed("The staff tables are missing, so there is no staffing "
+                          "overview.") from None
+    return StageResult(f"{out['n_active_staff']} active staff over {out['days_covered']} days")
+
+
+def analyse_supply() -> StageResult:
+    # Imported lazily to avoid a circular import.
+    from fastapi import HTTPException
+    from routers import supply
+
+    try:
+        out = asyncio.run(supply.overview())
+    except HTTPException:
+        raise StageFailed("The stock tables are missing, so there is no supply "
+                          "overview.") from None
+    return StageResult(f"{out['n_items']} items, {out['items_at_risk']} at risk of stockout")
+
+
 def analyse_stage() -> StageResult:
+    """All three areas: arrivals, staff, supply."""
+    arrivals = analyse_arrivals()
+    staff_part = analyse_staff()
+    supply_part = analyse_supply()
+    parts = (staff_part, supply_part, arrivals)
+    return StageResult("; ".join(p.receipt for p in parts),
+                       [w for p in parts for w in p.warnings],
+                       "amber" if any(p.status == "amber" for p in parts) else "done")
+
+
+def analyse_arrivals() -> StageResult:
     f = findings.run_findings()
     m = findings.run_metrics("all")
     receipt = f"{f['count']} findings, {m['count']} metrics"
@@ -398,3 +435,42 @@ STAGES: list[tuple[str, str, Callable[[], StageResult]]] = [
     ("optimise", "Optimise", optimise_stage),
     ("recommend", "Recommend", recommend_stage),
 ]
+
+# Steps the assistant can run on their own, beyond the pipeline's run order.
+EXTRA_STAGES: list[tuple[str, str, Callable[[], StageResult]]] = [
+    ("analyse_arrivals", "Analyse arrivals", analyse_arrivals),
+    ("analyse_staff", "Analyse staff", analyse_staff),
+    ("analyse_supply", "Analyse supply", analyse_supply),
+]
+
+
+def stage_entry(stage_id: str) -> tuple[str, str, Callable[[], StageResult]]:
+    """The (id, label, function) for a stage: the pipeline first, then the extras.
+    STAGES is read at call time so tests that patch it are honoured."""
+    for entry in (*STAGES, *EXTRA_STAGES):
+        if entry[0] == stage_id:
+            return entry
+    raise ValueError(f"Unknown stage: {stage_id}")
+
+
+# Which ready steps a stage leaves behind.
+PRODUCES = {
+    "analyse": ("arrivals", "staff", "supply"),
+    "analyse_arrivals": ("arrivals",),
+    "analyse_staff": ("staff",),
+    "analyse_supply": ("supply",),
+    "forecast": ("forecast",),
+    "optimise": ("optimise",),
+    "recommend": ("recommend",),
+}
+
+# The data_version clearers a step runs before it starts, so only what it owns
+# is forgotten (re-optimising keeps the tuned reorder settings).
+CLEARS = {
+    "forecast": ("forecast", "optimization"),
+    "optimise": ("optimization_plan", "staff", "supply"),
+    "recommend": ("actions",),
+}
+
+# The preparation stages a step may need to have run first.
+PREP_STAGE_IDS = ("transform", "operations", "consolidate")

@@ -1423,12 +1423,21 @@ def tuned_was_reset() -> bool:
     return _TUNED_WAS_RESET
 
 
+def _clear_plan() -> None:
+    """Forget the last runs but keep the adopted family and its tuned settings."""
+    global _TUNED_WAS_RESET
+    _clear_last()
+    _TUNED_WAS_RESET = False
+
+
 def _invalidate() -> None:
     global _TUNED_WAS_RESET
     _clear_last()
     _TUNED_WAS_RESET = reset_tuned_params()
 
 
+# Registered in this order so invalidate_all ends with the reset's result.
+data_version.register("optimization_plan", _clear_plan)
 data_version.register("optimization_engine", _invalidate)
 
 
