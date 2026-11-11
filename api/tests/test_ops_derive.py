@@ -9,7 +9,7 @@ import pytest
 from core import ops_derive, simulation_data
 
 REPO = Path(__file__).resolve().parents[2]
-PACK = REPO / "demo-data"
+PACK = REPO / "api" / "data" / "demo-pack"
 BUNDLED = REPO / "api" / "data" / "simulation"
 
 

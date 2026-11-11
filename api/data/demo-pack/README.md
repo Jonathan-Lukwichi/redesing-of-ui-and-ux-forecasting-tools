@@ -12,6 +12,14 @@ and `staff_list.csv` carry `data_origin=simulated`, which drives the app's
 They hold what a hospital would have (master lists, stock movements, payroll
 summary, shift log) and none of the simulator's own results.
 
+The pack lives under `api/` because the backend uses it: the "Use the sample
+data" button (`POST /api/pipeline/sample`, `api/core/pipeline/sample.py`) loads
+these five files with the stored hospital files and runs the pipeline. The
+Docker image copies only `api/`, so a pack at the repo root would be missing in
+production. It cannot be rebuilt in memory from `api/data/simulation/`: the
+ordering, holding and stockout cost columns and the seven vacant posts come from
+the chapter 7 master files, which are not in this repo.
+
 ## Regenerate
 
 From the repo root:

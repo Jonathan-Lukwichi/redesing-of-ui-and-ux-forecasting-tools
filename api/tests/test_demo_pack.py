@@ -8,7 +8,7 @@ from core.datasets import get_schema
 from routers.datasets import _validate
 
 REPO = Path(__file__).resolve().parents[2]
-PACK = REPO / "demo-data"
+PACK = REPO / "api" / "data" / "demo-pack"
 BUNDLED = REPO / "api" / "data" / "simulation"
 
 ROWS = {

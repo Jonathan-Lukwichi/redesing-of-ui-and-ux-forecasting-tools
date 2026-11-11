@@ -1,4 +1,4 @@
-"""Write the five simulated demo-pack CSVs to demo-data/.
+"""Write the five simulated demo-pack CSVs to api/data/demo-pack/.
 
 The files hold what a hospital would have (master lists, stock movements, a
 payroll summary, a shift log) and none of the simulator's results. They are
@@ -20,7 +20,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 BUNDLED = ROOT / "api" / "data" / "simulation"
-OUT = ROOT / "demo-data"
+OUT = ROOT / "api" / "data" / "demo-pack"
 
 ITEM_COLS = [
     "item_id", "item_name", "category", "abc_class", "unit", "unit_price_zar",

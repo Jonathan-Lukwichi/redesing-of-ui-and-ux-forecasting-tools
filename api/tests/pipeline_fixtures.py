@@ -15,7 +15,7 @@ from core import datasets, registry
 from core.pipeline import staging
 
 REPO = Path(__file__).resolve().parents[2]
-PACK = REPO / "demo-data"
+PACK = REPO / "api" / "data" / "demo-pack"
 BUNDLED = REPO / "api" / "data" / "simulation" / "staff_daily.csv"
 OPS_SLOTS = ("inventory_items", "inventory_movements", "staff_list", "shift_log",
              "staffing_daily")

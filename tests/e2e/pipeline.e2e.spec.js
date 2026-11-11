@@ -35,7 +35,7 @@ const API = process.env.E2E_API || 'http://localhost:8000';
 const RAW = process.env.E2E_RAW_DIR;
 const PURE = process.env.E2E_PURE_DIR;
 const EXT = process.env.E2E_EXT_DIR;
-const DEMO = path.resolve('demo-data');
+const DEMO = path.resolve('api', 'data', 'demo-pack');
 const SCRATCH = process.env.E2E_SCRATCH || path.join(os.tmpdir(), 'hf-e2e');
 
 const PURE_FILES = ['pure_daily_arrival.csv', 'pure_hourly_arrival.csv',
