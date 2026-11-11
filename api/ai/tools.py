@@ -165,6 +165,25 @@ def _staff_source(n_active, days) -> str:
             "where the numbers come from.")
 
 
+# Before any pipeline run there are no figures at all: the result routes refuse
+# (core/security.py), and the tools say so in words instead of reaching for
+# default or simulated numbers. Teaching cards hold no hospital number, so
+# lookup_knowledge still answers.
+NO_DATA = {
+    "error": ("No data yet: no pipeline run has finished on this server, so there are "
+              "no forecast, staffing, supply or plan figures to report. Say exactly "
+              "that, and ask the user to upload their data on the Data Hub and run the "
+              "pipeline, or to press 'Use the sample data' on any results page. Do not "
+              "estimate or quote any number."),
+    "no_data": True,
+}
+
+
+def _results_ready() -> bool:
+    from core.pipeline import job   # lazily: the pipeline imports routers
+    return job.results_available()
+
+
 def execute(name: str, inp: dict[str, Any], user=None) -> dict[str, Any]:
     """Run a tool, return a compact result dict (or an error explaining the fix).
 
@@ -178,6 +197,8 @@ def execute(name: str, inp: dict[str, Any], user=None) -> dict[str, Any]:
                           "Tell the user plainly that this area is not theirs to see, "
                           "and suggest who would have it."),
                 "out_of_scope": True}
+    if name in TOOL_SCOPE and name != "lookup_knowledge" and not _results_ready():
+        return dict(NO_DATA)
     try:
         if name == "get_forecast":
             # Read ONLY the run already materialised in the app (the /last

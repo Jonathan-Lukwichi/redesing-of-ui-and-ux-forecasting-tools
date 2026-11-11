@@ -311,6 +311,46 @@ def require_pipeline_idle() -> None:
 
 PipelineIdle = Depends(require_pipeline_idle)
 
+# ── Results readiness guard ──────────────────────────────────────────────────
+# Results only ever come from a finished pipeline run (core/pipeline/job.py).
+# Before one, every route that would compute or serve a result from default or
+# simulated data refuses with this body instead, so no page, report or assistant
+# answer can show a number nobody's data produced. It sits on the HTTP route
+# (after the access gate and PipelineIdle, so those answers come first), never
+# in the function: the pipeline's stages call the same functions directly.
+# The /last routes stay open; before a run they already say nothing is there.
+
+RESULTS_NOT_READY = {
+    "error": "no_results",
+    "message": ("No results yet. Upload your data on the Data Hub and run the "
+                "pipeline, or use the sample data."),
+}
+
+
+class ResultsNotReady(Exception):
+    """No pipeline run has produced results in this server process yet."""
+
+
+def require_results_ready() -> None:
+    from core.pipeline import job   # lazily: the pipeline imports routers that import this
+    if not job.results_available():
+        raise ResultsNotReady()
+
+
+ResultsReady = Depends(require_results_ready)
+
+
+def caller_can(request: Request, scope: str) -> bool:
+    """Whether this caller holds `scope`, without refusing anyone. Mirrors
+    require_scope: open mode is everyone-as-admin, and an unconfigured
+    deployment grants only the scopes it grants anonymously."""
+    if auth_mode() == "open":
+        return True
+    user = current_user(request)
+    if user is None:
+        return not auth.auth_configured() and scope in auth.UNCONFIGURED_SCOPES
+    return user.can(scope)
+
 # Kept so nothing that still imports it breaks mid-migration. It maps to the
 # broadest "can change something" scope, which is what the old name implied.
 PlannerAccess = DataWriteAccess

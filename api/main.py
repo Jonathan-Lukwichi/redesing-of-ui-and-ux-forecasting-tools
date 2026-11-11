@@ -50,6 +50,11 @@ async def _pipeline_busy(_request, _exc):
     return JSONResponse(status_code=409, content=security.PIPELINE_BUSY)
 
 
+@app.exception_handler(security.ResultsNotReady)
+async def _results_not_ready(_request, _exc):
+    return JSONResponse(status_code=409, content=security.RESULTS_NOT_READY)
+
+
 @app.middleware("http")
 async def _trim_after_heavy(request, call_next):
     response = await call_next(request)
@@ -88,13 +93,10 @@ app.include_router(action_items.router)
 app.include_router(pipeline.router)
 
 
-@app.on_event("startup")
-async def _bootstrap_groups() -> None:
-    """Best-effort: build the live G1 forecast group in the background so the
-    Forecast and Optimization pages share the same real data on first load."""
-    import asyncio
-    from core import bootstrap
-    asyncio.create_task(bootstrap.ensure_g1())
+
+# Nothing is loaded at startup. Hospital data arrives only when someone uploads
+# it, presses "Use the sample data", or uses a fetch control on the Data Hub,
+# and results come only from a finished pipeline run (core/pipeline/job.py).
 
 
 # Strict mode is enforced here rather than by decorating every read route.

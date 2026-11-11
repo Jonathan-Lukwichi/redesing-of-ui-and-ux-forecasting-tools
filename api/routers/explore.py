@@ -10,7 +10,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
-from core import prepare_registry
+from core import prepare_registry, security
 from core.explore import (
     quality,
     task1,
@@ -26,7 +26,10 @@ from core.explore.profiles import profile_for
 from core import prepare_registry
 
 
-router = APIRouter(prefix="/api/explore", tags=["explore"])
+# Every explore route is analysis, so the whole router waits for a finished
+# pipeline run (core/security.py). The Analyse stage calls core/explore directly.
+router = APIRouter(prefix="/api/explore", tags=["explore"],
+                   dependencies=[security.ResultsReady])
 
 
 # ---- helpers -----------------------------------------------------------------

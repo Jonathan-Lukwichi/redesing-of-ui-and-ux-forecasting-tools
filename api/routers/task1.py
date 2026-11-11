@@ -16,7 +16,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from core import handover
+from core import handover, security
 
 
 router = APIRouter(prefix="/api/task1", tags=["task1"])
@@ -66,7 +66,8 @@ class Task1ForecastRequest(BaseModel):
 
 
 @router.post("/forecast")
-async def run_forecast(req: Task1ForecastRequest) -> dict[str, Any]:
+async def run_forecast(req: Task1ForecastRequest,
+                       _ready=security.ResultsReady) -> dict[str, Any]:
     # Surfacing the badge + horizon early helps the UI render meaningful empty state.
     try:
         card = handover.task1_card_public(req.alias)

@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from ai import config, client as ai_client, context, prompts, telemetry, chat as ai_chat, actions as ai_actions, redact, audit
 
 from core import action_store, security
+from core.pipeline import job as pipeline_job
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -195,6 +196,12 @@ async def chat(request: Request,
 async def actions(request: Request, refresh: bool = False,
                   _rl=Depends(security.rate_limit("ai")),
                   _user=security.ReadAccess):
+    # Before any pipeline run there is nothing to recommend from, so the AI is
+    # never asked: an empty list and the flag, which the page reads as "no
+    # results yet" (refresh included, so Re-generate cannot spend a call either).
+    if not pipeline_job.results_available():
+        return {"actions": [], "results_ready": False, "built_at": None,
+                "summary": action_store.summary()}
     # A stored list with items needs no AI, so it is served before any AI
     # configuration check. refresh=1 (Re-generate) rebuilds it, and so does an
     # empty one: "nothing to do" is never served as if it were final.
@@ -230,6 +237,7 @@ async def actions(request: Request, refresh: bool = False,
         out["can_decide"] = caller.can("actions:decide")
         out["categories"] = sorted(allowed)
     out["summary"] = action_store.summary()
+    out["results_ready"] = True
     return out
 
 

@@ -80,22 +80,6 @@ def test_arm_items_uses_uploaded_holding_rate():
     assert out[1]["holding_rate"] == 0.25
 
 
-def test_bootstrap_does_not_touch_after_a_run(monkeypatch):
-    from core import bootstrap
-    from routers import datasets
-
-    called = []
-
-    async def boom(ds):
-        called.append(ds)
-
-    monkeypatch.setattr(prepare_registry, "get_df", lambda name: None)
-    monkeypatch.setattr(datasets, "fetch_from_source", boom)
-    data_version.invalidate_all()
-    assert asyncio.run(bootstrap.ensure_g1()) is True
-    assert called == []
-
-
 def test_specialty_last_route_reads_cache():
     from routers import forecast
 

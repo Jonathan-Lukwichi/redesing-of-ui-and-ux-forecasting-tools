@@ -14,7 +14,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from core import handover
+from core import handover, security
 
 
 router = APIRouter(prefix="/api/task2", tags=["task2"])
@@ -98,7 +98,8 @@ class Task2ForecastRequest(BaseModel):
 
 
 @router.post("/forecast")
-async def run_forecast(req: Task2ForecastRequest) -> dict[str, Any]:
+async def run_forecast(req: Task2ForecastRequest,
+                       _ready=security.ResultsReady) -> dict[str, Any]:
     try:
         card = handover.task2_card(req.specialty, req.alias)
     except handover.HandoverMissing as e:

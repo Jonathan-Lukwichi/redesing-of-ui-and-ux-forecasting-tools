@@ -80,7 +80,7 @@ def _clear_groups() -> None:
 
 
 def _slot_metadata(sid: str, df: pd.DataFrame, signature: bytes) -> dict:
-    # Imported lazily, as core/bootstrap.py does, to avoid a circular import.
+    # Imported lazily to avoid a circular import.
     from routers.datasets import _build_metadata
     meta = _build_metadata(datasets.get_schema(sid), df, TRANSFORMED, signature)
     meta["filename"] = TRANSFORMED   # the replaced-months rule in preflight reads this
@@ -159,7 +159,7 @@ def consolidate() -> StageResult:
 
 
 def _consolidate() -> StageResult:
-    # Imported lazily, as core/bootstrap.py does, to avoid a circular import.
+    # Imported lazily to avoid a circular import.
     from fastapi import HTTPException
     from routers.prepare import BuildRequest, build
 
@@ -224,7 +224,7 @@ def _forecast_failure(exc) -> str:
 
 
 def forecast_stage() -> StageResult:
-    # Imported lazily, as core/bootstrap.py does, to avoid a circular import.
+    # Imported lazily to avoid a circular import.
     from fastapi import HTTPException
     from routers import forecast, optimization
 
@@ -317,7 +317,7 @@ def _plan_failure(exc) -> str:
 
 
 def optimise_stage() -> StageResult:
-    # Imported lazily, as core/bootstrap.py does, to avoid a circular import.
+    # Imported lazily to avoid a circular import.
     from fastapi import HTTPException
     from routers import optimization, staff, supply
 

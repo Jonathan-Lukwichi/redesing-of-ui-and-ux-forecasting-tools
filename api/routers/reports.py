@@ -125,7 +125,8 @@ class ReportEmailRequest(BaseModel):
 @router.post("/email")
 def email_report(body: ReportEmailRequest,
                  user=security.ReportSendAccess,
-                 _rl=Depends(security.rate_limit("email"))) -> dict[str, Any]:
+                 _rl=Depends(security.rate_limit("email")),
+                 _ready=security.ResultsReady) -> dict[str, Any]:
     """Email this week's report.
 
     Previously unauthenticated and unlimited, which made it an open relay: any

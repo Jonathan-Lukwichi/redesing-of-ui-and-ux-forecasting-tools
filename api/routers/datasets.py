@@ -284,7 +284,10 @@ async def fetch_from_source(dataset_id: str, _user=security.DataWriteAccess,
             "message":  str(e),
         })
 
-    return _ingest_csv(schema, raw, filename)
+    meta = _ingest_csv(schema, raw, filename)
+    # The stored copy, not a hospital upload: the sample may replace it.
+    meta["provenance"] = "repo"
+    return meta
 
 
 @router.get("/{dataset_id}")

@@ -89,7 +89,7 @@ def _run():
 
 def test_run_completes_stages_in_order():
     before = job.status()
-    assert before["source"] == {"mode": "default"}
+    assert before["source"] == {"mode": "none"}
     assert [s["status"] for s in before["stages"]] == ["pending"] * 8
 
     s = _run()
@@ -147,7 +147,7 @@ def test_failed_stage_stops_and_marks_rest_skipped(monkeypatch):
     assert s["stages"][1]["receipt"] == "The files do not agree."
     assert s["stages"][0]["warnings"] == ["a warning"]
     assert s["running"] is False and s["finished_at"]
-    assert s["source"] == {"mode": "default"}
+    assert s["source"] == {"mode": "none"}
 
 
 def test_unexpected_error_fails_the_stage_without_its_text(monkeypatch):

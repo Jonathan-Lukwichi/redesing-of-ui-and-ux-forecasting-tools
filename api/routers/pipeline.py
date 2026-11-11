@@ -12,12 +12,12 @@ import gc
 import threading
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, Response
 
 from core import pipeline, registry, security
-from core.pipeline import job, preflight, staging
+from core.pipeline import job, preflight, sample, staging
 from core.transform import TransformError
 from core.transform.month import transform_month
 
@@ -113,7 +113,26 @@ async def download_transformed(dataset_id: str,
 @router.post("/run")
 async def run(_user=security.DataWriteAccess) -> Any:
     try:
-        return job.start()
+        return job.start(source="upload")
+    except job.Busy:
+        return JSONResponse(status_code=409, content=security.PIPELINE_BUSY)
+
+
+@router.post("/sample")
+async def run_sample(request: Request, replace: bool = False,
+                     _rl=Depends(security.rate_limit("heavy")),
+                     _user=security.ReadAccess) -> Any:
+    """Load the stored data and the simulated demo pack, then run the pipeline.
+    Open to visitors in protected mode (it is the public demo path); who may
+    replace what is decided in core/pipeline/sample.py."""
+    if job.is_running():
+        return JSONResponse(status_code=409, content=security.PIPELINE_BUSY)
+    refused = sample.refusal(security.caller_can(request, "data:write"), replace)
+    if refused is not None:
+        code, body = refused
+        return JSONResponse(status_code=code, content=body)
+    try:
+        return job.start(source="sample", prepare=sample.load)
     except job.Busy:
         return JSONResponse(status_code=409, content=security.PIPELINE_BUSY)
 
