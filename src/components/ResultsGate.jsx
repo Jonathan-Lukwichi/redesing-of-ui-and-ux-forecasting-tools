@@ -3,9 +3,18 @@ import Card from './ui/Card';
 import Icon from './Icon';
 import { api } from '../api/client';
 import { useSession } from '../auth/SessionContext';
-import { runProgress, usePipelineContext } from './PipelineStatus';
+import { isStepReady, readySteps, runProgress, usePipelineContext } from './PipelineStatus';
 
 const POLL_MS = 2000;
+
+export const STEP_LABEL = {
+  arrivals: 'the patient-arrivals analysis',
+  staff: 'the staff analysis',
+  supply: 'the supply analysis',
+  forecast: 'the prediction',
+  optimise: 'the optimization',
+  recommend: 'the recommendations',
+};
 
 function messageOf(err) {
   if (err?.detail && typeof err.detail === 'object' && err.detail.message) return err.detail.message;
@@ -13,18 +22,18 @@ function messageOf(err) {
   return 'The server could not be reached. Try again in a moment.';
 }
 
-/* Results pages render only once a pipeline run has finished on the server.
+/* Results pages render only once their own step has finished on the server.
    Until then the page component is never mounted, so none of its data reads
    (overviews, AI calls) fire: this one card stands in for it. The sample run
    starts only when someone presses the button, never on load. */
-export default function ResultsGate({ children, onNavigate }) {
+export default function ResultsGate({ children, onNavigate, step = 'any' }) {
   const { status, error, refresh, setStatus } = usePipelineContext();
   const { can } = useSession();
   const [starting, setStarting] = useState(false);
   const [confirmReplace, setConfirmReplace] = useState(false);
   const [message, setMessage] = useState(null);
 
-  const ready = !!status?.results_ready;
+  const ready = isStepReady(status, step);
   const running = !!status?.running;
 
   // Follow a run (ours or anyone's) until it ends; the page appears when it is ready.
@@ -58,6 +67,8 @@ export default function ResultsGate({ children, onNavigate }) {
   const failed = !running && status?.finished_at
     ? (status.stages || []).find((s) => s.status === 'failed') : null;
   const progress = runProgress(status);
+  // Only when some other step already has results is it worth saying which one this page waits for.
+  const stepHint = step !== 'any' && readySteps(status).length > 0 ? STEP_LABEL[step] : null;
 
   return (
     <div className="content">
@@ -68,6 +79,11 @@ export default function ResultsGate({ children, onNavigate }) {
             Upload your data on the Data Hub and run the pipeline. Results appear here after the run.
           </Card.Description>
         </Card.Header>
+        {stepHint && (
+          <div className="pl-note">
+            This page appears once {stepHint} has run. Ask the assistant to run it, or run the full pipeline on the Data Hub.
+          </div>
+        )}
         {progress && <div className="pl-note" role="status" aria-live="polite">{progress}</div>}
         {failed && (
           <div className="pl-note" data-level="error" role="status">

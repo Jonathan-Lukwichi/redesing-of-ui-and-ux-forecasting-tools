@@ -6,8 +6,9 @@ import { api } from '../api/client';
    badges. The last answer is kept while a new page's
    read is in flight, so moving between pages never flashes empty.
 
-   results_ready is the server's word on whether a finished pipeline run has
-   produced results; nothing in the shell shows a result before it. */
+   ready_steps is the server's word on which steps have produced results
+   (arrivals, staff, supply, forecast, optimise, recommend); each page opens
+   when its own step is ready, and nothing shows a result before that. */
 
 const PipelineStatusContext = createContext(null);
 
@@ -49,4 +50,15 @@ export function runProgress(status) {
   const i = stages.findIndex((s) => s.status === 'running');
   if (i < 0) return 'Starting the run…';
   return `Running step ${i + 1} of ${stages.length}: ${stages[i].label}`;
+}
+
+// The steps whose results exist on the server, in pipeline order.
+export function readySteps(status) {
+  return status?.ready_steps || [];
+}
+
+// 'any' means at least one step is ready; otherwise that one step must be.
+export function isStepReady(status, step) {
+  const steps = readySteps(status);
+  return step === 'any' ? steps.length > 0 : steps.includes(step);
 }

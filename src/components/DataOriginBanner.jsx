@@ -1,4 +1,4 @@
-import { usePipelineContext } from './PipelineStatus';
+import { readySteps, usePipelineContext } from './PipelineStatus';
 
 /* Which run the data on screen came from, read from the shell's one
    pipeline-status read per page (PipelineStatus.jsx). A failed read renders
@@ -22,7 +22,7 @@ export function formatStamp(iso) {
 // Upload and sample runs read the same.
 export function noteText(status) {
   if (!status) return null;
-  if (!status.results_ready) return status.running ? 'Run in progress' : 'No data yet';
+  if (!readySteps(status).length) return status.running ? 'Run in progress' : 'No data yet';
   const { source } = status;
   if (!source || source.mode === 'none' || source.run == null) return null;
   const stamp = formatStamp(source.finished_at);

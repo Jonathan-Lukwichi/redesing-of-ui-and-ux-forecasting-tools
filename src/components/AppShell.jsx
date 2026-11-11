@@ -4,7 +4,7 @@ import ThemeToggle from './ThemeToggle';
 import AskChat from './AskChat';
 import { api } from '../api/client';
 import { DataSourceNote } from './DataOriginBanner';
-import { PipelineStatusProvider, usePipelineContext } from './PipelineStatus';
+import { PipelineStatusProvider, isStepReady, usePipelineContext } from './PipelineStatus';
 import { useSession } from '../auth/SessionContext';
 
 const MOBILE_QUERY = '(max-width: 820px)';
@@ -284,17 +284,18 @@ function Shell({ active = 'dashboard', onNavigate, children }) {
   // teaches users to ignore it, so each renders only when genuinely > 0.
   // Both calls are lightweight overview reads already used elsewhere (no
   // forecast/optimization run triggered). They are results, so they are read
-  // only once a pipeline run has finished, and again after each new run.
+  // only once their step has finished, and again after each new run.
   const { status } = usePipelineContext();
-  const ready = !!status?.results_ready;
+  const staffReady = isStepReady(status, 'staff');
+  const supplyReady = isStepReady(status, 'supply');
   const version = status?.data_version;
   const [badges, setBadges] = useState({});
   useEffect(() => {
-    if (!ready) { setBadges({}); return undefined; }
+    if (!staffReady && !supplyReady) { setBadges({}); return undefined; }
     const ctrl = new AbortController();
     Promise.all([
-      api.staff.overview(ctrl.signal).catch(() => null),
-      api.supply.overview(ctrl.signal).catch(() => null),
+      staffReady ? api.staff.overview(ctrl.signal).catch(() => null) : null,
+      supplyReady ? api.supply.overview(ctrl.signal).catch(() => null) : null,
     ]).then(([staff, supply]) => {
       const shortfall = staff?.kpis?.staffing_shortfall ?? 0;
       const atRisk = supply?.items_at_risk ?? 0;
@@ -304,7 +305,7 @@ function Shell({ active = 'dashboard', onNavigate, children }) {
       });
     });
     return () => ctrl.abort();
-  }, [ready, version]);
+  }, [staffReady, supplyReady, version]);
 
   return (
     <>

@@ -5,6 +5,7 @@ import Icon from '../components/Icon';
 import { LineChart, BarChart } from '../components/Charts';
 import AiPanel from '../components/AiPanel';
 import { api } from '../api/client';
+import { isStepReady, usePipelineContext } from '../components/PipelineStatus';
 import { gatherReportData, buildReportPdf, pdfOutputs } from '../utils/buildReportPdf';
 
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -25,6 +26,11 @@ export default function Dashboard({ onNavigate }) {
   const [reportEmail, setReportEmail] = useState('');
   const [reportMsg, setReportMsg] = useState(null); // {ok, text}
 
+  // Supply and staff figures are read only once their own steps have run.
+  const { status } = usePipelineContext();
+  const staffReady = isStepReady(status, 'staff');
+  const supplyReady = isStepReady(status, 'supply');
+
   const [retryToken, setRetryToken] = useState(0);
   const retry = () => { setError(null); setFc(null); setRetryToken((n) => n + 1); };
 
@@ -44,10 +50,22 @@ export default function Dashboard({ onNavigate }) {
           .catch(() => empty(false));
       })
       .catch((e) => { if (alive) setError(e.message || 'Request failed'); });
-    api.supply.overview().then((d) => alive && setSupply(d)).catch(() => {});
-    api.staff.overview().then((d) => alive && setStaff(d)).catch(() => {});
     return () => { alive = false; };
   }, [retryToken]);
+
+  useEffect(() => {
+    if (!supplyReady) return undefined;
+    let alive = true;
+    api.supply.overview().then((d) => alive && setSupply(d)).catch(() => {});
+    return () => { alive = false; };
+  }, [supplyReady, retryToken]);
+
+  useEffect(() => {
+    if (!staffReady) return undefined;
+    let alive = true;
+    api.staff.overview().then((d) => alive && setStaff(d)).catch(() => {});
+    return () => { alive = false; };
+  }, [staffReady, retryToken]);
 
   // Three real states instead of one raw '—' standing in for all of them:
   // loading (nothing has resolved yet), empty (no data uploaded — a known,

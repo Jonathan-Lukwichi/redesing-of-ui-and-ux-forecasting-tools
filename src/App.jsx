@@ -18,19 +18,20 @@ import ResultsGate from './components/ResultsGate';
 
 /* Each page names the scope it needs, so the guard and the sidebar read from
  * the same contract. Server-side enforcement is independent of both.
- * `gated` pages show results, so they mount only once a pipeline run has
- * finished (ResultsGate); until then they show one card asking for the data. */
+ * Pages with a `step` show results, so they mount only once that step has
+ * finished (ResultsGate); until then they show one card asking for the data.
+ * 'any' opens once any step is ready. */
 const PAGES = {
-  dashboard:            { C: Dashboard,     scope: 'forecast:read', gated: true },
+  dashboard:            { C: Dashboard,     scope: 'forecast:read', step: 'any' },
   upload:               { C: DataHub,       scope: 'data:write' },
   prepare:              { C: PrepareData,   scope: 'data:write' },
-  explore:              { C: ExploreData,   scope: 'data:read', gated: true },
-  'forecast-total':     { C: Task1Forecast, scope: 'forecast:read', gated: true },
-  'forecast-specialty': { C: Task2Forecast, scope: 'forecast:read', gated: true },
-  staff:                { C: StaffPlanner,  scope: 'staff:read', gated: true },
-  supply:               { C: SupplyPlanner, scope: 'supply:read', gated: true },
-  optimize:             { C: Optimization,  anyScope: ['staff:read', 'supply:read'], gated: true },
-  actions:              { C: ActionCenter,  scope: 'actions:read', gated: true },
+  explore:              { C: ExploreData,   scope: 'data:read', step: 'arrivals' },
+  'forecast-total':     { C: Task1Forecast, scope: 'forecast:read', step: 'forecast' },
+  'forecast-specialty': { C: Task2Forecast, scope: 'forecast:read', step: 'forecast' },
+  staff:                { C: StaffPlanner,  scope: 'staff:read', step: 'staff' },
+  supply:               { C: SupplyPlanner, scope: 'supply:read', step: 'supply' },
+  optimize:             { C: Optimization,  anyScope: ['staff:read', 'supply:read'], step: 'optimise' },
+  actions:              { C: ActionCenter,  scope: 'actions:read', step: 'recommend' },
   admin:                { C: Admin,         scope: 'admin' },
 };
 
@@ -56,8 +57,8 @@ export default function App() {
   return (
     <AppShell active={page} onNavigate={setPage}>
       <RequireScope scope={entry.scope} anyScope={entry.anyScope}>
-        {entry.gated
-          ? <ResultsGate key={page} onNavigate={setPage}><PageComponent onNavigate={setPage} /></ResultsGate>
+        {entry.step
+          ? <ResultsGate key={page} step={entry.step} onNavigate={setPage}><PageComponent onNavigate={setPage} /></ResultsGate>
           : <PageComponent onNavigate={setPage} />}
       </RequireScope>
     </AppShell>

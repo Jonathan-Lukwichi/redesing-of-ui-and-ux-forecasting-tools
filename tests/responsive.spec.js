@@ -94,6 +94,7 @@ function dhStatus({ done = 0, running = false, failed = false } = {}) {
     finished_at: finishedAt,
     stages, origin: 'simulated',
     results_ready: ready,
+    ready_steps: ready ? ['arrivals', 'staff', 'supply', 'forecast', 'optimise', 'recommend'] : [],
     results_source: ready ? 'sample' : null,
     run_source: done || running || failed ? 'sample' : null,
     source: ready ? { mode: 'sample', run: 3, finished_at: finishedAt } : { mode: 'none' },
@@ -905,6 +906,29 @@ for (const route of GATED) {
     await expect(page.locator('.topbar-source')).toHaveText('No data yet');
   });
 }
+
+test('per-step pages @ 390px — with only the prediction ready, Total ED opens and Staffing waits', async ({ page }) => {
+  const seen = recordApi(page);
+  await mockGate(page, { status: { ...dhStatus({ done: 8 }), ready_steps: ['forecast'] } });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#forecast-total');
+  await expect(page.getByTestId('results-gate')).toHaveCount(0);
+  await page.goto('/#staff');
+  await page.reload(); // a hash-only goto does not remount the app
+  await expect(page.getByTestId('results-gate')).toContainText('This page appears once the staff analysis has run.');
+  await page.goto('/#dashboard');
+  await page.reload(); // a hash-only goto does not remount the app
+  await expect(page.getByTestId('results-gate')).toHaveCount(0);
+  await page.waitForTimeout(800);
+  expect(seen.filter((s) => /\/api\/(staff|supply)\/overview/.test(s))).toHaveLength(0);
+});
+
+test('per-step pages @ 390px — before any run the gate shows no step hint', async ({ page }) => {
+  await mockGate(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#staff');
+  await expect(page.getByTestId('results-gate')).not.toContainText('This page appears once');
+});
 
 test('staff @ 390px — someone who can upload also gets the Data Hub button', async ({ page }) => {
   await mockGate(page, { me: {
