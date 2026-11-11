@@ -356,7 +356,8 @@ def solve_staff(
         if n_shifts:
             used_staff += 1
         roster.append({
-            "staff_id": sid, "category": s["category"], "skill_level": s.get("skill_level", 0),
+            "staff_id": sid, "name": s.get("name") or sid,   # name: display only
+            "category": s["category"], "skill_level": s.get("skill_level", 0),
             "shifts_assigned": shifts_assigned, "n_shifts": n_shifts,
             "weekly_hours": round(wk_hours, 0), "weekly_cost_zar": round(wk_cost, 0),
             "bcea_45h_ok": wk_hours <= LEGAL_WEEKLY_HOURS,   # always True (hard cap)

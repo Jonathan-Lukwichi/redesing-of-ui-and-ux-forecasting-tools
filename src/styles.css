@@ -1236,6 +1236,15 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; min-height: 
   padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
 }
 
+/* Nurse names (NurseName.jsx): full name, or "T. Dlamini" where space is tight.
+   white-space nowrap keeps a name on one line inside the scrolling tables. */
+.nurse-name { white-space: nowrap; }
+.nurse-name-short { display: none; }
+@media (max-width: 640px) {
+  .nurse-name-full:has(+ .nurse-name-short) { display: none; }
+  .nurse-name-short { display: inline; }
+}
+
 .pl-note { min-width: 0; overflow-wrap: anywhere; font-size: 13px; color: var(--text-2); line-height: 1.5; }
 .pl-note[data-level="error"] { color: var(--danger); }
 .pl-note[data-level="ok"] { color: var(--success); }

@@ -1,31 +1,31 @@
-staff_id,category,skill_level,annual_salary_zar,standard_shift_length_hours,max_weekly_hours,is_vacant,total_days_worked,total_regular_hours,total_overtime_hours,total_payroll_cost_zar,average_weekly_hours,bcea_45hour_violations_count,max_weekly_hours_observed,total_days_sick,data_origin
-PN001,Professional Nurse,2,350000,12,45,False,372.0,3636.0,0.0,764531.85,64.27,294.0,84.0,48.0,simulated
-PN002,Professional Nurse,2,364000,12,45,False,368.0,3780.0,0.0,829237.5,66.82,302.0,84.0,35.0,simulated
-PN003,Professional Nurse,2,377000,12,45,False,374.0,3312.0,0.0,745752.98,58.55,260.0,84.0,47.0,simulated
-PN004,Professional Nurse,2,391000,12,45,True,,,,,,,,,simulated
-PN005,Professional Nurse,2,405000,12,45,False,352.0,3744.0,0.0,901124.83,66.18,303.0,84.0,21.0,simulated
-PN006,Professional Nurse,2,418000,12,45,False,361.0,3264.0,0.0,799424.48,57.7,251.0,84.0,58.0,simulated
-PN007,Professional Nurse,3,432000,12,45,True,,,,,,,,,simulated
-PN008,Professional Nurse,3,446000,12,45,False,354.0,3384.0,0.0,875972.4,59.82,264.0,84.0,43.0,simulated
-PN009,Professional Nurse,3,459000,12,45,False,357.0,3300.0,0.0,885726.79,58.33,262.0,84.0,46.0,simulated
-PN010,Professional Nurse,3,473000,12,45,True,,,,,,,,,simulated
-PN011,Professional Nurse,3,486000,12,45,False,347.0,3300.0,0.0,938587.99,58.33,255.0,84.0,52.0,simulated
-PN012,Professional Nurse,3,500000,12,45,False,343.0,3468.0,0.0,1010156.25,61.3,273.0,84.0,33.0,simulated
-EN001,Enrolled Nurse,1,200000,12,45,False,350.0,3288.0,0.0,379375.0,58.12,258.0,84.0,57.0,simulated
-EN002,Enrolled Nurse,1,207000,12,45,False,343.0,3276.0,0.0,387801.74,57.91,261.0,84.0,49.0,simulated
-EN003,Enrolled Nurse,1,215000,12,45,True,,,,,,,,,simulated
-EN004,Enrolled Nurse,1,222000,12,45,False,336.0,3312.0,0.0,425616.12,58.55,262.0,84.0,44.0,simulated
-EN005,Enrolled Nurse,1,229000,12,45,False,339.0,3468.0,0.0,458715.48,61.3,280.0,84.0,28.0,simulated
-EN006,Enrolled Nurse,1,236000,12,45,True,,,,,,,,,simulated
-EN007,Enrolled Nurse,2,244000,12,45,False,334.0,3144.0,0.0,435768.75,55.58,246.0,84.0,36.0,simulated
-EN008,Enrolled Nurse,2,251000,12,45,False,352.0,3024.0,0.0,438073.61,53.45,225.0,84.0,69.0,simulated
-EA001,Enrolled Nursing Auxiliary,1,150000,12,45,False,334.0,3000.0,0.0,251250.36,53.03,231.0,72.0,63.0,simulated
-EA002,Enrolled Nursing Auxiliary,1,160000,12,45,True,,,,,,,,,simulated
-EA003,Enrolled Nursing Auxiliary,1,170000,12,45,False,321.0,3300.0,0.0,311577.76,58.33,260.0,84.0,25.0,simulated
-EA004,Enrolled Nursing Auxiliary,1,180000,12,45,False,316.0,3204.0,0.0,319500.0,56.64,255.0,84.0,28.0,simulated
-EA005,Enrolled Nursing Auxiliary,1,190000,12,45,False,309.0,3120.0,0.0,331609.76,55.15,244.0,84.0,28.0,simulated
-EA006,Enrolled Nursing Auxiliary,2,200000,12,45,False,330.0,2964.0,0.0,331250.0,52.39,228.0,72.0,62.0,simulated
-EA007,Enrolled Nursing Auxiliary,1,210000,12,45,False,326.0,2952.0,0.0,345843.4,52.18,224.0,84.0,59.0,simulated
-EA008,Enrolled Nursing Auxiliary,1,220000,12,45,True,,,,,,,,,simulated
-EA009,Enrolled Nursing Auxiliary,1,230000,12,45,False,313.0,3072.0,0.0,393875.36,54.3,243.0,84.0,26.0,simulated
-EA010,Enrolled Nursing Auxiliary,2,240000,12,45,False,310.0,3000.0,0.0,401250.0,53.03,238.0,84.0,39.0,simulated
+staff_id,name,category,skill_level,annual_salary_zar,standard_shift_length_hours,max_weekly_hours,is_vacant,total_days_worked,total_regular_hours,total_overtime_hours,total_payroll_cost_zar,average_weekly_hours,bcea_45hour_violations_count,max_weekly_hours_observed,total_days_sick,data_origin
+PN001,Thandiwe Dlamini,Professional Nurse,2,350000,12,45,False,372.0,3636.0,0.0,764531.85,64.27,294.0,84.0,48.0,simulated
+PN002,Annelie van der Merwe,Professional Nurse,2,364000,12,45,False,368.0,3780.0,0.0,829237.5,66.82,302.0,84.0,35.0,simulated
+PN003,Lerato Mokoena,Professional Nurse,2,377000,12,45,False,374.0,3312.0,0.0,745752.98,58.55,260.0,84.0,47.0,simulated
+PN004,,Professional Nurse,2,391000,12,45,True,,,,,,,,,simulated
+PN005,Sarah Jacobs,Professional Nurse,2,405000,12,45,False,352.0,3744.0,0.0,901124.83,66.18,303.0,84.0,21.0,simulated
+PN006,Sipho Ndlovu,Professional Nurse,2,418000,12,45,False,361.0,3264.0,0.0,799424.48,57.7,251.0,84.0,58.0,simulated
+PN007,,Professional Nurse,3,432000,12,45,True,,,,,,,,,simulated
+PN008,Elize du Plessis,Professional Nurse,3,446000,12,45,False,354.0,3384.0,0.0,875972.4,59.82,264.0,84.0,43.0,simulated
+PN009,Nomvula Khumalo,Professional Nurse,3,459000,12,45,False,357.0,3300.0,0.0,885726.79,58.33,262.0,84.0,46.0,simulated
+PN010,,Professional Nurse,3,473000,12,45,True,,,,,,,,,simulated
+PN011,Pieter Botha,Professional Nurse,3,486000,12,45,False,347.0,3300.0,0.0,938587.99,58.33,255.0,84.0,52.0,simulated
+PN012,Zanele Mthembu,Professional Nurse,3,500000,12,45,False,343.0,3468.0,0.0,1010156.25,61.3,273.0,84.0,33.0,simulated
+EN001,Marietjie Steyn,Enrolled Nurse,1,200000,12,45,False,350.0,3288.0,0.0,379375.0,58.12,258.0,84.0,57.0,simulated
+EN002,Palesa Mofokeng,Enrolled Nurse,1,207000,12,45,False,343.0,3276.0,0.0,387801.74,57.91,261.0,84.0,49.0,simulated
+EN003,,Enrolled Nurse,1,215000,12,45,True,,,,,,,,,simulated
+EN004,Karen Williams,Enrolled Nurse,1,222000,12,45,False,336.0,3312.0,0.0,425616.12,58.55,262.0,84.0,44.0,simulated
+EN005,Kagiso Molefe,Enrolled Nurse,1,229000,12,45,False,339.0,3468.0,0.0,458715.48,61.3,280.0,84.0,28.0,simulated
+EN006,,Enrolled Nurse,1,236000,12,45,True,,,,,,,,,simulated
+EN007,Chantelle Venter,Enrolled Nurse,2,244000,12,45,False,334.0,3144.0,0.0,435768.75,55.58,246.0,84.0,36.0,simulated
+EN008,Rudzani Mudau,Enrolled Nurse,2,251000,12,45,False,352.0,3024.0,0.0,438073.61,53.45,225.0,84.0,69.0,simulated
+EA001,Ruan Pretorius,Enrolled Nursing Auxiliary,1,150000,12,45,False,334.0,3000.0,0.0,251250.36,53.03,231.0,72.0,63.0,simulated
+EA002,,Enrolled Nursing Auxiliary,1,160000,12,45,True,,,,,,,,,simulated
+EA003,Asanda Ntshona,Enrolled Nursing Auxiliary,1,170000,12,45,False,321.0,3300.0,0.0,311577.76,58.33,260.0,84.0,25.0,simulated
+EA004,Lize Coetzee,Enrolled Nursing Auxiliary,1,180000,12,45,False,316.0,3204.0,0.0,319500.0,56.64,255.0,84.0,28.0,simulated
+EA005,Tsakani Baloyi,Enrolled Nursing Auxiliary,1,190000,12,45,False,309.0,3120.0,0.0,331609.76,55.15,244.0,84.0,28.0,simulated
+EA006,Michelle Smith,Enrolled Nursing Auxiliary,2,200000,12,45,False,330.0,2964.0,0.0,331250.0,52.39,228.0,72.0,62.0,simulated
+EA007,Refilwe Sebola,Enrolled Nursing Auxiliary,1,210000,12,45,False,326.0,2952.0,0.0,345843.4,52.18,224.0,84.0,59.0,simulated
+EA008,,Enrolled Nursing Auxiliary,1,220000,12,45,True,,,,,,,,,simulated
+EA009,Johan Nel,Enrolled Nursing Auxiliary,1,230000,12,45,False,313.0,3072.0,0.0,393875.36,54.3,243.0,84.0,26.0,simulated
+EA010,Busisiwe Zulu,Enrolled Nursing Auxiliary,2,240000,12,45,False,310.0,3000.0,0.0,401250.0,53.03,238.0,84.0,39.0,simulated

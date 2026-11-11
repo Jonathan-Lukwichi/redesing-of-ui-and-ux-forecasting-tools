@@ -40,6 +40,7 @@ def _schema_dict(s: DatasetSchema) -> dict[str, Any]:
         "key_columns": list(s.key_columns),
         "required_columns": list(s.required_columns),
         "expected_columns": list(s.expected_columns),
+        "optional_columns": list(s.optional_columns),
         "expected_rows_hint": s.expected_rows_hint,
         "source_filename_hint": s.source_filename_hint,
     }
@@ -88,7 +89,7 @@ def _validate(df: pd.DataFrame, schema: DatasetSchema) -> dict[str, Any]:
 
     missing_required = sorted(required_set - cols_set)
     missing_expected = sorted(expected_set - cols_set)
-    extra = sorted(cols_set - expected_set)
+    extra = sorted(cols_set - expected_set - set(schema.optional_columns))
 
     return {
         "columns": cols,

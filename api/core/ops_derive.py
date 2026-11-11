@@ -131,7 +131,26 @@ def _staff_members(staff: pd.DataFrame) -> pd.DataFrame:
         m[c] = pd.to_numeric(m[c], errors="coerce").astype("float64")
     for c in ("skill_level", "total_days_worked", "bcea_45hour_violations_count", "total_days_sick"):
         m[c] = pd.to_numeric(m[c], errors="coerce").round().astype("int64")
+    m["name"] = display_names(m)
     return m.reset_index(drop=True)
+
+
+def display_name(row) -> str:
+    """One row's display name (a dict or a DataFrame row), falling back to the id."""
+    name = row.get("name")
+    if isinstance(name, str) and name.strip():
+        return name.strip()
+    return str(row["staff_id"])
+
+
+def display_names(staff: pd.DataFrame) -> pd.Series:
+    """Each post's display name: its `name` when the file gives one, otherwise
+    its staff_id. Display only; everything keys on staff_id."""
+    ids = staff["staff_id"].astype(str)
+    if "name" not in staff.columns:
+        return ids
+    names = staff["name"].astype("string").str.strip()
+    return names.where(names.notna() & (names != ""), ids).astype(str)
 
 
 def derive(items: pd.DataFrame, movements: pd.DataFrame, staff: pd.DataFrame,

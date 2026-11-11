@@ -8,6 +8,7 @@ import AiPanel from '../components/AiPanel';
 import { useSession } from '../auth/SessionContext';
 import PolicyEvidence from '../components/PolicyEvidence';
 import StaffEvidence from '../components/StaffEvidence';
+import NurseName from '../components/NurseName';
 import { api } from '../api/client';
 import { C } from '../styles/palette';
 
@@ -313,7 +314,7 @@ export default function Optimization({ onNavigate }) {
               <tbody>
                 {st.roster.filter((r) => r.n_shifts > 0).map((r) => (
                   <tr key={r.staff_id}>
-                    <td className="mono" style={{ fontWeight: 500, color: C.ink }}>{r.staff_id}</td>
+                    <td style={{ fontWeight: 500, color: C.ink }}><NurseName name={r.name} id={r.staff_id} /></td>
                     <td><span className="tag">{CAT_SHORT[r.category] || r.category}</span></td>
                     <td style={{ fontSize: 11.5 }}>
                       {r.shifts_assigned.map((s) => {

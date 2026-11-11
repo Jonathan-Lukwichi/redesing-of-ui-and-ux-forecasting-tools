@@ -17,3 +17,7 @@ test-results/
 playwright-report/
 api/.venv/
 api/data/action_decisions.sqlite3*
+
+# Python bytecode
+__pycache__/
+*.pyc

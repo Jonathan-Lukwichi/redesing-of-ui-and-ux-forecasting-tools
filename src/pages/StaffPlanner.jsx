@@ -5,6 +5,7 @@ import Icon from '../components/Icon';
 import { LineChart } from '../components/Charts';
 import { api } from '../api/client';
 import AiPanel from '../components/AiPanel';
+import NurseName from '../components/NurseName';
 import { C } from '../styles/palette';
 
 const zar = (n) => (n == null ? '—' : 'R ' + Math.round(n).toLocaleString('en-ZA'));
@@ -190,13 +191,13 @@ export default function StaffPlanner() {
         </div>
         <div className="table-scroll" role="region" tabIndex={0} aria-label="Data table (scrolls sideways on small screens)"><table className="tbl">
           <thead>
-            <tr><th>Staff</th><th>Role</th><th className="num">Skill</th><th className="num">Days worked</th><th className="num">Reg hrs</th><th className="num">OT hrs</th><th className="num">Avg wk hrs</th><th className="num">Sick</th><th className="num">Payroll</th><th className="num">BCEA</th></tr>
+            <tr><th>Nurse</th><th>Role</th><th className="num">Skill</th><th className="num">Days worked</th><th className="num">Reg hrs</th><th className="num">OT hrs</th><th className="num">Avg wk hrs</th><th className="num">Sick</th><th className="num">Payroll</th><th className="num">BCEA</th></tr>
           </thead>
           <tbody>
             {!data && <tr><td colSpan={10} style={{ color: C.muted, padding: 20 }}>Loading staff…</td></tr>}
             {staffRows.map((s) => (
               <tr key={s.staff_id}>
-                <td style={{ fontWeight: 500, color: C.ink }} className="mono">{s.staff_id}</td>
+                <td style={{ fontWeight: 500, color: C.ink }}><NurseName name={s.name} id={s.staff_id} /></td>
                 <td><span className="tag">{CAT_SHORT[s.category] || s.category}</span></td>
                 <td className="num">{s.skill_level}</td>
                 <td className="num">{s.days_worked}</td>

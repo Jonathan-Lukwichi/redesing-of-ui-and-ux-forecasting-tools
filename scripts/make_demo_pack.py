@@ -43,7 +43,25 @@ STAFF_SUMMARY_COLS = [
     "bcea_45hour_violations_count", "max_weekly_hours_observed",
     "total_days_sick",
 ]
-STAFF_COLS = STAFF_MASTER_COLS + STAFF_SUMMARY_COLS + ["data_origin"]
+STAFF_COLS = (["staff_id", "name"] + STAFF_MASTER_COLS[1:] + STAFF_SUMMARY_COLS
+              + ["data_origin"])
+
+# Fictional display names for the 23 filled posts (Jonathan, 2026-11-11): about
+# half black South African (Zulu, Xhosa, Sotho, Tswana, Pedi, Venda, Tsonga) and
+# half white South African (Afrikaans and English) names, mostly women, as in a
+# typical nursing workforce. Ordinary names, no public figures, none repeated.
+# Display only: everything keys on staff_id. Vacant posts get no name.
+STAFF_NAMES = {
+    "PN001": "Thandiwe Dlamini", "PN002": "Annelie van der Merwe",
+    "PN003": "Lerato Mokoena", "PN005": "Sarah Jacobs", "PN006": "Sipho Ndlovu",
+    "PN008": "Elize du Plessis", "PN009": "Nomvula Khumalo", "PN011": "Pieter Botha",
+    "PN012": "Zanele Mthembu",
+    "EN001": "Marietjie Steyn", "EN002": "Palesa Mofokeng", "EN004": "Karen Williams",
+    "EN005": "Kagiso Molefe", "EN007": "Chantelle Venter", "EN008": "Rudzani Mudau",
+    "EA001": "Ruan Pretorius", "EA003": "Asanda Ntshona", "EA004": "Lize Coetzee",
+    "EA005": "Tsakani Baloyi", "EA006": "Michelle Smith", "EA007": "Refilwe Sebola",
+    "EA009": "Johan Nel", "EA010": "Busisiwe Zulu",
+}
 SHIFT_COLS = [
     "date", "shift", "arrivals_for_shift", "required_nurses",
     "filled_staff_assigned", "locum_hours_used", "locum_cost_zar",
@@ -80,6 +98,10 @@ def build(chapter7: Path) -> dict[str, pd.DataFrame]:
     summary = members[["staff_id"] + STAFF_SUMMARY_COLS]
     staff = master[STAFF_MASTER_COLS].merge(summary, on="staff_id", how="left")
     staff["data_origin"] = "simulated"
+    unnamed = set(filled["staff_id"]) - set(STAFF_NAMES)
+    if unnamed:
+        raise SystemExit(f"Filled staff ids with no display name: {sorted(unnamed)}")
+    staff["name"] = staff["staff_id"].map(STAFF_NAMES).fillna("")
     staff = staff[STAFF_COLS]
 
     shifts = pd.read_csv(BUNDLED / "staff_shifts.csv")[SHIFT_COLS]

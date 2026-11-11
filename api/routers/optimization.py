@@ -20,6 +20,7 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
 from core import simulation_data, optimization_engine as engine
+from core.ops_derive import display_name
 from core.forecasting import run_arima_forecast, run_ml_forecast
 from routers.forecast import _forecast_from_series, _series_for
 
@@ -180,6 +181,7 @@ async def _compute_week_forecast(model: str, start_date: Optional[str],
 def _staff_records(df) -> list[dict]:
     return [{
         "staff_id": r["staff_id"],
+        "name": display_name(r),
         "category": r["category"],
         "skill_level": int(r.get("skill_level") or 0),
         "annual_salary_zar": float(r.get("annual_salary_zar") or 0),

@@ -181,3 +181,22 @@ to make the app look real don't say simulated data". Changes:
   with the descriptive analysis before the optimization.
 - Internal names (`simulation_data`, `data_origin`, `SIMULATED_LABEL`), file
   names, docs and the demo-pack README keep the word.
+
+### Nurse names
+
+Also at Jonathan's request ("to make it more understandable"), nurses show by
+a fictional South African name instead of a code like PN001:
+
+- The names are about half black and half white South African, mostly women,
+  ordinary, none repeated.
+- They live in the data, not the UI: an optional `name` column in the pack's
+  `staff_list.csv`, generated from `STAFF_NAMES` in `scripts/make_demo_pack.py`.
+  Vacant posts have no name.
+- `ops_derive` carries the name through the publish path, and a staff list
+  without names falls back to the ids. The schema accepts the column as
+  optional (`optional_columns`), so either form is valid.
+- The staff overview, the optimizer's staff records, the roster and the staff
+  pool return `name` beside `staff_id`. The optimizer, the evidence ladder and
+  the `/last` results still key on `staff_id`.
+- On the Staffing and Optimization tables, `NurseName.jsx` shows the full name,
+  or "T. Dlamini" at ≤640px, with "Full Name (ID)" in the tooltip.

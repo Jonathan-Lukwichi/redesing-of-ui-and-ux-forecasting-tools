@@ -13,6 +13,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException
 
 from core import simulation_data, data_version, prepare_registry, security
+from core.ops_derive import display_name
 from core.optimization_engine import compare_staff_strategies
 
 router = APIRouter(prefix="/api/staff", tags=["staff"])
@@ -76,6 +77,7 @@ async def overview(_ready=security.ResultsReady) -> dict[str, Any]:
     for _, r in members.iterrows():
         staff_rows.append({
             "staff_id":     r["staff_id"],
+            "name":         display_name(r),
             "category":     r["category"],
             "skill_level":  int(r.get("skill_level") or 0),
             "days_worked":  int(r.get("total_days_worked") or 0),

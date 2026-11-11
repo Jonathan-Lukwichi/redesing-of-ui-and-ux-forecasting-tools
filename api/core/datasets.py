@@ -31,6 +31,8 @@ class DatasetSchema:
     expected_columns: tuple[str, ...]
     expected_rows_hint: int | None = None
     source_filename_hint: str = ""
+    # Accepted when present, never required or reported missing (e.g. a name).
+    optional_columns: tuple[str, ...] = ()
 
 
 # --- Hospital data (private — PURE DATASET) -----------------------------------
@@ -240,11 +242,11 @@ WEATHER_HOURLY = DatasetSchema(
 
 # --- Inventory and scheduling (simulated demo pack, or a hospital's own) -----
 
-def _ops(id, label, description, category, grain, key, cols, rows):
+def _ops(id, label, description, category, grain, key, cols, rows, optional=()):
     return DatasetSchema(
         id=id, label=label, description=description, category=category,
         grain=grain, key_columns=key, required_columns=cols,
-        expected_columns=cols, expected_rows_hint=rows,
+        expected_columns=cols, expected_rows_hint=rows, optional_columns=tuple(optional),
         source_filename_hint=f"{id}.csv",
     )
 
@@ -268,14 +270,16 @@ INVENTORY_MOVEMENTS = _ops(
 
 STAFF_LIST = _ops(
     "staff_list", "Staff list",
-    "Nurse posts with category, skill, salary, hours worked and payroll summary.",
+    "Nurse posts with name, category, skill, salary, hours worked and payroll summary.",
     "scheduling", "daily", ("staff_id",),
     ("staff_id", "category", "skill_level", "annual_salary_zar",
      "standard_shift_length_hours", "max_weekly_hours", "is_vacant",
      "total_days_worked", "total_regular_hours", "total_overtime_hours",
      "total_payroll_cost_zar", "average_weekly_hours",
      "bcea_45hour_violations_count", "max_weekly_hours_observed",
-     "total_days_sick", "data_origin"), 30)
+     "total_days_sick", "data_origin"), 30,
+    # A display name per filled post. Optional: without it the app shows the id.
+    optional=("name",))
 
 SHIFT_LOG = _ops(
     "shift_log", "Shift log",

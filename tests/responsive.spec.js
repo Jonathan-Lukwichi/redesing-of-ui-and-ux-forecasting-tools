@@ -691,7 +691,13 @@ const STAFF_OVERVIEW = {
     n_active_staff: 23, n_posts: 30, mean_weekly_hours: 57.9, overwork_pct: 129, bcea_per_nurse: 257 },
   ci: { coverage_pct: CI(96.9, 96.7, 97), annual_payroll_zar: CI(12880000, 12800000, 12950000),
     bcea_violations_per_staff: CI(242, 238, 246) },
-  daily: [], staff: [], shifts: [], days_covered: 396,
+  daily: [], shifts: [], days_covered: 396,
+  staff: [
+    { staff_id: 'PN001', name: 'Thandiwe Dlamini', category: 'Professional Nurse', skill_level: 2, days_worked: 372, days_sick: 48,
+      regular_hours: 3636, overtime_hours: 0, avg_weekly_hours: 64.3, max_weekly_hours: 84, bcea_violations: 294, payroll_cost_zar: 764532 },
+    { staff_id: 'PN002', name: 'Annelie van der Merwe', category: 'Professional Nurse', skill_level: 2, days_worked: 368, days_sick: 35,
+      regular_hours: 3780, overtime_hours: 0, avg_weekly_hours: 66.8, max_weekly_hours: 84, bcea_violations: 302, payroll_cost_zar: 829238 },
+  ],
 };
 const SUPPLY_OVERVIEW = {
   kpis: { items_at_risk: 24, n_items: 30, total_cost_zar: 5880000, stockout_cost_zar: 5680000,
@@ -736,6 +742,25 @@ test.describe('data origin', () => {
         await expect(page.locator('.page-hero')).toContainText('Inventory, reorder behaviour and stockouts · 30 items');
         await expect(page.getByText(/95% range:/)).toBeVisible();
       }
+    });
+  }
+
+  // Nurses show by name, not by code: the short form where space is tight,
+  // the full name on wider screens, and both name and id in the tooltip.
+  for (const [width, shown, hidden] of [[390, 'T. Dlamini', 'Thandiwe Dlamini'],
+    [1440, 'Thandiwe Dlamini', 'T. Dlamini']]) {
+    test(`staff @ ${width}px — nurses show by name, not by code`, async ({ page }) => {
+      await mockOrigin(page, dhStatus({ done: 8 }));
+      await page.route('**/api/staff/overview', (r) => r.fulfill({ json: STAFF_OVERVIEW }));
+      await page.setViewportSize({ width, height: HEIGHT[width] });
+      await page.goto('/#staff');
+      const cell = page.locator('.tbl td .nurse-name').first();
+      await expect(cell).toHaveAttribute('title', 'Thandiwe Dlamini (PN001)');
+      await expect(cell.getByText(shown, { exact: true })).toBeVisible();
+      await expect(cell.getByText(hidden, { exact: true })).toBeHidden();
+      await expect(page.locator('.nurse-name').nth(1)).toContainText(width === 390 ? 'A. van der Merwe' : 'Annelie van der Merwe');
+      const codes = await page.locator('.tbl tbody td:first-child').allInnerTexts();
+      expect(codes.some((t) => /^(PN|EN|EA)\d{3}$/.test(t.trim())), `bare codes: ${codes.join(', ')}`).toBe(false);
     });
   }
 
