@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import { api } from '../api/client';
+import { usePipelineContext } from './PipelineStatus';
 
-/* Where the data on screen came from. Status is read once per mount (no
-   polling); a failed read renders nothing, so offline runs are unaffected. */
+/* Where the data on screen came from, read from the shell's one pipeline-status
+   read per page (PipelineStatus.jsx). A failed read renders nothing, so offline
+   runs are unaffected. */
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const pad = (n) => String(n).padStart(2, '0');
@@ -14,32 +14,28 @@ export function formatStamp(iso) {
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// Fetches pipeline status once per mount (and again when `key` changes).
-export function usePipelineStatus(key) {
-  const [status, setStatus] = useState(null);
-  useEffect(() => {
-    let alive = true;
-    setStatus(null);
-    api.pipeline.status()
-      .then((s) => { if (alive) setStatus(s); })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, [key]);
-  return status;
+const RUN_LABEL = { uploaded: 'Uploaded run', sample: 'Sample data run' };
+
+// The header note: which run the results come from, or that there are none yet.
+export function noteText(status) {
+  if (!status) return null;
+  if (!status.results_ready) return status.running ? 'Run in progress' : 'No data yet';
+  const { source } = status;
+  const label = RUN_LABEL[source?.mode];
+  if (!label) return null;
+  const stamp = formatStamp(source.finished_at);
+  return `${label} ${source.run}${stamp ? `, ${stamp}` : ''}`;
 }
 
-export function DataSourceNote({ routeKey }) {
-  const status = usePipelineStatus(routeKey);
-  if (!status?.source) return null;
-  const { source } = status;
-  const text = source.mode === 'uploaded'
-    ? `Uploaded run ${source.run}${formatStamp(source.finished_at) ? `, ${formatStamp(source.finished_at)}` : ''}`
-    : 'Default data';
+export function DataSourceNote() {
+  const { status } = usePipelineContext();
+  const text = noteText(status);
+  if (!text) return null;
   return <span className="topbar-source" title="Where the data on screen came from">{text}</span>;
 }
 
 export default function DataOriginBanner() {
-  const status = usePipelineStatus('banner');
+  const { status } = usePipelineContext();
   if (!status || status.origin === 'real') return null;
   return (
     <div role="note" style={{

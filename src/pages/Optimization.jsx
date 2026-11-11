@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import PageHero from '../components/PageHero';
-import DataOriginBanner, { usePipelineStatus } from '../components/DataOriginBanner';
+import DataOriginBanner from '../components/DataOriginBanner';
+import { usePipelineContext } from '../components/PipelineStatus';
 import KPI from '../components/KPI';
 import Icon from '../components/Icon';
 import { LineChart } from '../components/Charts';
@@ -30,7 +31,7 @@ export default function Optimization({ onNavigate }) {
   const seeSupply = can('supply:read');
   const runStaffOk = can('staff:plan');
   const runSupplyOk = can('supply:plan');
-  const uploaded = usePipelineStatus('optimize')?.source?.mode === 'uploaded';
+  const uploaded = usePipelineContext().status?.source?.mode === 'uploaded';
   let step = 1;
 
   const [data, setData] = useState({});           // merged {forecast, staff, supply, impact, meta}

@@ -4,6 +4,7 @@ import ThemeToggle from './ThemeToggle';
 import AskChat from './AskChat';
 import { api } from '../api/client';
 import { DataSourceNote } from './DataOriginBanner';
+import { PipelineStatusProvider, usePipelineContext } from './PipelineStatus';
 import { useSession } from '../auth/SessionContext';
 
 const MOBILE_QUERY = '(max-width: 820px)';
@@ -218,12 +219,23 @@ function Topbar({ crumbs = [], onMenu, menuOpen, menuBtnRef, routeKey }) {
         ))}
       </div>
       <div className="topbar-spacer" />
-      <DataSourceNote routeKey={routeKey} />
+      <DataSourceNote />
     </div>
   );
 }
 
-export default function AppShell({ active = 'dashboard', onNavigate, children }) {
+/* The shell reads the pipeline status once per page visit and shares it (see
+   PipelineStatus.jsx): the results gate, the header note, the simulated-data
+   banner and the badges below all read that one answer. */
+export default function AppShell(props) {
+  return (
+    <PipelineStatusProvider routeKey={props.active}>
+      <Shell {...props} />
+    </PipelineStatusProvider>
+  );
+}
+
+function Shell({ active = 'dashboard', onNavigate, children }) {
   const crumbs = CRUMB_MAP[active] || ['Dashboard'];
   const isMobile = useIsMobile();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -271,9 +283,14 @@ export default function AppShell({ active = 'dashboard', onNavigate, children })
   // Real, computed nav badges — not hardcoded. A count that never changes
   // teaches users to ignore it, so each renders only when genuinely > 0.
   // Both calls are lightweight overview reads already used elsewhere (no
-  // forecast/optimization run triggered), fetched once per app session.
+  // forecast/optimization run triggered). They are results, so they are read
+  // only once a pipeline run has finished, and again after each new run.
+  const { status } = usePipelineContext();
+  const ready = !!status?.results_ready;
+  const version = status?.data_version;
   const [badges, setBadges] = useState({});
   useEffect(() => {
+    if (!ready) { setBadges({}); return undefined; }
     const ctrl = new AbortController();
     Promise.all([
       api.staff.overview(ctrl.signal).catch(() => null),
@@ -287,7 +304,7 @@ export default function AppShell({ active = 'dashboard', onNavigate, children })
       });
     });
     return () => ctrl.abort();
-  }, []);
+  }, [ready, version]);
 
   return (
     <>

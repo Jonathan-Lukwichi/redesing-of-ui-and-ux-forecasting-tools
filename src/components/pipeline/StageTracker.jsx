@@ -30,7 +30,7 @@ export default function StageTracker({ status, error }) {
   const finished = when(status?.finished_at);
   let sub = 'No run yet. Upload the files, then press Run full pipeline.';
   // Right after a 409 the first poll has not arrived yet, so the start time is unknown.
-  if (status?.running) sub = `${started ? `Running since ${started}.` : 'Running.'} You can leave this page; the run continues.`;
+  if (status?.running) sub = `${started ? `Running since ${started}.` : 'Running.'} ${status.loading ? 'Loading the sample data first. ' : ''}You can leave this page; the run continues.`;
   else if (finished) sub = `Last run ${started} to ${finished}.`;
 
   return (

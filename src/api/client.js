@@ -124,6 +124,10 @@ export const api = {
     clearStaged: () => request('/api/pipeline/staged', { method: 'DELETE' }),
     preflight:   (signal) => request('/api/pipeline/preflight', { signal }),
     run:         () => request('/api/pipeline/run', { method: 'POST' }),
+    // Load the stored data plus the simulated demo pack, then run the same
+    // pipeline. replace confirms replacing uploaded data (data writers only).
+    sample:      ({ replace = false } = {}) =>
+      request(`/api/pipeline/sample${replace ? '?replace=true' : ''}`, { method: 'POST' }),
     status:      (signal) => request('/api/pipeline/status', { signal }),
     transformedUrl: (id) => `${API_BASE}/api/pipeline/transformed/${encodeURIComponent(id)}.csv`,
     // Needs data:write, so it is fetched with the session cookie, not linked.

@@ -57,6 +57,7 @@ export default function DataHub({ onNavigate }) {
   const [confirmMonths, setConfirmMonths] = useState(null);
   const [runMessage, setRunMessage] = useState(null);
   const [starting, setStarting] = useState(false);
+  const [confirmSample, setConfirmSample] = useState(false);
 
   const refreshStatus = useCallback((signal) => api.pipeline.status(signal)
     .then((s) => { setRunStatus(s); setRunStatusError(false); })
@@ -327,6 +328,31 @@ export default function DataHub({ onNavigate }) {
     }
   };
 
+  // The sample run: the stored files plus the simulated demo pack, then the
+  // same eight steps. The server asks first when uploaded data would be
+  // replaced (409 replace_uploaded), and that question is answered here.
+  const startSample = async (replace = false) => {
+    setConfirmMonths(null);
+    setConfirmSample(false);
+    setRunMessage(null);
+    setStarting(true);
+    try {
+      setRunStatus(await api.pipeline.sample({ replace }));
+    } catch (e) {
+      const code = e?.detail?.error;
+      if (e.status === 409 && code === 'replace_uploaded') {
+        setConfirmSample(true);
+      } else if (e.status === 409 && code === 'already_running') {
+        setRunMessage('A run is already in progress. Its progress is shown below.');
+        setRunStatus((prev) => ({ ...(prev || {}), stages: prev?.stages || [], running: true }));
+      } else {
+        setRunMessage(extractMessage(e));
+      }
+    } finally {
+      setStarting(false);
+    }
+  };
+
   // Months the staged registers would overwrite are confirmed in the page first.
   const onRunClick = () => {
     const months = preflight?.replaced_months || [];
@@ -430,6 +456,10 @@ export default function DataHub({ onNavigate }) {
           onRun={onRunClick}
           onConfirm={startRun}
           onCancel={() => setConfirmMonths(null)}
+          confirmSample={confirmSample}
+          onSample={() => startSample(false)}
+          onConfirmSample={() => startSample(true)}
+          onCancelSample={() => setConfirmSample(false)}
         />
         <StagedPanel
           staged={staged}
@@ -495,7 +525,7 @@ export default function DataHub({ onNavigate }) {
       <SectionHeader
         kicker="Section C · Operations"
         title="Inventory and staffing"
-        sub="Supply catalogue, stock movements, staff list and shift logs · 5 files · upload only · simulated demo pack in demo-data/"
+        sub="Supply catalogue, stock movements, staff list and shift logs · 5 files · upload only · simulated demo pack in api/data/demo-pack/"
       />
       <CardGrid columns={3} minItemWidth={240}>
         {opsItems.map((item) => (
@@ -536,8 +566,12 @@ function registerReceipt(r) {
   return `${r.month}: ${r.days} days, ${(r.arrivals ?? 0).toLocaleString()} arrivals.${tail}`;
 }
 
-function RunPanel({ preflight, preflightError, running, uploading, starting, confirmMonths, message, onRun, onConfirm, onCancel }) {
-  const canRun = !!preflight?.ok && !running && !uploading && !starting && !confirmMonths;
+function RunPanel({
+  preflight, preflightError, running, uploading, starting, confirmMonths, message, onRun, onConfirm, onCancel,
+  confirmSample, onSample, onConfirmSample, onCancelSample,
+}) {
+  const canRun = !!preflight?.ok && !running && !uploading && !starting && !confirmMonths && !confirmSample;
+  const canSample = !running && !uploading && !starting && !confirmMonths && !confirmSample;
   let reason = 'All required files are present and agree with each other.';
   if (running) reason = 'A run is in progress.';
   else if (uploading) reason = 'Wait for the uploads to finish.';
@@ -559,7 +593,25 @@ function RunPanel({ preflight, preflightError, running, uploading, starting, con
         <button className="btn btn-primary" disabled={!canRun} onClick={onRun}>
           <Icon name="play" size={12} /> Run full pipeline
         </button>
+        <button className="btn" disabled={!canSample} onClick={onSample}>
+          <Icon name="file" size={12} /> Use the sample data
+        </button>
       </Card.Actions>
+      <div className="pl-note">
+        Loads the stored hospital files and the simulated inventory and scheduling files, then runs the same eight steps.
+      </div>
+      {confirmSample && (
+        <div className="pl-confirm" role="group" aria-label="Confirm replacing the loaded data with the sample">
+          <div>
+            <strong>Replace the loaded data?</strong> The sample data takes the place of the files
+            uploaded here, the staged registers and any results made from them.
+          </div>
+          <Card.Actions>
+            <button className="btn btn-primary btn-sm" onClick={onConfirmSample} autoFocus>Replace with the sample data</button>
+            <button className="btn btn-sm" onClick={onCancelSample}>Cancel</button>
+          </Card.Actions>
+        </div>
+      )}
       {confirmMonths && (
         <div className="pl-confirm" role="group" aria-label="Confirm replacing months">
           <div>

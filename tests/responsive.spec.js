@@ -85,12 +85,27 @@ function dhStatus({ done = 0, running = false, failed = false } = {}) {
         : [],
     };
   });
+  const finishedAt = !running && (done === DH_STAGES.length || failed) ? '2026-11-02T12:25:00+00:00' : null;
+  // Results exist only once a whole run has finished (the server's results_ready).
+  const ready = !running && !failed && done === DH_STAGES.length;
   return {
-    data_version: 3, running,
+    data_version: 3, running, loading: false,
     started_at: done || running || failed ? '2026-11-02T12:05:00+00:00' : null,
-    finished_at: !running && (done === DH_STAGES.length || failed) ? '2026-11-02T12:25:00+00:00' : null,
-    stages, source: { mode: 'default' }, origin: 'simulated',
+    finished_at: finishedAt,
+    stages, origin: 'simulated',
+    results_ready: ready,
+    results_source: ready ? 'sample' : null,
+    run_source: done || running || failed ? 'sample' : null,
+    source: ready ? { mode: 'sample', run: 3, finished_at: finishedAt } : { mode: 'none' },
   };
+}
+
+// Results pages mount only once a run has finished, so their layout checks run
+// against a finished (ready) run. The gate itself is covered further down.
+const GATED = ['dashboard', 'explore', 'forecast-total', 'forecast-specialty',
+  'staff', 'supply', 'optimize', 'actions'];
+async function mockReady(page) {
+  await page.route('**/api/pipeline/status', (r) => r.fulfill({ json: dhStatus({ done: 8 }) }));
 }
 
 const DH_PREFLIGHT_MISSING = {
@@ -139,6 +154,7 @@ async function mockDataHub(page, {
 async function prepareRoute(page, route) {
   // The layout checks see the upload page mid-run: three stages done, one running.
   if (route === 'upload') await mockDataHub(page, { status: dhStatus({ done: 3, running: true }) });
+  if (GATED.includes(route)) await mockReady(page);
 }
 
 async function openRoute(page, route, width) {
@@ -282,6 +298,7 @@ test(`${route} @ 390px — no heavy compute on page load`, async ({ page }) => {
 // The Dashboard shows total-ED KPIs; a last run of kind "specialty" must not feed it.
 test('dashboard @ 390px — a specialty last-run shows the empty state', async ({ page }) => {
   await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  await mockReady(page);
   await page.route('**/api/forecast/last', (r) => r.fulfill({
     json: { available: true, kind: 'specialty', ran_at: 'x', result: { history: [], forecast: [] } },
   }));
@@ -294,6 +311,7 @@ test('dashboard @ 390px — a specialty last-run shows the empty state', async (
 test('actions @ 390px — Re-generate asks the server to rebuild the list', async ({ page }) => {
   const reads = [];
   await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  await mockReady(page);
   await page.route(/\/api\/ai\/actions(\?.*)?$/, (r) => {
     const u = new URL(r.request().url());
     reads.push(u.search);
@@ -321,6 +339,7 @@ for (const built of [true, false]) {
     const posts = [];
     page.on('request', (r) => { if (r.url().includes('/api/') && r.method() !== 'GET') posts.push(r.url()); });
     await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+    await mockReady(page);
     await page.route('**/api/forecast/last', (r) => r.fulfill({ json: { available: false } }));
     await page.route('**/api/prepare/groups', (r) => r.fulfill({ json: groupsWithG1(built) }));
     await page.setViewportSize({ width: 390, height: 844 });
@@ -693,8 +712,22 @@ test.describe('data origin', () => {
     await mockOrigin(page, dhStatus({ done: 8 }));
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/#dashboard');
-    await expect(page.getByText('Default data')).toBeVisible();
+    await expect(page.getByText('Sample data run 3, 2 Nov 2026 12:25')).toBeVisible();
     await expect(page.getByText(BANNER)).toHaveCount(0);
+  });
+
+  test('dashboard @ 390px — before any run the header says there is no data yet', async ({ page }) => {
+    await mockOrigin(page, dhStatus());
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/#dashboard');
+    await expect(page.locator('.topbar-source')).toHaveText('No data yet');
+  });
+
+  test('staff @ 390px — during a run the header says a run is in progress', async ({ page }) => {
+    await mockOrigin(page, dhStatus({ done: 2, running: true }));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/#staff');
+    await expect(page.locator('.topbar-source')).toHaveText('Run in progress');
   });
 
   test('staff @ 390px — real data hides the banner; a failed status shows nothing', async ({ page }) => {
@@ -730,7 +763,7 @@ test.describe('data origin', () => {
     await expect(page.getByText(LADDER)).toBeVisible();
   });
 
-  test('optimize @ 390px — no ladder label on default data', async ({ page }) => {
+  test('optimize @ 390px — no ladder label on the sample data', async ({ page }) => {
     await mockOrigin(page, dhStatus({ done: 8 }));
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/#optimize');
@@ -765,4 +798,198 @@ test.describe('data origin', () => {
     expect(lastCalls).toBe(1);
     expect(posts).toHaveLength(0);
   });
+});
+
+
+// ---- Empty until run: the results gate ---------------------------------------
+// Before a pipeline run has finished, every results page is ONE card asking for
+// the data: the page component never mounts, so it fetches nothing.
+const GATE_TITLE = 'No results yet';
+const GATE_TEXT = 'Upload your data on the Data Hub and run the pipeline. Results appear here after the run.';
+const ANON = { user: null, auth_mode: 'protected', auth_configured: true,
+  anonymous_scopes: ['forecast:read', 'data:read', 'staff:read', 'supply:read', 'actions:read', 'assistant'],
+  anonymous_action_categories: ['staff', 'supply', 'capacity'] };
+
+// Records every /api/ request as "METHOD path".
+function recordApi(page) {
+  const seen = [];
+  page.on('request', (r) => {
+    const u = new URL(r.url());
+    if (u.pathname.startsWith('/api/')) seen.push(`${r.method()} ${u.pathname}`);
+  });
+  return seen;
+}
+
+async function mockGate(page, { status = dhStatus(), me = ANON } = {}) {
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  await page.route('**/api/auth/me', (r) => r.fulfill({ json: me }));
+  await page.route('**/api/pipeline/status', (r) => r.fulfill({ json: typeof status === 'function' ? status() : status }));
+}
+
+for (const route of GATED) {
+  test(`${route} — before any run shows only the gate card, at every width, and fetches nothing`, async ({ page }) => {
+    const seen = recordApi(page);
+    await mockGate(page);
+    await page.setViewportSize({ width: WIDTHS[0], height: HEIGHT[WIDTHS[0]] });
+    await page.goto(`/#${route}`);
+    for (const width of WIDTHS) {
+      await page.setViewportSize({ width, height: HEIGHT[width] });
+      const gate = page.getByTestId('results-gate');
+      await expect(gate).toBeVisible();
+      await expect(gate.locator('.ui-card-title')).toHaveText(GATE_TITLE);
+      await expect(gate).toContainText(GATE_TEXT);
+      await expect(gate.getByRole('button', { name: 'Use the sample data' })).toBeEnabled();
+      // A visitor cannot upload, so there is no Data Hub button.
+      await expect(gate.getByRole('button', { name: 'Go to the Data Hub' })).toHaveCount(0);
+      const r = await page.evaluate(() => ({
+        children: document.querySelectorAll('.content > *').length,
+        text: document.querySelector('.content')?.textContent || '',
+        sw: document.documentElement.scrollWidth,
+        cw: document.documentElement.clientWidth,
+        badges: document.querySelectorAll('.sidebar-item-badge').length,
+      }));
+      expect(r.children, 'the gate is the only thing on the page').toBe(1);
+      expect(r.text, 'no result numbers before a run').not.toMatch(/\d/);
+      expect(r.sw).toBeLessThanOrEqual(r.cw + 1);
+      expect(r.badges).toBe(0);
+    }
+    await page.waitForTimeout(800);
+    const other = seen.filter((s) => !['GET /api/auth/me', 'GET /api/pipeline/status'].includes(s));
+    expect(other, `requests before a run: ${other.join(' | ')}`).toHaveLength(0);
+    await expect(page.locator('.topbar-source')).toHaveText('No data yet');
+  });
+}
+
+test('staff @ 390px — someone who can upload also gets the Data Hub button', async ({ page }) => {
+  await mockGate(page, { me: {
+    user: { username: 'admin', role: 'admin', scopes: ['data:write', 'staff:read'], action_categories: [] },
+    auth_mode: 'protected', auth_configured: true } });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#staff');
+  await page.getByTestId('results-gate').getByRole('button', { name: 'Go to the Data Hub' }).click();
+  await expect(page).toHaveURL(/#upload$/);
+});
+
+test('staff @ 390px — the sample run shows its progress, then the page appears', async ({ page }) => {
+  let phase = 'idle';
+  const status = () => ({
+    idle: dhStatus(),
+    loading: { ...dhStatus({ done: 0, running: true }), loading: true, stages: dhStatus().stages },
+    running: dhStatus({ done: 2, running: true }),
+    done: dhStatus({ done: 8 }),
+  })[phase];
+  await mockGate(page, { status });
+  const posts = [];
+  await page.route('**/api/pipeline/sample**', (r) => {
+    posts.push(new URL(r.request().url()).search);
+    phase = 'loading';
+    return r.fulfill({ json: status() });
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#staff');
+  const gate = page.getByTestId('results-gate');
+  await expect(gate).toBeVisible();
+  await page.waitForTimeout(500);
+  expect(posts, 'the gate never starts the sample by itself').toHaveLength(0);
+  await gate.getByRole('button', { name: 'Use the sample data' }).click();
+  await expect(gate).toContainText('Loading the sample data');
+  await expect(gate.getByRole('button', { name: 'Use the sample data' })).toBeDisabled();
+  phase = 'running';
+  await expect(gate).toContainText('Running step 3 of 8: Operations', { timeout: 6000 });
+  phase = 'done';
+  await expect(gate).toHaveCount(0, { timeout: 6000 });
+  await expect(page.locator('.page-hero')).toContainText('Staff Planner');
+  await expect(page.getByText('Inventory and staffing are simulated demonstration data.')).toBeVisible();
+  expect(posts).toEqual(['']);
+});
+
+test('supply @ 390px — replacing uploaded data with the sample is confirmed first', async ({ page }) => {
+  let running = false;
+  await mockGate(page, { status: () => (running ? dhStatus({ done: 1, running: true }) : dhStatus()) });
+  const posts = [];
+  await page.route('**/api/pipeline/sample**', (r) => {
+    const q = new URL(r.request().url()).search;
+    posts.push(q);
+    if (!q.includes('replace=true')) {
+      return r.fulfill({ status: 409, json: { error: 'replace_uploaded',
+        message: 'This replaces the uploaded data and its results with the sample data.' } });
+    }
+    running = true;
+    return r.fulfill({ json: dhStatus({ done: 1, running: true }) });
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#supply');
+  const gate = page.getByTestId('results-gate');
+  await gate.getByRole('button', { name: 'Use the sample data' }).click();
+  const confirm = gate.locator('.pl-confirm');
+  await expect(confirm).toContainText('Replace the uploaded data?');
+  await confirm.getByRole('button', { name: 'Cancel' }).click();
+  await expect(confirm).toHaveCount(0);
+  await gate.getByRole('button', { name: 'Use the sample data' }).click();
+  await gate.locator('.pl-confirm').getByRole('button', { name: 'Replace with the sample data' }).click();
+  await expect(gate).toContainText('Running step 2 of 8: Transform');
+  expect(posts).toEqual(['', '', '?replace=true']);
+});
+
+test('dashboard @ 390px — a visitor refused over uploaded data reads why', async ({ page }) => {
+  await mockGate(page);
+  await page.route('**/api/pipeline/sample**', (r) => r.fulfill({ status: 403, json: {
+    error: 'uploaded_data',
+    message: 'This server holds data uploaded from a hospital, and only someone who can upload data may replace it with the sample data.' } }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#dashboard');
+  await page.getByTestId('results-gate').getByRole('button', { name: 'Use the sample data' }).click();
+  await expect(page.getByTestId('results-gate')).toContainText('only someone who can upload data');
+});
+
+test('dashboard @ 390px — a failed run says where it stopped', async ({ page }) => {
+  const failed = dhStatus({ done: 0, failed: true });
+  failed.stages[0].receipt = 'The sample data could not be loaded: the data repository could not be reached.';
+  await mockGate(page, { status: failed });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#dashboard');
+  await expect(page.getByTestId('results-gate')).toContainText('The last run stopped at Check.');
+  await expect(page.getByTestId('results-gate')).toContainText('could not be reached');
+});
+
+test('staff @ 1440px — sidebar badges appear only once results are ready', async ({ page }) => {
+  let ready = false;
+  const seen = recordApi(page);
+  await mockGate(page, { status: () => dhStatus(ready ? { done: 8 } : {}) });
+  await page.route('**/api/staff/overview', (r) => r.fulfill({ json: { kpis: { staffing_shortfall: 7 } } }));
+  await page.route('**/api/supply/overview', (r) => r.fulfill({ json: { items_at_risk: 24 } }));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#supply');
+  await expect(page.getByTestId('results-gate')).toBeVisible();
+  await page.waitForTimeout(600);
+  await expect(page.locator('.sidebar-item-badge')).toHaveCount(0);
+  expect(seen.filter((s) => s.includes('overview'))).toHaveLength(0);
+  ready = true;
+  await page.goto('about:blank');
+  await page.goto('/#staff');
+  await expect(page.locator('.sidebar-item-badge')).toHaveText(['7', '24']);
+});
+
+test('upload @ 390px — the sample button sits beside Run and starts the sample run', async ({ page }) => {
+  let running = false;
+  await mockDataHub(page, { status: () => dhStatus(running ? { done: 0, running: true } : {}) });
+  const posts = [];
+  await page.route('**/api/pipeline/sample**', (r) => {
+    posts.push(r.request().method());
+    running = true;
+    return r.fulfill({ json: dhStatus({ done: 0, running: true }) });
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#upload');
+  const panel = page.locator('.pl-run');
+  await expect(panel.getByRole('button', { name: 'Run full pipeline' })).toBeDisabled();
+  const sampleBtn = panel.getByRole('button', { name: 'Use the sample data' });
+  await expect(sampleBtn).toBeEnabled();
+  await expect(panel).toContainText('Loads the stored hospital files and the simulated inventory and scheduling files, then runs the same eight steps.');
+  await page.waitForTimeout(500);
+  expect(posts).toHaveLength(0);
+  await sampleBtn.click();
+  await expect(page.locator('.pl-stage[data-status="running"]')).toHaveCount(1);
+  await expect(sampleBtn).toBeDisabled();
+  expect(posts).toEqual(['POST']);
 });
