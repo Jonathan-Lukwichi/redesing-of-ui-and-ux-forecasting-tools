@@ -108,3 +108,14 @@ def test_names_reach_the_staff_overview_and_the_roster(client, finished_run):
 
     pool = client.get("/api/optimization/staff-pool").json()["staff"]
     assert {s["staff_id"]: s["name"] for s in pool} == expected
+
+    # The assistant reads the roster by name, never by code.
+    from ai import tools
+    tools_get = lambda path: client.get(path).json()  # noqa: E731
+    import pytest as _pt
+    with _pt.MonkeyPatch.context() as mp:
+        mp.setattr(tools, "_get", tools_get)
+        out = tools.execute("get_optimization", {})
+    named = {r["nurse"] for r in out["roster"]}
+    assert named and named <= set(expected.values())
+    assert not any(sid in str(out["roster"]) for sid in expected)

@@ -99,7 +99,7 @@ def _filter_optimization(payload: dict, user) -> dict:
         return payload
     out = dict(payload)
     if not see_staff:
-        for k in ("staff", "staff_by_shift", "staff_cost_before_after_saving_zar"):
+        for k in ("staff", "staff_by_shift", "roster", "staff_cost_before_after_saving_zar"):
             out.pop(k, None)
     if not see_supply:
         for k in ("supply", "orders_now", "supply_cost_before_after_saving_zar",
@@ -339,6 +339,10 @@ def execute(name: str, inp: dict[str, Any], user=None) -> dict[str, Any]:
                 "staff": {k: sk.get(k) for k in (
                     "lawful_coverage_pct", "staffing_shortfall", "nurses_needed_lawful",
                     "nurses_available", "locum_hours", "unfilled_slots")},
+                # Nurses by name (display only), so an answer never reads out a code.
+                "roster": [{"nurse": r.get("name") or r.get("staff_id"), "role": r.get("category"),
+                            "shifts": r.get("shifts_assigned")}
+                           for r in (staff.get("roster") or []) if r.get("n_shifts")],
                 "staff_by_shift": [{"shift": s["shift"], "required": s["required"],
                                     "assigned": s["assigned"], "unfilled": s["unfilled"]}
                                    for s in (staff.get("shifts") or [])],
