@@ -157,6 +157,14 @@ def _check_files() -> None:
                   + ". Upload them on the Data Hub.", missing=errors)
 
 
+def _check_sample() -> None:
+    """Whether a data writer may load the sample now, never replacing uploaded
+    data (replace=True is not reachable from here). One wording for plan and start."""
+    r = sample.refusal(True, False)
+    if r is not None:
+        raise Refused(r[1]["error"], r[1]["message"] + SAMPLE_HINT)
+
+
 def _choose(asked: list[str], ready: frozenset[str]) -> dict[str, str]:
     """Step id -> reason, following the planner rules in the module docstring."""
     prep = "prepare" in asked or needs_preparation()
@@ -199,9 +207,7 @@ def plan(requested: Sequence[str]) -> Plan:
     if asked[0] in RUNS:
         kind = asked[0]
         if kind == "sample":
-            r = sample.refusal(True, False)
-            if r is not None:
-                raise Refused(r[1]["error"], r[1]["message"] + SAMPLE_HINT)
+            _check_sample()
         else:
             _check_files()
         stage_ids = tuple(sid for sid, _label, _fn in stages.STAGES)
@@ -245,9 +251,7 @@ def start(p: Plan, on_finish: Callable[[dict], None] | None = None) -> dict:
     if not still_valid(p):
         raise Refused("proposal_stale", STALE)
     if p.kind == "sample":
-        r = sample.refusal(True, False)
-        if r is not None:
-            raise Refused(r[1]["error"], r[1]["message"])
+        _check_sample()
         return job.start(source="sample", prepare=sample.load, on_finish=on_finish)
     if p.kind == "full":
         return job.start(source=_source(), on_finish=on_finish)

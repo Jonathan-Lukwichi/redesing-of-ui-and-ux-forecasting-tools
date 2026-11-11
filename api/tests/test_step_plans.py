@@ -180,6 +180,21 @@ def test_estimates_follow_recorded_seconds_scaled_by_history(seeded):
     assert timings.estimate("forecast") == 60
 
 
+def test_a_time_recorded_without_arrivals_is_not_scaled_by_them(seeded):
+    e = registry.get("daily_arrival")
+    registry.clear("daily_arrival")
+    assert timings.scale_for("check") is None
+    timings.record("check", 0.5, timings.scale_for("check"))
+    registry.put("daily_arrival", e.df, e.metadata)
+    assert timings.estimate("check") == timings.DEFAULT_SECONDS["check"]
+
+
+def test_no_estimate_scales_while_the_arrivals_are_absent(seeded):
+    timings.record("forecast", 30.0, timings.scale_for("forecast"))
+    registry.clear("daily_arrival")
+    assert timings.estimate("forecast") == timings.DEFAULT_SECONDS["forecast"]
+
+
 def test_estimates_are_bounded_and_keyed_by_known_stages():
     timings.record("nope", 3.0, 1.0)
     assert "nope" not in timings._RECORDED and timings.estimate("nope") == 5
@@ -189,7 +204,7 @@ def test_estimates_are_bounded_and_keyed_by_known_stages():
     assert timings.estimate("load") == 1
 
 
-def test_a_run_records_its_stage_seconds(stub_stages):
+def test_a_run_records_its_stage_seconds(stub_stages, seeded):   # arrivals give the scale
     job.start(plan=["forecast"]); assert job.wait(10)
     assert "forecast" in timings._RECORDED
 
@@ -240,3 +255,4 @@ def test_the_sample_is_checked_again_at_start(stub_stages, monkeypatch):
     with pytest.raises(steps.Refused) as e:
         steps.start(p)
     assert e.value.code == "replace_uploaded" and job.is_running() is False
+    assert e.value.message == sample.REPLACE_UPLOADED["message"] + steps.SAMPLE_HINT

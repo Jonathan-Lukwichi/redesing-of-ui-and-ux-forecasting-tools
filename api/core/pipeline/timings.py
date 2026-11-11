@@ -28,21 +28,22 @@ _LOCK = threading.Lock()
 _RECORDED: dict[str, tuple[float, float]] = {}   # stage id -> (seconds, scale)
 
 
-def scale_for(stage_id: str) -> float:
+def scale_for(stage_id: str) -> float | None:
     """The size of the data a stage would run on now: the staged months for
-    Transform, nothing for the sample loader, the daily arrival rows otherwise."""
+    Transform, nothing for the sample loader, the daily arrival rows otherwise.
+    None when the daily arrivals are absent or empty: a time measured then has
+    no size to scale by, so it is neither recorded nor scaled."""
     if stage_id == "transform":
         return float(max(1, len(staging.months())))
     if stage_id == "load":
         return 1.0
     df = registry.get_df("daily_arrival")
-    # An empty table counts as absent, so an estimate never divides by zero.
-    return float(len(df)) if df is not None and len(df) else 1.0
+    return float(len(df)) if df is not None and len(df) else None
 
 
-def record(stage_id: str, seconds: float, scale: float) -> None:
+def record(stage_id: str, seconds: float, scale: float | None) -> None:
     """Keep a finished stage's time and the scale it ran at (the latest wins)."""
-    if stage_id not in DEFAULT_SECONDS or scale <= 0:
+    if stage_id not in DEFAULT_SECONDS or scale is None or scale <= 0:
         return
     with _LOCK:
         _RECORDED[stage_id] = (float(seconds), float(scale))
@@ -54,11 +55,12 @@ def estimate(stage_id: str) -> int:
         return UNKNOWN_SECONDS
     with _LOCK:
         recorded = _RECORDED.get(stage_id)
-    if recorded is None:
+    now = scale_for(stage_id) if recorded is not None else None
+    if recorded is None or now is None:
         value = DEFAULT_SECONDS[stage_id]
     else:
         seconds, scale = recorded
-        value = math.ceil(seconds * scale_for(stage_id) / scale)
+        value = math.ceil(seconds * now / scale)
     return min(MAX_SECONDS, max(MIN_SECONDS, value))
 
 
