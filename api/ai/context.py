@@ -65,20 +65,20 @@ def _kpi(k: dict, name: str, unit: str = "") -> str:
     v = (k or {}).get(name)
     if not isinstance(v, dict):
         return f"{name}: n/a"
-    return f"{name}: {v['mean']}{unit} (95% CI {v['lo']}–{v['hi']})"
+    return f"{name}: {v['mean']}{unit} (95% range {v['lo']}–{v['hi']})"
 
 
 def build_staff_context(d: dict[str, Any]) -> str:
     k = d.get("kpis", {}) or {}
     ci = d.get("ci", {}) or {}
     lines = ["<context>",
-             "Nurse staffing (Casualty unit; NURSES ONLY — no doctors in this dataset). One representative simulation run.",
+             "Nurse staffing (Casualty unit; NURSES ONLY — no doctors in this dataset), from the latest pipeline run.",
              f"Lawful-hours coverage: {k.get('lawful_coverage_pct')}%  (coverage the {k.get('n_active_staff')} nurses could deliver working only the legal 45h/week)",
              f"Actual coverage today: {k.get('coverage_pct')}%  — but ONLY reached by working {k.get('mean_weekly_hours')}h/week ({k.get('overwork_pct')}% of the legal 45h limit)",
              f"Staffing shortfall: {k.get('staffing_shortfall')} nurses (demand needs ~{k.get('nurses_needed_legal')} at lawful hours; only {k.get('n_active_staff')} of {k.get('n_posts')} posts filled)",
              f"BCEA 45h breaches per nurse/year: {k.get('bcea_per_nurse')} (logged, not enforced — the SA norm)",
              f"Annual payroll: R{round(k.get('annual_payroll_zar') or 0):,}",
-             "Across 30 runs (95% CI): " + _kpi(ci, "coverage_pct", "%") + "; " + _kpi(ci, "bcea_violations_per_staff")]
+             "95% range: " + _kpi(ci, "coverage_pct", "%") + "; " + _kpi(ci, "bcea_violations_per_staff")]
     for s in (d.get("shifts") or []):
         lines.append(f"Shift {s['shift']}: avg {s['avg_filled']}/{s['avg_required']} nurses, "
                      f"{s['unfilled']} unfilled, {s['locum_hours']} locum hrs")
@@ -117,7 +117,7 @@ def build_optimization_context(d: dict[str, Any]) -> str:
         ]
     if uc:
         lines += [
-            f"SUPPLY cost (two-stage stochastic (s,S), Monte-Carlo) — annual expected total cost.",
+            f"SUPPLY cost (two-stage stochastic (s,S), over many possible demand paths) — annual expected total cost.",
             f"  before optimization (naive policy, no forecast safety stock): {_r(uc.get('before_zar'))}/year.",
             f"  after optimization (optimised s*,S* — order-up-to that minimises expected cost): {_r(uc.get('after_zar'))}/year.",
             f"SUPPLY saving: {_r(uc.get('saving_zar'))}/year ({uc.get('saving_pct')}%), mostly from cutting stockout penalties; "
@@ -135,12 +135,12 @@ def build_supply_context(d: dict[str, Any]) -> str:
     k = d.get("kpis", {}) or {}
     ci = d.get("ci", {}) or {}
     lines = ["<context>",
-             "Inventory — one representative simulation run (numbers below), with 30-seed means as context.",
+             "Inventory, from the latest pipeline run (numbers below), with 95% ranges as context.",
              f"Items at risk: {k.get('items_at_risk')} of {k.get('n_items')}",
              f"Total cost (this run): R{round(k.get('total_cost_zar') or 0):,}",
              f"Stockout penalty (this run): R{round(k.get('stockout_cost_zar') or 0):,}",
              f"Inventory value: R{round(k.get('inventory_value_zar') or 0):,}",
-             "Across 30 runs (95% CI): " + _kpi(ci, "total_annual_cost_zar") + "; " + _kpi(ci, "stockout_incidence_pct", "%") + "; " + _kpi(ci, "non_performance_rate", "%")]
+             "95% range: " + _kpi(ci, "total_annual_cost_zar") + "; " + _kpi(ci, "stockout_incidence_pct", "%") + "; " + _kpi(ci, "non_performance_rate", "%")]
     for a in (d.get("by_abc") or []):
         lines.append(f"Class {a['abc_class']}: {a['items']} items, cost R{round(a['cost_zar']):,}")
     risky = [i for i in (d.get("items") or []) if i.get("status") == "stockout"][:6]

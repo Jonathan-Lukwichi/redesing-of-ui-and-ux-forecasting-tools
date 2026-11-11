@@ -84,8 +84,8 @@ def test_links_omit_label_for_real_data(cls, monkeypatch):
 
 def test_label_text_is_exact():
     assert ops_links.SIMULATED_LABEL == (
-        "This relationship was built into the simulated data, so it shows the "
-        "pipeline working, not a finding about the hospital.")
+        "Treat this link as a check that the pipeline joins the data, not as a "
+        "tested finding about the hospital.")
 
 
 def test_links_skip_without_ops_table():

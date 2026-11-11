@@ -42,22 +42,22 @@ def test_the_forecast_source_names_when_and_where_it_was_run(app):
     assert app["posts"] == []
 
 
-def test_staffing_is_labelled_simulated_and_locum_hours_are_period_totals(app):
+def test_staffing_source_is_neutral_and_locum_hours_are_period_totals(app):
     app["get"]["/api/staff/overview"] = {
-        "days_simulated": 396, "kpis": {"staffing_shortfall": 7},
+        "days_covered": 396, "kpis": {"staffing_shortfall": 7},
         "shifts": [{"shift": "Night", "avg_required": 2.6, "avg_filled": 2.1,
                     "unfilled": 0, "locum_hours": 2256.0, "cost_zar": 3442661.0}]}
     out = tools.execute("get_staff_status", {})
-    assert "SIMULATED" in out["source"] and "396" in out["source"]
+    assert "396" in out["source"] and "simulat" not in out["source"].lower()
     night = out["shifts"][0]
     assert night["locum_hours_total_over_period"] == 2256.0
     assert "locum_hours" not in night, "a bare 'locum_hours' reads as a weekly figure"
     assert "not per week" in out["note"]
 
 
-def test_supply_is_labelled_simulated(app):
+def test_supply_source_is_neutral(app):
     app["get"]["/api/supply/overview"] = {"kpis": {}, "items_at_risk": 0, "items": []}
-    assert "SIMULATED" in tools.execute("get_supply_status", {})["source"]
+    assert "simulat" not in tools.execute("get_supply_status", {})["source"].lower()
 
 
 def test_explore_findings_mark_reasons_as_untested(app):

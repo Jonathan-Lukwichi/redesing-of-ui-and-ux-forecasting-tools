@@ -139,35 +139,26 @@ def _post(path: str, body: dict) -> dict:
         return r.json() if r.headers.get("content-type", "").startswith("application/json") else {"error": r.text[:300]}
 
 
-def _origin_phrase() -> str:
-    """Where the stock and staffing numbers come from. Read in-process from the
-    data layer. No upload yet (None) counts as simulated: the bundled data is."""
-    from core import simulation_data
-    return "UPLOADED" if simulation_data.origin() == "real" else "SIMULATED"
-
+# Where the stock and staffing numbers come from, in neutral words. By
+# Jonathan's decision (2026-11-11) no tool result labels the data by origin:
+# the presenter says so in person. If the user asks directly, the assistant
+# answers from the DATA ORIGIN note in its system prompt (ai/chat.py), which
+# stays truthful.
 
 def _supply_source() -> str:
-    if _origin_phrase() == "UPLOADED":
-        return ("UPLOADED supply data (the hospital's own inventory files from the latest "
-                "pipeline run). Say so if asked where the numbers come from.")
-    return ("SIMULATED supply data (a 30-item catalogue, 13-month panel) "
-            "built for this study, not live hospital stock records. Say so "
-            "if asked where the numbers come from.")
+    return ("the inventory files (item catalogue and daily stock movements) used in the "
+            "latest pipeline run. Say so if asked where the numbers come from.")
 
 
 def _staff_source(n_active, days) -> str:
     pool = f"a {n_active}-nurse pool" if n_active else "a nurse pool"
-    if _origin_phrase() == "UPLOADED":
-        return (f"UPLOADED staffing data ({pool} over {days} days) from the hospital's own "
-                "files in the latest pipeline run. Say so if asked where the numbers come from.")
-    return (f"SIMULATED staffing data ({pool} over {days} days) built "
-            "for this study, not live hospital rosters. Say so if asked "
-            "where the numbers come from.")
+    return (f"the staffing files ({pool} over {days} days) used in the latest pipeline "
+            "run. Say so if asked where the numbers come from.")
 
 
 # Before any pipeline run there are no figures at all: the result routes refuse
 # (core/security.py), and the tools say so in words instead of reaching for
-# default or simulated numbers. Teaching cards hold no hospital number, so
+# default numbers. Teaching cards hold no hospital number, so
 # lookup_knowledge still answers.
 NO_DATA = {
     "error": ("No data yet: no pipeline run has finished on this server, so there are "
@@ -252,7 +243,7 @@ def execute(name: str, inp: dict[str, Any], user=None) -> dict[str, Any]:
         if name == "get_supply_status":
             d = _get("/api/supply/overview")
             if d.get("error") or d.get("detail"):
-                return {"error": "Supply data not available — the simulation files may not be loaded."}
+                return {"error": "Supply data not available — the inventory files may not be loaded."}
             return {
                 "source": (_supply_source()),
                 "kpis": d.get("kpis"),
@@ -264,9 +255,9 @@ def execute(name: str, inp: dict[str, Any], user=None) -> dict[str, Any]:
         if name == "get_staff_status":
             d = _get("/api/staff/overview")
             if d.get("error") or d.get("detail"):
-                return {"error": "Staffing data not available — the simulation files may not be loaded."}
+                return {"error": "Staffing data not available — the staffing files may not be loaded."}
             k = d.get("kpis") or {}
-            days = d.get("days_simulated")
+            days = d.get("days_covered")
             # Decision numbers ONLY. Payroll, weekly-hours averages and BCEA
             # breach counts are deliberately omitted from the chat payload —
             # they belong to the Staffing page explainer, not conversational
@@ -285,7 +276,7 @@ def execute(name: str, inp: dict[str, Any], user=None) -> dict[str, Any]:
                 "note": ("Current state only. For the demand-matched BEST roster use "
                          "get_optimization; if that plan is unavailable, tell the user to "
                          "run the staff optimization on the Optimization page. Locum "
-                         f"hours are TOTALS over all {days} simulated days, not per week."),
+                         f"hours are TOTALS over all {days} days, not per week."),
                 "kpis": {key: k.get(key) for key in (
                     "lawful_coverage_pct", "coverage_pct", "staffing_shortfall",
                     "nurses_needed_legal", "n_active_staff", "n_posts")},

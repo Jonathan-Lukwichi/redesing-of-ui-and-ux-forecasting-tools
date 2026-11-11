@@ -162,16 +162,18 @@ def fake_overview(monkeypatch):
     def fake_get(path):
         if path == "/api/supply/overview":
             return {"kpis": {}, "items_at_risk": 0, "items": []}
-        return {"kpis": {"n_active_staff": 17}, "days_simulated": 30, "shifts": []}
+        return {"kpis": {"n_active_staff": 17}, "days_covered": 30, "shifts": []}
     monkeypatch.setattr(tools, "_get", fake_get)
 
 
-@pytest.mark.parametrize("origin,simulated", [("real", False), ("simulated", True), (None, True)])
-def test_tool_source_follows_data_origin(monkeypatch, fake_overview, origin, simulated):
+@pytest.mark.parametrize("origin", ["real", "simulated", None])
+def test_tool_source_never_labels_the_origin(monkeypatch, fake_overview, origin):
+    """Jonathan, 2026-11-11: no tool result labels the data by origin; the
+    chat prompt's DATA ORIGIN note answers a direct question truthfully."""
     monkeypatch.setitem(simulation_data._META, "origin", origin)
     for name in ("get_supply_status", "get_staff_status"):
         source = tools.execute(name, {})["source"]
-        assert ("SIMULATED" in source) is simulated, source
+        assert "simulat" not in source.lower() and "latest pipeline run" in source, source
     staff = tools.execute("get_staff_status", {})["source"]
     assert "17-nurse" in staff and "23" not in staff
 

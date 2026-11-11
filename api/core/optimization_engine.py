@@ -666,7 +666,7 @@ def reorder_supply(
             "saving_half_width_zar": round(half_width, 0),
             "saving_low_zar": round(max(0.0, saving_a - half_width), 0),
             "saving_high_zar": round(saving_a + half_width, 0),
-            "basis": "annualised expected total cost (Monte-Carlo, 95% CI from paired replications)",
+            "basis": "annualised expected total cost (many possible demand paths, 95% CI from paired replications)",
             "cost_basis": "realised",   # K,h,p,w derived from the recorded cost record
             "engine": "mc_ss",
             "baseline": "no_safety_stock",
@@ -1660,14 +1660,14 @@ def plan_orders_for_policy(
             "saving_half_width_zar": round(half_width, 0),
             "saving_low_zar": round(max(0.0, saving_a - half_width), 0),
             "saving_high_zar": round(saving_a + half_width, 0),
-            "basis": "annualised expected total cost (arm simulation, 95% CI from paired seeds)",
+            "basis": "annualised expected total cost (policy-arm model, 95% CI from paired demand scenarios)",
             "cost_basis": "synthetic",  # flat 25% holding, 5x unit-cost shortage proxy
             "engine": "arm_sim",
             "comparable_with_mc_engine": False,
-            "comparison_caveat": ("Costs from the policy-arm simulator are on a synthetic "
+            "comparison_caveat": ("Costs from the policy-arm model are on a modelled "
                                   "cost basis and are NOT comparable with the (s,S) "
-                                  "Monte-Carlo engine's rand figures or with recorded spend. "
-                                  "Compare arm-simulator policies only with each other."),
+                                  "engine's rand figures or with recorded spend. "
+                                  "Compare policy-arm results only with each other."),
             "baseline": "naive",
             "baseline_label": "Textbook reference: flat monthly bulk order, no forecast",
             "baseline_caveat": ("The naive arm ignores the forecast entirely, so it is a "

@@ -5,9 +5,11 @@ Five CSVs for the Data Hub inventory and scheduling upload slots:
 `shift_log.csv`, `staffing_daily.csv`.
 
 These files are **simulated**. They contain no patient data. `inventory_items.csv`
-and `staff_list.csv` carry `data_origin=simulated`, which drives the app's
-"Inventory and staffing are simulated demonstration data." banner. They cover
-2025-01-01 to 2026-01-31.
+and `staff_list.csv` carry `data_origin=simulated`, which the app keeps as an
+internal flag only. By Jonathan's decision of 2026-11-11 the app never labels
+this data as simulated on screen; the presenter says so in person, and the
+assistant answers truthfully if asked directly. They cover 2025-01-01 to
+2026-01-31.
 
 They hold what a hospital would have (master lists, stock movements, payroll
 summary, shift log) and none of the simulator's own results.

@@ -137,7 +137,7 @@ def operations() -> StageResult:
     active = len(derived["staff_members.csv"])
     return StageResult(f"{_plural(len(items), 'item')}, {active:,} active staff of "
                        f"{_plural(len(staff), 'post')}, {_plural(days, 'day')} of stock "
-                       f"movements, {origin} data")
+                       "movements")
 
 
 # --- 3. Consolidate -----------------------------------------------------------
@@ -310,7 +310,7 @@ def _plan_failure(exc) -> str:
     detail = getattr(exc, "detail", None)
     if isinstance(detail, dict) and detail.get("error") == "g1_not_merged":
         return ("There is no daily demand group (G1), so there is no forecast to plan "
-                "from. The run never plans from demonstration data instead.")
+                "from. The run never plans from built-in example data instead.")
     if isinstance(detail, dict) and detail.get("error") == "simulation_missing":
         return "The staff or stock tables are missing, so no plan was made."
     return "The roster and supply plan could not be built from the forecast."

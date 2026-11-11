@@ -173,7 +173,7 @@ async def _compute_week_forecast(model: str, start_date: Optional[str],
         "model": model,
         "model_label": _MODEL_LABEL[model],
         "live": False,
-        "source": f"Demo data — {_MODEL_LABEL[model]} (build G1 on Prepare for live numbers)",
+        "source": f"Built-in example forecast — {_MODEL_LABEL[model]} (build G1 on Prepare for live numbers)",
     }
 
 
@@ -382,7 +382,7 @@ async def forecast_options(_ready=security.ResultsReady) -> dict[str, Any]:
     return {"options": out, "specialty_note": (
         "Optimization is driven by the TOTAL ED arrivals forecast (Task 1). "
         "Per-specialty forecasts (Task 2: Medicine, Orthopaedics, …) inform the "
-        "skills-mix in the thesis, but the simulation roster is typed by grade "
+        "skills-mix in the thesis, but the roster is typed by grade "
         "(PN/EN/ENA), not specialty, so specialty acuity enters as the "
         "≥1-Professional-Nurse-per-shift rule rather than per-specialty demand.")}
 

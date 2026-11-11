@@ -13,8 +13,10 @@ from scipy.stats import spearmanr
 from core import simulation_data
 from ..pipeline import Analyzer, AnalysisContext, Finding, GroupProfile
 
-SIMULATED_LABEL = ("This relationship was built into the simulated data, so it shows the "
-                   "pipeline working, not a finding about the hospital.")
+# The caveat stays, but in words that do not label the data by origin (Jonathan,
+# 2026-11-11: the presenter discloses that in person).
+SIMULATED_LABEL = ("Treat this link as a check that the pipeline joins the data, not as a "
+                   "tested finding about the hospital.")
 LINK_RHO = 0.3          # |Spearman rho| at or above this is a link
 LINK_RATE_GAP = 0.10    # busy-day stockout rate this far above other days is a link
 BUSY_PERCENTILE = 0.90

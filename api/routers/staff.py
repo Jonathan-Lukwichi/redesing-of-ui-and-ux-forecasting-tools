@@ -133,7 +133,7 @@ async def overview(_ready=security.ResultsReady) -> dict[str, Any]:
         "kpis": headline,        # this run (consistent with the roster table)
         "ci": kpis,              # 30-seed aggregated means + 95% CIs (context note)
         "n_active_staff": headline["n_active_staff"],
-        "days_simulated": int(daily["date"].nunique()),
+        "days_covered": int(daily["date"].nunique()),
         "daily": day_series,
         "shifts": shift_rows,
         "staff": staff_rows,

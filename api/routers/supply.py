@@ -265,7 +265,7 @@ async def _engine_items() -> tuple[list[dict], str]:
     try:
         df = await simulation_data.load("supply_items.csv")
     except FileNotFoundError:
-        return DEMO_ITEMS, "illustrative 7-item basket (simulation data not loaded)"
+        return DEMO_ITEMS, "illustrative 7-item basket (item data not loaded)"
 
     out: list[dict] = []
     for _, r in df.iterrows():
@@ -288,7 +288,7 @@ async def _engine_items() -> tuple[list[dict], str]:
         })
     if not out:
         return DEMO_ITEMS, "illustrative 7-item basket"
-    return out, f"real {len(out)}-item hospital panel (chapter-7 simulation)"
+    return out, f"{len(out)}-item hospital panel"
 
 
 # Load-last caches for the on-demand evidence runs (the /last pattern).

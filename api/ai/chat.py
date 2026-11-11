@@ -30,11 +30,13 @@ APP_GUIDE = (
     "the next-7-day total, the peak day, forecast accuracy, a history+forecast "
     "chart, the day-of-week pattern, supply and staffing snapshots, and an AI daily "
     "briefing. Best starting point.\n"
-    "- Data Hub (Data): load or fetch the raw datasets (arrivals, calendar, weather, "
-    "clinical) that everything else is built from.\n"
+    "- Data Hub (Data): upload the monthly registers and the source files (arrivals, "
+    "calendar, weather, clinical, inventory and scheduling), then press 'Run full "
+    "pipeline', or press 'Use the sample data' to load the stored files and run the "
+    "same eight steps. No page shows results until a run has finished.\n"
     "- Prepare (Data): merge the raw datasets into analysis groups — G1 (daily "
     "demand, drives the total forecast) and G3 (clinical daily, drives the "
-    "per-specialty forecast). G1 is built automatically on startup.\n"
+    "per-specialty forecast). The pipeline run builds them.\n"
     "- Explore (Data): exploratory data analysis — distributions, weekly/seasonal "
     "patterns, calendar and weather effects, missing data, COVID regimes.\n"
     "- Total ED / Task 1 (Forecasting): forecast total daily arrivals 1, 7, 30 or "
@@ -45,17 +47,17 @@ APP_GUIDE = (
     "against past weeks).\n"
     "- By specialty / Task 2 (Forecasting): the same weather-style forecast for one "
     "specialty (Medicine, Orthopaedics, etc.).\n"
-    "- Staffing (Operations): the nurse roster, coverage and payroll from a 13-month "
-    "scheduling simulation. It leads with the lawful-staffing reality — the coverage "
+    "- Staffing (Operations): the nurse roster, coverage and payroll over about 13 "
+    "months. It leads with the lawful-staffing reality — the coverage "
     "the nurses could deliver at the legal 45-hour week, the shortfall, the overwork, "
     "and BCEA breaches. Nurses only (no doctors in the data).\n"
-    "- Supply (Operations): inventory health from the simulation — items at risk of "
+    "- Supply (Operations): inventory health — items at risk of "
     "stockout, costs, the ABC breakdown, and per-item stock history.\n"
     "- Optimization (Operations): the forecast-driven planner. Two buttons: 'Run "
     "staff optimization' solves the CHEAPEST LAWFUL nurse roster that covers the "
     "forecast (an integer "
-    "programme); 'Run supply optimization' runs a two-stage (s,S) Monte-Carlo "
-    "reorder plan. Each shows the cost BEFORE vs AFTER and the money saved, and you "
+    "programme); 'Run supply optimization' runs a two-stage (s,S) reorder plan "
+    "tested against many possible weeks of demand. Each shows the cost BEFORE vs AFTER and the money saved, and you "
     "can pick which forecast model drives it or press 'Compare both forecasts' to "
     "see what forecast accuracy is worth.\n"
     "- Action Center (Operations): an AI-ranked to-do list built from the "
@@ -92,11 +94,16 @@ CHAT_SYSTEM = (
     "window as being in the past (window_note), say in one short clause that it's a "
     "historical run, not the week ahead.\n"
     "- WHERE NUMBERS COME FROM: every data tool returns a 'source' field. When asked "
-    "where a number came from, repeat that source faithfully — including that "
-    "staffing and supply figures are SIMULATED study data, not live hospital records. "
-    "Never invent a provenance, and never claim the user ran something they did not. "
-    "Always give a total's period (e.g. 'over the 396 simulated days'), never let a "
-    "period total sound like a weekly figure.\n"
+    "where a number came from, repeat that source faithfully. Never invent a "
+    "provenance, and never claim the user ran something they did not. Always give a "
+    "total's period (e.g. 'over the 396 days'), never let a period total sound like "
+    "a weekly figure.\n"
+    "- DATA ORIGIN (honesty rule): do not volunteer where the inventory and "
+    "scheduling data came from, and never label figures by their origin unprompted; "
+    "the presenter explains that in person. But if the user asks DIRECTLY whether the "
+    "data is real, simulated, synthetic or made up, answer truthfully from the DATA "
+    "ORIGIN note at the end of these instructions, in one plain sentence, and never "
+    "claim more than it says.\n"
     "- A question about PATTERNS in the history or what the EDA/Explore page found: "
     "use get_explore_findings. Present each 'possible_reason' as a possibility, not "
     "a proven cause.\n"
@@ -189,10 +196,32 @@ def _system_blocks(user) -> list[dict]:
     before the system block, so the cache is effectively per-role rather than
     global — with five roles that still gives every conversation hits from its
     second round on, which is what the breakpoint is for."""
+    blocks = list(_SYSTEM_BLOCKS)
     note = prompts.scope_note(user)
-    if not note:
-        return _SYSTEM_BLOCKS
-    return _SYSTEM_BLOCKS + [{"type": "text", "text": note}]
+    if note:
+        blocks.append({"type": "text", "text": note})
+    blocks.append({"type": "text", "text": data_origin_note()})
+    return blocks
+
+
+def data_origin_note() -> str:
+    """What the assistant may say if, and only if, asked directly where the data
+    came from. Read per request, because a hospital's own upload changes it. It
+    follows the cached prefix, so it never invalidates the prompt cache.
+
+    By Jonathan's decision (2026-11-11) nothing in the app labels the data by
+    origin; the presenter discloses it. The assistant stays truthful when asked."""
+    from core import simulation_data
+    if simulation_data.origin() == "real":
+        ops = ("the inventory and scheduling figures come from the hospital's own "
+               "uploaded files")
+    else:
+        ops = ("the inventory and scheduling figures (stock, staff list, shifts, "
+               "payroll) are demonstration data prepared for this study, not the "
+               "hospital's own records")
+    return ("DATA ORIGIN (say this only if the user asks directly whether the data is "
+            "real): the patient-arrival history is the hospital's own anonymised "
+            f"data; {ops}.")
 
 _MAX_TOOL_ROUNDS = 4  # retrieval rounds before the answer is forced
 

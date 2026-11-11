@@ -126,12 +126,12 @@ CARDS: dict[str, dict] = {
             "an order), HOLDING (cash and space tied up in stock you're keeping), STOCKOUT (the "
             "penalty when you run out and can't treat), and WASTAGE (items that expire unused). "
             "Order too little and stockout cost explodes; order too much and holding plus wastage "
-            "climb. The supply optimizer simulates next week's demand many times (a Monte-Carlo "
+            "climb. The supply optimizer plays next week's demand forward many times (a Monte-Carlo "
             "run) and picks the order-up-to level S with the lowest EXPECTED total of these four."
         ),
     },
     "monte_carlo": {
-        "title": "Monte-Carlo simulation",
+        "title": "Monte-Carlo method: testing many possible futures",
         "keywords": "monte carlo simulation random reps expected average uncertainty thousand runs replications stochastic",
         "source": "stochastic methods (Industrial Statistics)",
         "body": (
@@ -139,7 +139,7 @@ CARDS: dict[str, dict] = {
             "forward hundreds of times with demand drawn randomly around the forecast, and "
             "average the result. That average is the 'expected' cost or coverage, and it is far "
             "more honest than a single best-guess run. The supply optimizer does this (about 800 "
-            "simulated demand paths over a 90-day horizon) to score each candidate stock level."
+            "possible demand paths over a 90-day horizon) to score each candidate stock level."
         ),
     },
     "workforce_ip": {
@@ -209,8 +209,8 @@ CARDS: dict[str, dict] = {
             "Arrivals are COUNTS, and counts have their own arithmetic. A Poisson process is "
             "the textbook model for independent arrivals — its variance equals its mean. Real "
             "ED data is bumpier than that (epidemics, paydays, weather cluster the arrivals), "
-            "so variance exceeds the mean: OVERDISPERSION. That is why this app's simulations "
-            "draw demand from a negative-binomial distribution rather than Poisson — using "
+            "so variance exceeds the mean: OVERDISPERSION. That is why this app's planners "
+            "draw possible demand from a negative-binomial distribution rather than Poisson — using "
             "Poisson would understate the bad days and quietly undersize both the roster and "
             "the safety stock. The bell-curve (normal) shows up separately: as the shape of "
             "forecast errors, which is what the likely ranges are built from."
@@ -222,7 +222,7 @@ CARDS: dict[str, dict] = {
         "source": "Industrial Statistics (tests and confidence intervals)",
         "body": (
             "A 95% confidence interval says: measured this way many times, about 19 in 20 "
-            "intervals would contain the true value. In this app the simulation KPIs carry "
+            "intervals would contain the true value. In this app the staffing and supply KPIs carry "
             "intervals (e.g. coverage 97.3%, CI 96.8-97.8) — read the WIDTH as honesty about "
             "sampling noise. When comparing two numbers (two policies, weekend vs weekday), "
             "the quick test is whether their intervals clearly separate. And keep statistical "
@@ -276,12 +276,12 @@ CARDS: dict[str, dict] = {
     "fair_comparison": {
         "title": "Comparing policies fairly — the experiment behind the ladders",
         "keywords": "compare comparison fair experiment anova strategies policies ladder same conditions paired luck which better test",
-        "source": "Industrial Statistics (experimental design); simulation practice",
+        "source": "Industrial Statistics (experimental design); modelling practice",
         "body": (
             "You cannot judge two policies by running each in a different random week — the "
             "luck of the draw contaminates the verdict. The fix is a designed comparison: run "
-            "every candidate policy against the SAME simulated demand streams (common random "
-            "numbers — the simulation cousin of paired experiments), and repeat across many "
+            "every candidate policy against the SAME demand streams (common random "
+            "numbers — the modelling cousin of paired experiments), and repeat across many "
             "streams so averages stabilise. That is how the app's six-policy supply ladder and "
             "six-strategy staffing comparison are computed, which is why their rankings are "
             "trustworthy rather than one lucky run."
@@ -464,7 +464,7 @@ CARDS: dict[str, dict] = {
             "Ordering is decided in two layers. STRATEGIC: choose the policy FAMILY — the "
             "standing rule for how you order ((s,Q) continuous reorder, (R,S) periodic, "
             "static (s,S), or forecast-driven base-stock). The evidence comparison on the "
-            "Optimization page simulates all of them on your items and shows which wins at "
+            "Optimization page tests all of them on your items and shows which wins at "
             "your lead times — typically base-stock at short lead times, (s,Q) when lead "
             "times outrun the forecast horizon. TACTICAL: tune the numbers WITHIN the "
             "chosen family — the tuner grid-searches each item's parameters and often beats "
@@ -587,14 +587,14 @@ CARDS: dict[str, dict] = {
         "keywords": "staff planner staffing page nurses table pn en ena professional enrolled auxiliary role skill days worked reg hrs regular hours ot hrs overtime zero ot hrs zero why overtime is 0 avg wk hrs weekly hours sick payroll bcea breach coverage lawful overwork shortfall legend columns",
         "source": "HealthForecast app guide",
         "body": (
-            "The Staff Planner shows the 23-nurse pool from a simulation of about 13 months "
+            "The Staff Planner shows the 23-nurse pool over about 13 months "
             "(396 days), so every total in the table covers that whole period, not a week. "
             "Roles: PN = Professional Nurse (registered, 4-year training, leads shifts); EN = "
             "Enrolled Nurse (2-year training, works under a PN); ENA = Enrolled Nursing "
             "Auxiliary (1-year training, basic care). Skill = level 1 to 3, used so every shift "
             "has enough senior nurses. Days worked and Sick = days over the period. Reg hrs = "
             "regular hours over the period. OT hrs = overtime; it reads 0 because the "
-            "simulation books every hour as regular, so the overwork shows in Avg wk hrs "
+            "roster records book every hour as regular, so the overwork shows in Avg wk hrs "
             "instead. Avg wk hrs = average hours per week; the legal maximum is 45. Payroll = "
             "that nurse's salary cost over the whole period. BCEA = how many times the nurse "
             "exceeded the 45-hour limit of the Basic Conditions of Employment Act. Top cards: "
@@ -610,7 +610,7 @@ CARDS: dict[str, dict] = {
         "keywords": "supply planner stock inventory page items table abc class category use per day days cover service level stockouts status at risk excess ok cost inventory value stockout penalty legend columns",
         "source": "HealthForecast app guide",
         "body": (
-            "The Supply Planner shows 30 stock items from a simulation of about 13 months. "
+            "The Supply Planner shows 30 stock items over about 13 months. "
             "ABC = importance class by spend: A items are the few that carry most of the cost "
             "and deserve the closest control, C items the many cheap ones. Use/day = average "
             "daily consumption. Days cover = how many days the average stock on hand would "
@@ -637,7 +637,7 @@ CARDS: dict[str, dict] = {
             "roster: nobody over 45 hours, the right PN/EN/ENA mix, every shift covered; any "
             "gap becomes locum (agency) hours to book. The Safety buffer (Lean, Standard, "
             "Cautious) sets how much margin to keep for busy days. 'Run supply optimization' "
-            "simulates many possible weeks of demand (Monte-Carlo) and sets, per item, the reorder point "
+            "tests many possible weeks of demand and sets, per item, the reorder point "
             "(order when stock falls to this), the order-up-to level and the quantity to order "
             "now. The Service level (90-99%) is how often an item should be on the shelf when "
             "needed. Each result shows cost BEFORE versus AFTER and the saving per year. How "
@@ -664,8 +664,8 @@ CARDS: dict[str, dict] = {
         ),
     },
     "data_hub_pipeline": {
-        "title": "How the Data Hub run works, simulated labels and staging",
-        "keywords": "data hub upload run pipeline full pipeline stages register registers monthly xlsx drop files checklist staging staged simulated simulation demo data labelled replace months privacy names stored memory restart one button sample data no results yet empty",
+        "title": "How the Data Hub run works, the sample data and staging",
+        "keywords": "data hub upload run pipeline full pipeline stages register registers monthly xlsx drop files checklist staging staged replace months privacy names stored memory restart one button sample data no results yet empty",
         "source": "HealthForecast app guide",
         "body": (
             "The Data Hub is where every number in the app comes from. You drop the files in "
@@ -679,13 +679,12 @@ CARDS: dict[str, dict] = {
             "daily and hourly counts in memory; patient names and episode numbers are dropped "
             "and never kept. The uploaded months wait in memory (staging) rather than on disk, "
             "so a server restart clears them and you simply upload again. If you upload a "
-            "month that is already staged, the page asks before replacing it. Inventory and "
-            "staffing data that did not come from a hospital is simulated, and the app says "
-            "so wherever it is used; uploading the hospital's own files replaces it. Only one "
+            "month that is already staged, the page asks before replacing it. Uploading the "
+            "hospital's own inventory and staffing files replaces the stored ones. Only one "
             "run can go at a time, and a stage marked amber finished but needs your attention. "
             "Until a run has finished, no page shows any result: each one asks you to upload "
-            "the data, and 'Use the sample data' loads the stored hospital files with the "
-            "simulated inventory and scheduling files and runs the same eight steps."
+            "the data, and 'Use the sample data' loads the stored hospital, inventory and "
+            "scheduling files and runs the same eight steps."
         ),
     },
     "page_accounts_and_roles": {

@@ -133,6 +133,6 @@ def load() -> None:
         schema = datasets.get_schema(sid)
         path = PACK_DIR / schema.source_filename_hint
         if not path.is_file():
-            raise StageFailed(f"{_FAILED}: the simulated {schema.label.lower()} file is "
+            raise StageFailed(f"{_FAILED}: the stored {schema.label.lower()} file is "
                               "missing from the server.")
         _ingest(schema, path.read_bytes(), schema.source_filename_hint)
