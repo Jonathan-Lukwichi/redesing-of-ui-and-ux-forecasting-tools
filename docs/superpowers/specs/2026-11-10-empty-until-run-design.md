@@ -97,8 +97,8 @@ the Data Hub (which needs `data:write`).
    seven source files through `data_source.fetch_raw` (RAM only) and
    `routers.datasets._ingest_csv`, which is the same path the Fetch buttons
    use, and loads the five demo-pack CSVs the same way. Every slot is marked
-   `provenance: "sample"`. The normal eight stages then run, so the pack's
-   `data_origin=simulated` keeps every page labelled simulated.
+   `provenance: "sample"`. The normal eight stages then run. The pack keeps
+   `data_origin=simulated` internally, but no page says so (see the addendum).
 5. Failures end the run with Check failed and a plain receipt. A 401 or 403
    means the token was refused and a new read-only token is needed. Any other
    network failure reads "could not be reached". Anything else gets a generic
@@ -120,8 +120,8 @@ posts.
 ## Frontend
 
 - `src/components/PipelineStatus.jsx`: AppShell reads the status once per page
-  visit and shares it with the gate, the header note, the simulated-data banner
-  and the badges. It keeps the last answer while a new read is in flight.
+  visit and shares it with the gate, the header note and the badges. It
+  keeps the last answer while a new read is in flight.
 - `src/components/ResultsGate.jsx` wraps the eight results pages (`gated` in
   `App.jsx`) inside `RequireScope` and BEFORE the page mounts. Until
   `results_ready`, it shows one `Card` titled "No results yet", with "Go to the
@@ -131,8 +131,8 @@ posts.
   the failed stage's receipt if the run stopped. It never starts a run by
   itself.
 - Sidebar badges are read only once results are ready. The header note says
-  "No data yet", "Run in progress", "Uploaded run N, <time>" or "Sample data
-  run N, <time>".
+  "No data yet", "Run in progress" or "Run N, <time>" (upload and sample runs
+  read the same).
 - On the Data Hub, "Use the sample data" sits beside "Run full pipeline", with
   the same busy gating and an inline confirm for `replace_uploaded`.
 
@@ -147,3 +147,37 @@ posts.
 - A Data Hub "Run full pipeline" over sample-loaded data counts as an upload
   run, so visitors cannot restart over it. That errs on the side of
   protecting data.
+
+## Addendum (2026-11-11): no origin labels
+
+Jonathan reviewed the Staff and Supply Planners and decided that the app must
+not say anywhere that the data is simulated: "we can specify it in speaking, but
+to make the app look real don't say simulated data". Changes:
+
+- The yellow "Inventory and staffing are simulated demonstration data." banner
+  is gone from Staffing, Supply, Optimization and the Action Center.
+- Page text is reworded with the same facts and numbers. The Staff hero now
+  reads "Nurse rostering, coverage and payroll · 23 active nurses (of 30 posts)
+  · BCEA logged, not enforced", and the Supply hero "Inventory, reorder
+  behaviour and stockouts · 30 items". The 30-run spread reads "95% range: …".
+  Method text says "tests many possible weeks of demand" instead of
+  "Monte-Carlo simulation".
+- The header note reads "Run N, <time>" for every run.
+- Server text that reaches the screen no longer says simulated:
+  - the Operations receipt
+  - the basket labels
+  - the cost basis and caveat
+  - the optimization note
+  - the Explore ops-link caveat, now "Treat this link as a check that the
+    pipeline joins the data, not as a tested finding about the hospital."
+  - the sample loader's errors
+- The assistant: tool results, page contexts and teaching cards carry no origin
+  label. Its prompt tells it not to volunteer the origin. If asked directly, it
+  answers from a DATA ORIGIN note appended per request. The note says the
+  arrivals are the hospital's anonymised data. It says the inventory and
+  scheduling figures are demonstration data, or the hospital's uploaded files
+  when they are.
+- Staffing and Supply stay empty until a run, as before: the presenter starts
+  with the descriptive analysis before the optimization.
+- Internal names (`simulation_data`, `data_origin`, `SIMULATED_LABEL`), file
+  names, docs and the demo-pack README keep the word.
