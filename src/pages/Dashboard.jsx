@@ -30,6 +30,7 @@ export default function Dashboard({ onNavigate }) {
   const { status } = usePipelineContext();
   const staffReady = isStepReady(status, 'staff');
   const supplyReady = isStepReady(status, 'supply');
+  const forecastReady = isStepReady(status, 'forecast');
 
   const [retryToken, setRetryToken] = useState(0);
   const retry = () => { setError(null); setFc(null); setRetryToken((n) => n + 1); };
@@ -41,7 +42,7 @@ export default function Dashboard({ onNavigate }) {
       .then((d) => {
         if (!alive) return;
         // {available, kind, result} -> fc. Only a total-ED run belongs here; a specialty run or nothing = the existing empty state.
-        if (d?.available && d.kind === 'total' && d.result) { setFc(d.result); return; }
+        if (d?.available && d.kind === 'total' && d.result) { setFc(d.result); setError(null); return; }
         // No forecast yet: ask (a light GET) whether the history is missing too,
         // and show the empty state once that is known, so it never flips.
         const empty = (built) => { if (alive) { setG1Built(built); setError('g1'); } };
@@ -51,7 +52,7 @@ export default function Dashboard({ onNavigate }) {
       })
       .catch((e) => { if (alive) setError(e.message || 'Request failed'); });
     return () => { alive = false; };
-  }, [retryToken]);
+  }, [retryToken, forecastReady]);
 
   useEffect(() => {
     if (!supplyReady) return undefined;

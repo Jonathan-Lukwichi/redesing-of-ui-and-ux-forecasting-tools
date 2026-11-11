@@ -36,12 +36,13 @@ export default function ResultsGate({ children, onNavigate, step = 'any' }) {
   const ready = isStepReady(status, step);
   const running = !!status?.running;
 
-  // Follow a run (ours or anyone's) until it ends; the page appears when it is ready.
+  // Follow a run (ours or anyone's) until it ends; the page appears when its step is ready,
+  // and an open page picks up steps the run finishes meanwhile.
   useEffect(() => {
-    if (ready || !running) return undefined;
+    if (!running) return undefined;
     const timer = setInterval(() => { refresh().catch(() => {}); }, POLL_MS);
     return () => clearInterval(timer);
-  }, [ready, running, refresh]);
+  }, [running, refresh]);
 
   if (ready) return children;
   if (!status && !error) return <div className="content" aria-busy="true" />;

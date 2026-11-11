@@ -912,12 +912,15 @@ test('per-step pages @ 390px — with only the prediction ready, Total ED opens 
   await mockGate(page, { status: { ...dhStatus({ done: 8 }), ready_steps: ['forecast'] } });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/#forecast-total');
+  await expect(page.getByText('Choose your forecast method')).toBeVisible();
   await expect(page.getByTestId('results-gate')).toHaveCount(0);
   await page.goto('/#staff');
   await page.reload(); // a hash-only goto does not remount the app
+  await expect(page.getByTestId('results-gate')).toBeVisible();
   await expect(page.getByTestId('results-gate')).toContainText('This page appears once the staff analysis has run.');
   await page.goto('/#dashboard');
   await page.reload(); // a hash-only goto does not remount the app
+  await expect(page.getByRole('heading', { name: 'Operations Dashboard' })).toBeVisible();
   await expect(page.getByTestId('results-gate')).toHaveCount(0);
   await page.waitForTimeout(800);
   expect(seen.filter((s) => /\/api\/(staff|supply)\/overview/.test(s))).toHaveLength(0);
@@ -927,7 +930,28 @@ test('per-step pages @ 390px — before any run the gate shows no step hint', as
   await mockGate(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/#staff');
+  await expect(page.getByTestId('results-gate')).toBeVisible();
   await expect(page.getByTestId('results-gate')).not.toContainText('This page appears once');
+});
+
+test('per-step pages @ 390px — a forecast that finishes while the Dashboard is open appears there', async ({ page }) => {
+  let finished = false;
+  const arrivalsOnly = { ...dhStatus({ done: 3, running: true }), ready_steps: ['arrivals'] };
+  await mockGate(page, { status: () => (finished ? dhStatus({ done: 8 }) : arrivalsOnly) });
+  const days = Array.from({ length: 7 }, (_, i) => ({ date: `2026-11-${String(10 + i).padStart(2, '0')}`, predicted: 100 + i, lower: 90, upper: 120 }));
+  await page.route('**/api/forecast/last', (r) => r.fulfill({
+    json: finished
+      ? { available: true, kind: 'total', ran_at: 'x', result: { history: [{ date: '2026-11-09', arrivals: 99 }], forecast: days } }
+      : { available: false },
+  }));
+  await page.route('**/api/prepare/groups', (r) => r.fulfill({ json: groupsWithG1(true) }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#dashboard');
+  await expect(page.getByRole('heading', { name: 'Operations Dashboard' })).toBeVisible();
+  await expect(page.locator('.notice-empty')).toBeVisible();
+  finished = true; // the run ends; the open page follows it without a reload
+  await expect(page.locator('.notice-empty')).toHaveCount(0, { timeout: 10000 });
+  await expect(page.getByRole('heading', { name: 'Operations Dashboard' })).toBeVisible();
 });
 
 test('staff @ 390px — someone who can upload also gets the Data Hub button', async ({ page }) => {
