@@ -28,6 +28,9 @@ A run has a source: "upload" (the Data Hub's Run) or "sample" (the sample
 button, whose loader runs first in the same thread; see core/pipeline/sample.py).
 The results take the source of the run that prepared their data: a partial run
 adds to them under the source they already have.
+
+Each stage that ends done or amber, and a loader that succeeds, records how
+long it took (core/pipeline/timings.py), so later estimates follow this server.
 """
 from __future__ import annotations
 
@@ -42,7 +45,7 @@ from typing import Callable, Sequence
 from datetime import datetime, timezone
 
 from core import data_version, simulation_data
-from core.pipeline import READY_STEPS, preflight, stages
+from core.pipeline import READY_STEPS, preflight, stages, timings
 
 log = logging.getLogger("healthforecast.pipeline")
 
@@ -280,7 +283,9 @@ def _prepare(prepare: Callable[[], None], run: _Plan) -> bool:
             receipt = CLEAR_FAILED
         else:
             try:
+                scale = timings.scale_for("load")
                 prepare()
+                timings.record("load", time.perf_counter() - t0, scale)
                 return True
             except stages.StageFailed as e:
                 receipt = e.message
@@ -324,6 +329,7 @@ def _run(run: _Plan, source: str = "upload",
                     _skip_from(i + 1, len(plan))
                     return
                 cleared = True
+            scale = timings.scale_for(_sid)   # the data size this stage starts on
             try:
                 result = fn()
             except stages.StageFailed as e:
@@ -340,10 +346,12 @@ def _run(run: _Plan, source: str = "upload",
                 return
             finally:
                 gc.collect()
+            seconds = time.perf_counter() - t0
             _update(i, status=result.status, receipt=result.receipt,
                     warnings=list(result.warnings),
-                    seconds=round(time.perf_counter() - t0, 2), peak_mb=_peak())
+                    seconds=round(seconds, 2), peak_mb=_peak())
             if result.status in ("done", "amber"):
+                timings.record(_sid, seconds, scale)
                 _made(_sid, source, relabel)
         ok = True
     finally:
