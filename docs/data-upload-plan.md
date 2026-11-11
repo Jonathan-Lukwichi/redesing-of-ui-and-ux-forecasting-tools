@@ -17,6 +17,17 @@ Both parts pass through the **same anonymisation gate**: patient names, hospital
 
 The whole flow is designed around three principles: **anonymise first, never block the user, never overwrite silently.**
 
+> **How the app behaves today (November 2026).** The server loads nothing when it
+> starts: it no longer fetches the hospital files from the private data repo on
+> its own. Until someone uploads the data on the Data Hub and a pipeline run
+> finishes, every results page shows one card, "No results yet", and the Data
+> Hub checklist starts at 0 of 7 files. For people without the hospital files
+> (an examiner on the public site, for example), the "Use the sample data"
+> button loads the stored files from the data repo, in memory only, plus the
+> simulated inventory and scheduling files, then runs the same eight steps. A
+> restart clears everything again. Design note:
+> `docs/superpowers/specs/2026-11-10-empty-until-run-design.md`.
+
 ---
 
 ## 2. What "anonymisation gate" means in plain English
