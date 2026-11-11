@@ -26,7 +26,7 @@ class ForecastRequest(BaseModel):
 
 @router.post("")
 async def run_forecast(req: ForecastRequest,
-                       _ready=security.ResultsReady) -> Dict[str, Any]:
+                       _ready=security.ReadyFor("forecast")) -> Dict[str, Any]:
     if len(req.history) < 14:
         raise HTTPException(400, "Need at least 14 days of history to forecast.")
     if len(req.history) != len(req.dates):
@@ -419,7 +419,7 @@ def compute_total(model: str, horizon: int, start_date: Optional[str] = None,
 @router.post("/run")
 async def run_from_pipeline(req: RunRequest,
                             _idle=security.PipelineIdle,
-                            _ready=security.ResultsReady) -> Dict[str, Any]:
+                            _ready=security.ReadyFor("forecast")) -> Dict[str, Any]:
     result = await run_in_threadpool(
         compute_total, req.model, req.horizon, req.start_date, req.alias)
     _remember_run("total", result)
@@ -502,7 +502,7 @@ def compute_specialty(specialty: str, model: str, horizon: int, resolution: str,
 @router.post("/specialty")
 async def run_specialty_forecast(req: SpecialtyForecastRequest,
                                  _idle=security.PipelineIdle,
-                                 _ready=security.ResultsReady) -> Dict[str, Any]:
+                                 _ready=security.ReadyFor("forecast")) -> Dict[str, Any]:
     result = await run_in_threadpool(
         compute_specialty, req.specialty, req.model, req.horizon,
         req.resolution, req.start_date, req.alias)
@@ -556,7 +556,7 @@ _ENGINE_CACHE: dict = {}
 @router.get("/engines")
 async def engine_accuracy(group: str = "g1", specialty: Optional[str] = None,
                           _user=security.AdminAccess,
-                          _ready=security.ResultsReady) -> Dict[str, Any]:
+                          _ready=security.ReadyFor("forecast")) -> Dict[str, Any]:
     """Live accuracy of the two engines that actually run (SARIMAX + Gradient
     Boosting) on this target. Admin-only: accuracy figures never reach the
     public app, and the Admin page is the only reader."""
@@ -595,7 +595,7 @@ class ValidateRequest(BaseModel):
 @router.post("/validate")
 async def validate_engine(req: ValidateRequest, _rl=Depends(security.rate_limit("heavy")),
                           _user=security.ValidateAccess,
-                          _ready=security.ResultsReady) -> Dict[str, Any]:
+                          _ready=security.ReadyFor("forecast")) -> Dict[str, Any]:
     """Rolling-origin backtest for one engine at one horizon.
 
     Runs on demand only (one model fit per fold). The result is cached, so every
@@ -658,7 +658,7 @@ async def coverage(group: str = "g1", specialty: Optional[str] = None) -> Dict[s
 
 
 @router.get("/demo")
-async def demo_forecast(_ready=security.ResultsReady) -> Dict[str, Any]:
+async def demo_forecast(_ready=security.ReadyFor("forecast")) -> Dict[str, Any]:
     """Returns a forecast using built-in demo data (no upload needed)."""
     import pandas as pd
     from datetime import datetime, timedelta

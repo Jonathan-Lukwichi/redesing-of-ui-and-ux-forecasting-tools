@@ -29,7 +29,7 @@ from core import prepare_registry
 # Every explore route is analysis, so the whole router waits for a finished
 # pipeline run (core/security.py). The Analyse stage calls core/explore directly.
 router = APIRouter(prefix="/api/explore", tags=["explore"],
-                   dependencies=[security.ResultsReady])
+                   dependencies=[security.ReadyFor("arrivals")])
 
 
 # ---- helpers -----------------------------------------------------------------

@@ -199,7 +199,7 @@ async def actions(request: Request, refresh: bool = False,
     # Before any pipeline run there is nothing to recommend from, so the AI is
     # never asked: an empty list and the flag, which the page reads as "no
     # results yet" (refresh included, so Re-generate cannot spend a call either).
-    if not pipeline_job.results_available():
+    if not pipeline_job.step_ready("recommend"):
         return {"actions": [], "results_ready": False, "built_at": None,
                 "summary": action_store.summary()}
     # A stored list with items needs no AI, so it is served before any AI

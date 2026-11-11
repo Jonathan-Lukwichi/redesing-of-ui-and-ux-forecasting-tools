@@ -37,7 +37,7 @@ async def _kpis(name: str) -> dict[str, dict]:
 
 
 @router.get("/overview")
-async def overview(_ready=security.ResultsReady) -> dict[str, Any]:
+async def overview(_ready=security.ReadyFor("staff")) -> dict[str, Any]:
     try:
         members = await simulation_data.load("staff_members.csv")
         daily   = await simulation_data.load("staff_daily.csv")
@@ -159,7 +159,7 @@ data_version.register("staff", _clear_staff_caches)
 @router.get("/strategy-compare-demo")
 async def staff_strategy_compare_demo(
     mean_arrivals: Optional[float] = None,
-    _ready=security.ResultsReady,
+    _ready=security.ReadyFor("optimise"),
 ) -> dict[str, Any]:
     """Compare the product rostering strategies (peak / mean / forecast-lawful
     / forecast-OT / forecast-stochastic) for the fixed 23-nurse pool. Only the

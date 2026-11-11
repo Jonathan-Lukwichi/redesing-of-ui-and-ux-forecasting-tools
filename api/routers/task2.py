@@ -99,7 +99,7 @@ class Task2ForecastRequest(BaseModel):
 
 @router.post("/forecast")
 async def run_forecast(req: Task2ForecastRequest,
-                       _ready=security.ResultsReady) -> dict[str, Any]:
+                       _ready=security.ReadyFor("forecast")) -> dict[str, Any]:
     try:
         card = handover.task2_card(req.specialty, req.alias)
     except handover.HandoverMissing as e:

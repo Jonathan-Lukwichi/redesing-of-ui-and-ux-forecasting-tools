@@ -312,13 +312,16 @@ def require_pipeline_idle() -> None:
 PipelineIdle = Depends(require_pipeline_idle)
 
 # ── Results readiness guard ──────────────────────────────────────────────────
-# Results only ever come from a finished pipeline run (core/pipeline/job.py).
-# Before one, every route that would compute or serve a result from default or
-# simulated data refuses with this body instead, so no page, report or assistant
-# answer can show a number nobody's data produced. It sits on the HTTP route
-# (after the access gate and PipelineIdle, so those answers come first), never
-# in the function: the pipeline's stages call the same functions directly.
-# The /last routes stay open; before a run they already say nothing is there.
+# Results only ever come from pipeline steps (core/pipeline/job.py), and each
+# step is tracked on its own: the job knows which of READY_STEPS hold a result.
+# Every route that would compute or serve a result from default or simulated
+# data names the step that makes its result and refuses with this body until
+# that step is ready, so no page, report or assistant answer can show a number
+# nobody's data produced. A step a running run will re-make counts as not ready.
+# It sits on the HTTP route (after the access gate and PipelineIdle, so those
+# answers come first), never in the function: the pipeline's stages call the
+# same functions directly. The /last routes stay open; before a run they
+# already say nothing is there.
 
 RESULTS_NOT_READY = {
     "error": "no_results",
@@ -328,16 +331,26 @@ RESULTS_NOT_READY = {
 
 
 class ResultsNotReady(Exception):
-    """No pipeline run has produced results in this server process yet."""
+    """The step this route's result comes from has not run on this server."""
 
 
-def require_results_ready() -> None:
-    from core.pipeline import job   # lazily: the pipeline imports routers that import this
-    if not job.results_available():
-        raise ResultsNotReady()
+def require_step_ready(step: str):
+    """A dependency function that refuses until `step` is ready. An unknown
+    step fails at import time, so a typo cannot leave a route unguarded."""
+    from core.pipeline import READY_STEPS   # light: no heavy imports in __init__
+    if step not in READY_STEPS:
+        raise ValueError(f"unknown readiness step {step!r}; expected one of {READY_STEPS}")
+
+    def check() -> None:
+        from core.pipeline import job   # lazily: the pipeline imports routers that import this
+        if not job.step_ready(step):
+            raise ResultsNotReady()
+
+    return check
 
 
-ResultsReady = Depends(require_results_ready)
+def ReadyFor(step: str):
+    return Depends(require_step_ready(step))
 
 
 def caller_can(request: Request, scope: str) -> bool:

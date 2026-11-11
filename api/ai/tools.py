@@ -156,23 +156,38 @@ def _staff_source(n_active, days) -> str:
             "run. Say so if asked where the numbers come from.")
 
 
-# Before any pipeline run there are no figures at all: the result routes refuse
-# (core/security.py), and the tools say so in words instead of reaching for
-# default numbers. Teaching cards hold no hospital number, so
-# lookup_knowledge still answers.
-NO_DATA = {
-    "error": ("No data yet: no pipeline run has finished on this server, so there are "
-              "no forecast, staffing, supply or plan figures to report. Say exactly "
-              "that, and ask the user to upload their data on the Data Hub and run the "
-              "pipeline, or to press 'Use the sample data' on any results page. Do not "
-              "estimate or quote any number."),
-    "no_data": True,
+# Before a step has run there are no figures from it: the result routes refuse
+# (core/security.py), and each tool says so in words instead of reaching for
+# default numbers. Teaching cards hold no hospital number, so lookup_knowledge
+# still answers. The step is the one that makes the tool's result.
+TOOL_STEP = {
+    "get_forecast": "forecast",
+    "get_supply_status": "supply",
+    "get_staff_status": "staff",
+    "get_optimization": "optimise",
+    "get_explore_findings": "arrivals",
+}
+
+WHAT = {
+    "forecast": "forecast",
+    "supply": "supply analysis",
+    "staff": "staffing analysis",
+    "optimise": "optimization plan",
+    "arrivals": "patient-arrivals analysis",
 }
 
 
-def _results_ready() -> bool:
-    from core.pipeline import job   # lazily: the pipeline imports routers
-    return job.results_available()
+def no_data(step: str) -> dict[str, Any]:
+    return {
+        "error": (f"No {WHAT[step]} yet: that step has not run on this server, so there "
+                  "are no figures to report. Say exactly that. If you may run steps for "
+                  "this user, offer to run it with propose_run; otherwise ask them to "
+                  "upload their data on the Data Hub and run the pipeline, or to press "
+                  "'Use the sample data' on any results page. Do not estimate or quote "
+                  "any number."),
+        "no_data": True,
+        "step": step,
+    }
 
 
 def execute(name: str, inp: dict[str, Any], user=None) -> dict[str, Any]:
@@ -188,8 +203,11 @@ def execute(name: str, inp: dict[str, Any], user=None) -> dict[str, Any]:
                           "Tell the user plainly that this area is not theirs to see, "
                           "and suggest who would have it."),
                 "out_of_scope": True}
-    if name in TOOL_SCOPE and name != "lookup_knowledge" and not _results_ready():
-        return dict(NO_DATA)
+    step = TOOL_STEP.get(name)
+    if step is not None:
+        from core.pipeline import job   # lazily: the pipeline imports routers
+        if not job.step_ready(step):
+            return no_data(step)
     try:
         if name == "get_forecast":
             # Read ONLY the run already materialised in the app (the /last

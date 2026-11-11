@@ -67,7 +67,7 @@ class Task1ForecastRequest(BaseModel):
 
 @router.post("/forecast")
 async def run_forecast(req: Task1ForecastRequest,
-                       _ready=security.ResultsReady) -> dict[str, Any]:
+                       _ready=security.ReadyFor("forecast")) -> dict[str, Any]:
     # Surfacing the badge + horizon early helps the UI render meaningful empty state.
     try:
         card = handover.task1_card_public(req.alias)

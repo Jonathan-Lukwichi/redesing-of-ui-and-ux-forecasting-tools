@@ -46,7 +46,7 @@ def _status(service: float, stockouts: float, days_cover: float) -> str:
 
 
 @router.get("/overview")
-async def overview(_ready=security.ResultsReady) -> dict[str, Any]:
+async def overview(_ready=security.ReadyFor("supply")) -> dict[str, Any]:
     try:
         items = await simulation_data.load("supply_items.csv")
         kpis = await _kpis("supply_kpis.csv")
@@ -114,7 +114,7 @@ async def overview(_ready=security.ResultsReady) -> dict[str, Any]:
 
 
 @router.get("/item/{item_id}")
-async def item_detail(item_id: str, _ready=security.ResultsReady) -> dict[str, Any]:
+async def item_detail(item_id: str, _ready=security.ReadyFor("supply")) -> dict[str, Any]:
     try:
         items = await simulation_data.load("supply_items.csv")
         panel = await simulation_data.load("supply_panel.csv")
@@ -218,7 +218,7 @@ DEMO_ITEMS = [
 
 @router.post("/compare")
 async def supply_compare(req: SupplyCompareRequest,
-                         _ready=security.ResultsReady) -> dict[str, Any]:
+                         _ready=security.ReadyFor("optimise")) -> dict[str, Any]:
     """Run four inventory policies side by side at one lead-time setting.
 
     naive · static (s,S) · dynamic forecast base-stock (Li et al.) · oracle.
@@ -239,7 +239,7 @@ async def supply_compare(req: SupplyCompareRequest,
 
 @router.post("/sweep")
 async def supply_sweep(req: SupplySweepRequest,
-                       _ready=security.ResultsReady) -> dict[str, Any]:
+                       _ready=security.ReadyFor("optimise")) -> dict[str, Any]:
     """Sweep all four policies across a range of mean lead times (crossover chart)."""
     if not req.items:
         raise HTTPException(400, "Provide at least one inventory item.")
@@ -309,7 +309,7 @@ async def supply_compare_demo(
     lead_time: Optional[float] = None,
     service_level: float = 0.95,
     source: str = "real",
-    _ready=security.ResultsReady,
+    _ready=security.ReadyFor("optimise"),
 ) -> dict[str, Any]:
     """Multi-arm policy comparison on the REAL 30-item panel by default
     (`source=demo` uses the illustrative basket). `lead_time` overrides the
@@ -331,7 +331,7 @@ async def supply_compare_demo(
 async def supply_sweep_demo(
     service_level: float = 0.95,
     source: str = "real",
-    _ready=security.ResultsReady,
+    _ready=security.ReadyFor("optimise"),
 ) -> dict[str, Any]:
     """Lead-time sweep (crossover chart) on the REAL 30-item panel by default."""
     if source == "demo":

@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
+from ai import tools
 from core import auth, data_source, registry, security
 from core.pipeline import READY_STEPS, job, sample, stages, staging
 from tests import pipeline_fixtures as fx
@@ -149,45 +150,84 @@ def test_status_route_exposes_readiness(open_client, not_ready):
 # --- The guard --------------------------------------------------------------
 
 GUARDED = [
-    ("POST", "/api/forecast", {"history": []}),
-    ("POST", "/api/forecast/run", {}),
-    ("POST", "/api/forecast/specialty", {"specialty": "Medicine"}),
-    ("GET", "/api/forecast/engines", None),
-    ("POST", "/api/forecast/validate", {}),
-    ("GET", "/api/forecast/demo", None),
-    ("POST", "/api/task1/forecast", {}),
-    ("POST", "/api/task2/forecast", {}),
-    ("GET", "/api/staff/overview", None),
-    ("GET", "/api/staff/strategy-compare-demo", None),
-    ("GET", "/api/supply/overview", None),
-    ("GET", "/api/supply/item/A01", None),
-    ("POST", "/api/supply/compare", {}),
-    ("POST", "/api/supply/sweep", {}),
-    ("GET", "/api/supply/compare-demo", None),
-    ("GET", "/api/supply/sweep-demo", None),
-    ("POST", "/api/optimization/staff", {}),
-    ("POST", "/api/optimization/supply", {}),
-    ("POST", "/api/optimization/run", {}),
-    ("POST", "/api/optimization/compare", {}),
-    ("POST", "/api/optimization/policy/tune", {"policy": "dynamic"}),
-    ("GET", "/api/optimization/forecast-options", None),
-    ("GET", "/api/optimization/staff-pool", None),
-    ("GET", "/api/explore/findings", None),
-    ("GET", "/api/explore/metrics", None),
-    ("GET", "/api/explore/sections/patient_arrivals_band", None),
-    ("GET", "/api/explore/missingness", None),
-    ("GET", "/api/explore/task1/stl", None),
-    ("GET", "/api/explore/impact_matrix", None),
-    ("GET", "/api/explore/index", None),
-    ("POST", "/api/reports/email", {}),
+    ("POST", "/api/forecast", {"history": []}, "forecast"),
+    ("POST", "/api/forecast/run", {}, "forecast"),
+    ("POST", "/api/forecast/specialty", {"specialty": "Medicine"}, "forecast"),
+    ("GET", "/api/forecast/engines", None, "forecast"),
+    ("POST", "/api/forecast/validate", {}, "forecast"),
+    ("GET", "/api/forecast/demo", None, "forecast"),
+    ("POST", "/api/task1/forecast", {}, "forecast"),
+    ("POST", "/api/task2/forecast", {}, "forecast"),
+    ("GET", "/api/staff/overview", None, "staff"),
+    ("GET", "/api/staff/strategy-compare-demo", None, "optimise"),
+    ("GET", "/api/supply/overview", None, "supply"),
+    ("GET", "/api/supply/item/A01", None, "supply"),
+    ("POST", "/api/supply/compare", {}, "optimise"),
+    ("POST", "/api/supply/sweep", {}, "optimise"),
+    ("GET", "/api/supply/compare-demo", None, "optimise"),
+    ("GET", "/api/supply/sweep-demo", None, "optimise"),
+    ("POST", "/api/optimization/staff", {}, "optimise"),
+    ("POST", "/api/optimization/supply", {}, "optimise"),
+    ("POST", "/api/optimization/run", {}, "optimise"),
+    ("POST", "/api/optimization/compare", {}, "optimise"),
+    ("POST", "/api/optimization/policy/tune", {"policy": "dynamic"}, "optimise"),
+    ("GET", "/api/optimization/forecast-options", None, "optimise"),
+    ("GET", "/api/optimization/staff-pool", None, "optimise"),
+    ("GET", "/api/explore/findings", None, "arrivals"),
+    ("GET", "/api/explore/metrics", None, "arrivals"),
+    ("GET", "/api/explore/sections/patient_arrivals_band", None, "arrivals"),
+    ("GET", "/api/explore/missingness", None, "arrivals"),
+    ("GET", "/api/explore/task1/stl", None, "arrivals"),
+    ("GET", "/api/explore/impact_matrix", None, "arrivals"),
+    ("GET", "/api/explore/index", None, "arrivals"),
+    ("POST", "/api/reports/email", {}, "forecast"),
 ]
 
 
-@pytest.mark.parametrize("method,path,body", GUARDED)
-def test_result_routes_are_refused_before_a_run(open_client, not_ready, method, path, body):
+@pytest.mark.parametrize("method,path,body,step", GUARDED)
+def test_result_routes_are_refused_before_a_run(open_client, not_ready, method, path, body, step):
     r = open_client.request(method, path, json=body)
     assert r.status_code == 409, (path, r.status_code, r.text[:200])
     assert r.json() == NO_RESULTS
+
+
+@pytest.mark.parametrize("method,path,body,step", GUARDED)
+def test_each_result_route_waits_for_its_own_step(open_client, not_ready, method, path, body, step):
+    job._STATE.ready = set(READY_STEPS) - {step}
+    r = open_client.request(method, path, json=body)
+    assert r.status_code == 409 and r.json() == NO_RESULTS, path
+
+
+def test_a_route_answers_once_its_own_step_is_ready(open_client, not_ready):
+    job._STATE.ready = {"staff"}
+    assert open_client.get("/api/staff/overview").status_code == 200
+    assert open_client.get("/api/supply/overview").status_code == 409
+    job._STATE.ready = {"arrivals"}
+    assert open_client.get("/api/explore/findings/index").status_code == 200
+
+
+def test_the_action_center_waits_for_the_recommendations(open_client, not_ready, monkeypatch):
+    from ai import actions, config
+    monkeypatch.setattr(config, "configured", lambda: True)
+    monkeypatch.setattr(actions, "build_and_store", lambda: pytest.fail("AI asked"))
+    job._STATE.ready = set(READY_STEPS) - {"recommend"}
+    body = open_client.get("/api/ai/actions").json()
+    assert body["actions"] == [] and body["results_ready"] is False
+
+
+@pytest.mark.parametrize("name,step", list(tools.TOOL_STEP.items()))
+def test_each_tool_waits_for_its_own_step(not_ready, monkeypatch, name, step):
+    monkeypatch.setattr(tools, "_get", lambda path: pytest.fail(f"{name} read {path}"))
+    job._STATE.ready = set(READY_STEPS) - {step}
+    out = tools.execute(name, {})
+    assert out["no_data"] is True and out["step"] == step
+    assert "Data Hub" in out["error"] and "sample data" in out["error"]
+    assert not any(ch.isdigit() for ch in out["error"])
+
+
+def test_an_unknown_step_fails_at_import():
+    with pytest.raises(ValueError):
+        security.require_step_ready("nope")
 
 
 UNGUARDED = [
@@ -287,10 +327,9 @@ def test_action_center_does_not_call_the_ai_before_a_run(open_client, not_ready,
 @pytest.mark.parametrize("name", ["get_forecast", "get_supply_status", "get_staff_status",
                                   "get_optimization", "get_explore_findings"])
 def test_assistant_tools_have_no_numbers_before_a_run(not_ready, monkeypatch, name):
-    from ai import tools
     monkeypatch.setattr(tools, "_get", lambda path: pytest.fail(f"{name} read {path}"))
     out = tools.execute(name, {})
-    assert out.get("no_data") is True
+    assert out.get("no_data") is True and out["step"] == tools.TOOL_STEP[name]
     assert "Data Hub" in out["error"] and "sample data" in out["error"]
     assert not any(ch.isdigit() for ch in out["error"])
 
