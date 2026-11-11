@@ -159,7 +159,8 @@ def _check_files() -> None:
 
 def _check_sample() -> None:
     """Whether a data writer may load the sample now, never replacing uploaded
-    data (replace=True is not reachable from here). One wording for plan and start."""
+    data (replacing uploaded data is not reachable from here). One wording for
+    plan and start."""
     r = sample.refusal(True, False)
     if r is not None:
         raise Refused(r[1]["error"], r[1]["message"] + SAMPLE_HINT)

@@ -1,6 +1,10 @@
 """Read-only tools the Ask-chat can call. Each wraps an existing app endpoint
-and trims the result to keep token cost low. The chat can ONLY read — there are
-no state-changing tools here by design."""
+and trims the result to keep token cost low. Every tool here only reads: there
+are no state-changing tools in this module by design.
+
+The chat's run tools live apart, in ai/run_tools.py. They only check the data,
+read a run's status and PROPOSE steps; a run starts only when the user confirms
+it through POST /api/ai/run, never on the model's say-so."""
 from __future__ import annotations
 import os
 from typing import Any

@@ -364,6 +364,16 @@ def caller_can(request: Request, scope: str) -> bool:
         return not auth.auth_configured() and scope in auth.UNCONFIGURED_SCOPES
     return user.can(scope)
 
+
+def acting_username(request: Request) -> Optional[str]:
+    """Whose name an action is taken in: "demo" in open mode (as require_scope
+    treats everyone there), otherwise the signed-in user, or None when signed
+    out. An unconfigured deployment has no one to act as, so it is None too."""
+    if auth_mode() == "open":
+        return "demo"
+    user = current_user(request)
+    return user.username if user is not None else None
+
 # Kept so nothing that still imports it breaks mid-migration. It maps to the
 # broadest "can change something" scope, which is what the old name implied.
 PlannerAccess = DataWriteAccess

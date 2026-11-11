@@ -1,9 +1,13 @@
-"""Ask-chat: a read-only, RAG-style tool-using assistant over the live app data.
+"""Ask-chat: a RAG-style tool-using assistant over the live app data.
 
 Runs a manual tool loop on the reasoning-tier model (Sonnet): the model
 retrieves grounding first (knowledge cards via lookup_knowledge, live numbers
-via the data tools), then answers from what it retrieved. Read-only by design —
-it can look things up but never act.
+via the data tools), then answers from what it retrieved. The data tools
+(ai/tools.py) stay read-only. For a caller the router passes in, the run tools
+(ai/run_tools.py) are added: they check the data, read a run's status, and
+PROPOSE pipeline steps. A proposal starts nothing: its confirmation token goes
+into the caller's trailer, which the model never sees, and only the user's own
+POST /api/ai/run starts the run. The assistant never decides anything.
 
 Loop mechanics (per Anthropic's building-effective-agents guidance):
 - every round is STREAMED, so the user sees text the moment it is generated;
@@ -17,7 +21,7 @@ from __future__ import annotations
 import json
 from typing import Iterator
 
-from ai import config, prompts, tools, redact
+from ai import config, prompts, tools, redact, run_tools
 from ai.client import _client, AIError, with_fallback
 
 APP_GUIDE = (
@@ -65,7 +69,8 @@ APP_GUIDE = (
     "- 'Read this for me' panels appear on the Forecast, Staffing, Supply and "
     "Optimization pages — a one-click AI explanation of that page's numbers.\n"
     "- You (this Ask assistant) float on every page and can both look up live "
-    "numbers and explain how the app works."
+    "numbers and explain how the app works, and, for signed-in users who may upload "
+    "data, run pipeline steps after they confirm."
 )
 
 CHAT_SYSTEM = (
@@ -173,9 +178,31 @@ CHAT_SYSTEM = (
     "- Go longer ONLY when the user asks for detail, a full list, or an explanation.\n"
     "If a tool returns an error, say plainly what to do (e.g. build G1/G3 on Prepare, "
     "or run the optimization first).\n\n"
-    "You can ONLY read. You cannot change a schedule, place an order or move stock. "
-    "If asked to act, explain that a human reviews and approves it on the relevant "
-    "page (Staffing, Supply, Optimization or Action Center)."
+    "RUNNING STEPS: you may START the app's own pipeline steps for the user; you never "
+    "decide anything.\n"
+    "- When the user asks you to run something, call check_data first. If files are "
+    "missing, name each missing file exactly and say it is uploaded on the Data Hub (the "
+    "app opens it); you cannot upload files.\n"
+    "- If the request is ambiguous ('run the analysis'), ask which they want: patient "
+    "arrivals, staff or supply; or the prediction, the optimization, the recommendations, "
+    "or the whole pipeline.\n"
+    "- Then call propose_run with the step ids. Say in one or two sentences what will run, "
+    "any step added first or re-run and why (the tool's reason), and the estimate exactly "
+    "as the tool returned it, in words (e.g. 'about a minute'). Never make up an estimate. "
+    "Then say they can press Run below or reply yes. Nothing has started until they do: "
+    "never say it is running.\n"
+    "- If propose_run refuses, say why in plain words (for a signed-out user: sign in to "
+    "run steps).\n"
+    "- When the user says the run has finished or stopped, call get_run_status and the "
+    "data tools for the steps that ran, then summarise in 3 to 5 plain sentences using "
+    "only numbers those tools returned. If a step failed, give its receipt in plain words "
+    "and what to do. End with the decision that is the user's, if any (for example: to "
+    "adopt the reorder policy the evidence favours, open Optimization and press Adopt; to "
+    "act on a recommendation, use the Action Center).\n"
+    "- Never describe a result before the step that produces it has finished.\n"
+    "- You NEVER make decisions: you cannot adopt a reorder policy, approve a roster, "
+    "accept, dismiss or close a recommendation, clear or replace data, or change "
+    "settings. If asked, say which page and which button the user presses."
 )
 
 
@@ -226,20 +253,31 @@ def data_origin_note() -> str:
 _MAX_TOOL_ROUNDS = 4  # retrieval rounds before the answer is forced
 
 
-def stream_chat(messages: list[dict], user=None) -> Iterator[tuple[str, object]]:
+def stream_chat(messages: list[dict], user=None,
+                caller: run_tools.Caller | None = None) -> Iterator[tuple[str, object]]:
     """messages: [{role:'user'|'assistant', content:str}]. Yields ('delta', text)
-    chunks, then ('model', name) and ('usage', {in,out})."""
+    chunks, then ('trailer', dict) when a run tool left one for the browser,
+    then ('model', name) and ('usage', {in,out}).
+
+    With a `caller` the model is also offered the run tools, which only check,
+    read and propose (see the module docstring). Without one nothing changes."""
     usage = {"in": 0, "out": 0}
     used = {"model": config.model_reasoning()}
+    schemas = tools.schemas_for(user) + (run_tools.SCHEMAS if caller is not None else [])
+
+    def _execute(name: str, args: dict) -> dict:
+        if caller is not None and name in run_tools.NAMES:
+            return run_tools.execute(name, args or {}, caller)
+        return tools.execute(name, args or {}, user=user)
 
     def _gemini() -> Iterator[str]:
         from ai import gemini
         used["model"] = config.gemini_model()
+        if caller is not None:
+            caller.trailer.clear()   # only the answering model's turn counts
         system = "\n\n".join(b["text"] for b in _system_blocks(user))
         for kind, payload in gemini.chat(
-                system, messages, tools.schemas_for(user),
-                lambda name, args: tools.execute(name, args, user=user),
-                _MAX_TOOL_ROUNDS):
+                system, messages, schemas, _execute, _MAX_TOOL_ROUNDS):
             if kind == "delta":
                 yield payload
             elif kind == "model":
@@ -257,7 +295,7 @@ def stream_chat(messages: list[dict], user=None) -> Iterator[tuple[str, object]]
             forced = round_no == _MAX_TOOL_ROUNDS
             kwargs: dict = dict(
                 model=model, max_tokens=1100, system=_system_blocks(user),
-                tools=tools.schemas_for(user), messages=convo,
+                tools=schemas, messages=convo,
             )
             if forced:
                 kwargs["tool_choice"] = {"type": "none"}
@@ -276,7 +314,7 @@ def stream_chat(messages: list[dict], user=None) -> Iterator[tuple[str, object]]
                 results = []
                 for block in resp.content:
                     if block.type == "tool_use":
-                        out = tools.execute(block.name, block.input or {}, user=user)
+                        out = _execute(block.name, block.input or {})
                         results.append({
                             "type": "tool_result",
                             "tool_use_id": block.id,
@@ -296,5 +334,7 @@ def stream_chat(messages: list[dict], user=None) -> Iterator[tuple[str, object]]
     # never slip through (see redact.scrub_stream).
     for chunk in redact.scrub_stream(with_fallback(_claude, _gemini)):
         yield ("delta", chunk)
+    if caller is not None and caller.trailer:
+        yield ("trailer", dict(caller.trailer))
     yield ("model", used["model"])
     yield ("usage", usage)

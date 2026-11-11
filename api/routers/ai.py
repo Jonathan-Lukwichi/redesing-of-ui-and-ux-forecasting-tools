@@ -5,14 +5,16 @@
   GET  /api/ai/usage             â€” token/cost tile for the admin view
 """
 from __future__ import annotations
-from typing import Any
+import json
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from ai import config, client as ai_client, context, prompts, telemetry, chat as ai_chat, actions as ai_actions, redact, audit
+from ai import proposals, run_tools
 
 from core import action_store, security
 from core.pipeline import job as pipeline_job
@@ -165,7 +167,11 @@ async def chat(request: Request,
     # tools are filtered to the caller's territory: a role gate you can walk
     # around by typing a question into the chat box is not a gate. Teaching
     # content stays universal.
-    caller = security.current_user(request)
+    user = security.current_user(request)
+    acting = security.acting_username(request)
+    runner = run_tools.Caller(username=acting,
+                              can_run=acting is not None
+                              and security.caller_can(request, "data:write"))
     msgs = [{"role": m.role, "content": m.content} for m in req.messages]
     last_user = next((m["content"] for m in reversed(msgs) if m["role"] == "user"), "")
 
@@ -173,15 +179,25 @@ async def chat(request: Request,
         in_tok = out_tok = 0
         model = config.model_reasoning()
         parts: list[str] = []
+        trailer: dict = {}
         try:
-            for kind, payload in ai_chat.stream_chat(msgs, user=caller):
+            for kind, payload in ai_chat.stream_chat(msgs, user=user, caller=runner):
                 if kind == "delta":
-                    parts.append(payload)
-                    yield payload
+                    # The trailer mark is the server's alone: stripped from the
+                    # model's text, so the model can never forge a proposal.
+                    payload = payload.replace(run_tools.TRAILER_MARK, "")
+                    if payload:
+                        parts.append(payload)
+                        yield payload
+                elif kind == "trailer":
+                    trailer = payload
                 elif kind == "model":
                     model = payload
                 elif kind == "usage":
                     in_tok, out_tok = payload["in"], payload["out"]
+            if trailer:
+                # Last chunk: the proposal (with its token) and any page to open.
+                yield run_tools.TRAILER_MARK + json.dumps(trailer)
         except Exception as e:
             yield ai_client.friendly(e)
         finally:
@@ -190,6 +206,26 @@ async def chat(request: Request,
             audit.log_event("chat", model, last_user, "".join(parts), in_tok, out_tok)
 
     return StreamingResponse(gen(), media_type="text/plain; charset=utf-8", headers=_STREAM_HEADERS)
+
+
+class RunRequest(BaseModel):
+    token: str = Field(min_length=8, max_length=64)
+    via: Literal["button", "typed"] = "button"
+    model_config = ConfigDict(extra="forbid")
+
+
+@router.post("/run")
+async def run(req: RunRequest,
+              user=security.DataWriteAccess,
+              _idle=security.PipelineIdle,
+              _rl=Depends(security.rate_limit("heavy"))):
+    """Start the run the assistant proposed, once the user confirmed it. Only
+    the browser calls this, with the token from the chat trailer; the token
+    must be this user's, unexpired, unused, and its plan still valid."""
+    try:
+        return proposals.start_confirmed(req.token, user.username, req.via)
+    except proposals.ProposalError as e:
+        return _err(e.status, e.code, e.message)
 
 
 @router.get("/actions")
