@@ -225,8 +225,8 @@ function Topbar({ crumbs = [], onMenu, menuOpen, menuBtnRef, routeKey }) {
 }
 
 /* The shell reads the pipeline status once per page visit and shares it (see
-   PipelineStatus.jsx): the results gate, the header note, the simulated-data
-   banner and the badges below all read that one answer. */
+   PipelineStatus.jsx): the results gate, the header note and the badges
+   below all read that one answer. */
 export default function AppShell(props) {
   return (
     <PipelineStatusProvider routeKey={props.active}>

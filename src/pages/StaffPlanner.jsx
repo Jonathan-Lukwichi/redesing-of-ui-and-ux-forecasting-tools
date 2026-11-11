@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import PageHero from '../components/PageHero';
-import DataOriginBanner from '../components/DataOriginBanner';
 import KPI from '../components/KPI';
 import Icon from '../components/Icon';
 import { LineChart } from '../components/Charts';
@@ -49,8 +48,7 @@ export default function StaffPlanner() {
   }, [retryToken]);
 
   if (error) return (
-    <div className="content"><PageHero kicker="Operations · Staff" title="Staff Planner" sub="Scheduling simulation" />
-      <DataOriginBanner />
+    <div className="content"><PageHero kicker="Operations · Staff" title="Staff Planner" sub="Nurse rostering" />
       <div className="card notice-card notice-offline">
         <div style={{ fontWeight: 600, marginBottom: 6 }}>Live staffing data isn't reachable right now</div>
         <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 12 }}>
@@ -80,14 +78,13 @@ export default function StaffPlanner() {
       <PageHero
         kicker="Operations · Staff"
         title="Staff Planner"
-        sub="Nurse rostering, coverage and payroll from a 13-month scheduling simulation driven by real ED arrivals · 23 active nurses (of 30 posts) · BCEA logged, not enforced · representative run (seed 10059)"
+        sub="Nurse rostering, coverage and payroll · 23 active nurses (of 30 posts) · BCEA logged, not enforced"
         image="/images/staff-bg.jpg"
         actions={<>
           <button className="btn"><Icon name="refresh" size={14} />Re-optimize</button>
           <button className="btn btn-primary"><Icon name="check" size={14} />Approve roster</button>
         </>}
       />
-      <DataOriginBanner />
 
       <div className="grid-kpi">
         <KPI label="Coverage (lawful hours)" value={k ? Math.round(k.lawful_coverage_pct) : '—'} unit="%"
@@ -106,7 +103,7 @@ export default function StaffPlanner() {
           Today's roster reaches <strong>{k.coverage_pct}% coverage</strong> only by working
           <strong> {k.mean_weekly_hours}h weeks</strong> ({k.overwork_pct}% of the legal 45h limit) — unsustainable.
           {' '}{k.n_active_staff} of {k.n_posts} nursing posts filled, rest vacant.
-          {ci && <> Across 30 runs (95% CI): coverage {ci.coverage_pct.mean}% [{ci.coverage_pct.lo}–{ci.coverage_pct.hi}] ·
+          {ci && <> 95% range: coverage {ci.coverage_pct.mean}% [{ci.coverage_pct.lo}–{ci.coverage_pct.hi}] ·
             payroll {zarShort(ci.annual_payroll_zar.mean)} · BCEA {Math.round(ci.bcea_violations_per_staff.mean)}/nurse.</>}
           {' '}Ask the Analyst Assistant to explain what this gap means.
         </div>

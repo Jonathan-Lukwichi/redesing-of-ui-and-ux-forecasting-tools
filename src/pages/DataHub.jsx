@@ -525,7 +525,7 @@ export default function DataHub({ onNavigate }) {
       <SectionHeader
         kicker="Section C · Operations"
         title="Inventory and staffing"
-        sub="Supply catalogue, stock movements, staff list and shift logs · 5 files · upload only · simulated demo pack in api/data/demo-pack/"
+        sub="Supply catalogue, stock movements, staff list and shift logs · 5 files · upload only"
       />
       <CardGrid columns={3} minItemWidth={240}>
         {opsItems.map((item) => (
@@ -598,7 +598,7 @@ function RunPanel({
         </button>
       </Card.Actions>
       <div className="pl-note">
-        Loads the stored hospital files and the simulated inventory and scheduling files, then runs the same eight steps.
+        Loads the stored hospital, inventory and scheduling files, then runs the same eight steps.
       </div>
       {confirmSample && (
         <div className="pl-confirm" role="group" aria-label="Confirm replacing the loaded data with the sample">

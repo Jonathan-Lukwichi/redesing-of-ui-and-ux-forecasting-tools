@@ -680,9 +680,26 @@ test('upload @ 390px — a run whose start time is not known yet says Running.',
 });
 
 
-// ---- Data origin banner, data-source note and consumers ----------------------
-const BANNER = 'Inventory and staffing are simulated demonstration data.';
+// ---- Data-source note, and no origin labels on screen ------------------------
+// By Jonathan's decision (2026-11-11) no page labels the inventory and
+// scheduling data by origin: the presenter says so in person.
+const FORBIDDEN = /simulat|seed \d|representative run|demonstration data/i;
 const LADDER = 'Illustrative rates and error, from the thesis.';
+const CI = (mean, lo, hi) => ({ mean, lo, hi });
+const STAFF_OVERVIEW = {
+  kpis: { lawful_coverage_pct: 75, coverage_pct: 97, staffing_shortfall: 7, nurses_needed_legal: 30.5,
+    n_active_staff: 23, n_posts: 30, mean_weekly_hours: 57.9, overwork_pct: 129, bcea_per_nurse: 257 },
+  ci: { coverage_pct: CI(96.9, 96.7, 97), annual_payroll_zar: CI(12880000, 12800000, 12950000),
+    bcea_violations_per_staff: CI(242, 238, 246) },
+  daily: [], staff: [], shifts: [], days_covered: 396,
+};
+const SUPPLY_OVERVIEW = {
+  kpis: { items_at_risk: 24, n_items: 30, total_cost_zar: 5880000, stockout_cost_zar: 5680000,
+    inventory_value_zar: 483000 },
+  ci: { total_annual_cost_zar: CI(5800000, 5600000, 6000000), stockout_incidence_pct: CI(90.4, 87.8, 92.9),
+    non_performance_rate: CI(4.1, 3.8, 4.4), lead_time_median_unflagged_days: CI(9, 8, 10) },
+  items: [], by_abc: [], items_at_risk: 24,
+};
 
 async function mockOrigin(page, status) {
   await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
@@ -699,21 +716,34 @@ async function mockOrigin(page, status) {
 test.describe('data origin', () => {
   test.use({ timezoneId: 'UTC' });
 
-  for (const route of ['staff', 'supply', 'optimize', 'actions']) {
-    test(`${route} @ 390px — simulated data shows the banner`, async ({ page }) => {
-      await mockOrigin(page, dhStatus({ done: 8 }));
+  for (const route of GATED) {
+    test(`${route} @ 390px — with results, no page text labels the data by origin`, async ({ page }) => {
+      // The status says the stock and staffing came from the demo pack.
+      await mockOrigin(page, { ...dhStatus({ done: 8 }), origin: 'simulated' });
+      await page.route('**/api/staff/overview', (r) => r.fulfill({ json: STAFF_OVERVIEW }));
+      await page.route('**/api/supply/overview', (r) => r.fulfill({ json: SUPPLY_OVERVIEW }));
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(`/#${route}`);
-      await expect(page.getByText(BANNER)).toBeVisible();
+      await expect(page.getByTestId('results-gate')).toHaveCount(0);
+      await page.waitForTimeout(1200);
+      const text = await page.evaluate(() => document.body.innerText);
+      expect(text.match(FORBIDDEN), `origin label on ${route}`).toBeNull();
+      if (route === 'staff') {
+        await expect(page.locator('.page-hero')).toContainText('Nurse rostering, coverage and payroll · 23 active nurses (of 30 posts) · BCEA logged, not enforced');
+        await expect(page.getByText(/95% range: coverage 96\.9% \[96\.7–97\]/)).toBeVisible();
+      }
+      if (route === 'supply') {
+        await expect(page.locator('.page-hero')).toContainText('Inventory, reorder behaviour and stockouts · 30 items');
+        await expect(page.getByText(/95% range:/)).toBeVisible();
+      }
     });
   }
 
-  test('dashboard @ 390px — no banner on a page without simulated inputs', async ({ page }) => {
+  test('dashboard @ 390px — a sample run shows its number and time in the header', async ({ page }) => {
     await mockOrigin(page, dhStatus({ done: 8 }));
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/#dashboard');
-    await expect(page.getByText('Sample data run 3, 2 Nov 2026 12:25')).toBeVisible();
-    await expect(page.getByText(BANNER)).toHaveCount(0);
+    await expect(page.locator('.topbar-source')).toHaveText('Run 3, 2 Nov 2026 12:25');
   });
 
   test('dashboard @ 390px — before any run the header says there is no data yet', async ({ page }) => {
@@ -730,29 +760,20 @@ test.describe('data origin', () => {
     await expect(page.locator('.topbar-source')).toHaveText('Run in progress');
   });
 
-  test('staff @ 390px — real data hides the banner; a failed status shows nothing', async ({ page }) => {
-    await mockOrigin(page, { ...dhStatus({ done: 8 }), origin: 'real' });
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/#staff');
-    await page.waitForTimeout(1500);
-    await expect(page.getByText(BANNER)).toHaveCount(0);
-  });
-
-  test('staff @ 390px — failed status renders neither banner nor note', async ({ page }) => {
+  test('staff @ 390px — a failed status renders no note', async ({ page }) => {
     await mockOrigin(page, 'fail');
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/#staff');
     await page.waitForTimeout(1500);
-    await expect(page.getByText(BANNER)).toHaveCount(0);
-    await expect(page.getByText('Default data')).toHaveCount(0);
+    await expect(page.locator('.topbar-source')).toHaveCount(0);
   });
 
-  test('dashboard @ 390px — uploaded run shows its date in the header', async ({ page }) => {
+  test('dashboard @ 390px — an uploaded run reads the same as a sample run', async ({ page }) => {
     await mockOrigin(page, { ...dhStatus({ done: 8 }),
       source: { mode: 'uploaded', run: 3, finished_at: '2026-11-02T14:05:00+00:00' } });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/#dashboard');
-    await expect(page.getByText('Uploaded run 3, 2 Nov 2026 14:05')).toBeVisible();
+    await expect(page.locator('.topbar-source')).toHaveText('Run 3, 2 Nov 2026 14:05');
   });
 
   test('optimize @ 390px — the ladder label shows only for uploaded data', async ({ page }) => {
@@ -767,7 +788,7 @@ test.describe('data origin', () => {
     await mockOrigin(page, dhStatus({ done: 8 }));
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/#optimize');
-    await expect(page.getByText(BANNER)).toBeVisible();
+    await expect(page.locator('.page-hero')).toBeVisible();
     await expect(page.getByText(LADDER)).toHaveCount(0);
   });
 
@@ -899,7 +920,7 @@ test('staff @ 390px — the sample run shows its progress, then the page appears
   phase = 'done';
   await expect(gate).toHaveCount(0, { timeout: 6000 });
   await expect(page.locator('.page-hero')).toContainText('Staff Planner');
-  await expect(page.getByText('Inventory and staffing are simulated demonstration data.')).toBeVisible();
+  await expect(page.locator('.topbar-source')).toHaveText(/^Run 3/);
   expect(posts).toEqual(['']);
 });
 
@@ -985,7 +1006,7 @@ test('upload @ 390px — the sample button sits beside Run and starts the sample
   await expect(panel.getByRole('button', { name: 'Run full pipeline' })).toBeDisabled();
   const sampleBtn = panel.getByRole('button', { name: 'Use the sample data' });
   await expect(sampleBtn).toBeEnabled();
-  await expect(panel).toContainText('Loads the stored hospital files and the simulated inventory and scheduling files, then runs the same eight steps.');
+  await expect(panel).toContainText('Loads the stored hospital, inventory and scheduling files, then runs the same eight steps.');
   await page.waitForTimeout(500);
   expect(posts).toHaveLength(0);
   await sampleBtn.click();

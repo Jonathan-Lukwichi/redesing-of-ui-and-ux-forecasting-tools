@@ -88,7 +88,7 @@ export default function StaffEvidence({ uploaded = false }) {
 
         {!strat && (
           <div style={{ color: C.muted, fontSize: 13, padding: '4px 0' }}>
-            Press <strong>Compare strategies</strong> to simulate the five rostering regimes
+            Press <strong>Compare strategies</strong> to test the five rostering regimes
             at your chosen demand level. Nothing runs until you ask.
           </div>
         )}

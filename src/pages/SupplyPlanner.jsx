@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import PageHero from '../components/PageHero';
-import DataOriginBanner from '../components/DataOriginBanner';
 import KPI from '../components/KPI';
 import Icon from '../components/Icon';
 import { LineChart } from '../components/Charts';
@@ -84,8 +83,7 @@ export default function SupplyPlanner() {
     it.category === filter);
 
   if (error) return (
-    <div className="content"><PageHero kicker="Operations · Supply" title="Supply Planner" sub="Inventory simulation" />
-      <DataOriginBanner />
+    <div className="content"><PageHero kicker="Operations · Supply" title="Supply Planner" sub="Inventory" />
       <div className="card"><div className="card-body" style={{ color: C.red }}>
         Couldn't load supply data: {error}. Make sure the backend is running on port 8000.
       </div></div>
@@ -99,14 +97,13 @@ export default function SupplyPlanner() {
       <PageHero
         kicker="Operations · Supply"
         title="Supply Planner"
-        sub="Inventory, reorder behaviour and stockouts from a 13-month consumption simulation · 30 items · representative run (seed 1059)"
+        sub="Inventory, reorder behaviour and stockouts · 30 items"
         image="/images/supply-bg.jpg"
         actions={<>
           <button className="btn"><Icon name="filter" size={14} />Filter</button>
           <button className="btn btn-primary"><Icon name="bell" size={14} />Review {data?.items_at_risk ?? 0} at-risk</button>
         </>}
       />
-      <DataOriginBanner />
 
       <div className="grid-kpi">
         <KPI label="Items at risk" value={k ? k.items_at_risk : '—'} foot={`of ${k?.n_items ?? 0} items`} />
@@ -117,7 +114,7 @@ export default function SupplyPlanner() {
 
       {ci && (
         <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginBottom: 12 }}>
-          Figures are from one representative run. Across 30 simulation runs (95% CI):
+          95% range:
           total cost {zarShort(ci.total_annual_cost_zar.mean)} [{zarShort(ci.total_annual_cost_zar.lo)}–{zarShort(ci.total_annual_cost_zar.hi)}] ·
           stockout incidence {ci.stockout_incidence_pct.mean}% [{ci.stockout_incidence_pct.lo}–{ci.stockout_incidence_pct.hi}] ·
           supplier non-performance {ci.non_performance_rate.mean}% · median lead time {ci.lead_time_median_unflagged_days.mean} days.

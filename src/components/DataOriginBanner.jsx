@@ -1,8 +1,12 @@
 import { usePipelineContext } from './PipelineStatus';
 
-/* Where the data on screen came from, read from the shell's one pipeline-status
-   read per page (PipelineStatus.jsx). A failed read renders nothing, so offline
-   runs are unaffected. */
+/* Which run the data on screen came from, read from the shell's one
+   pipeline-status read per page (PipelineStatus.jsx). A failed read renders
+   nothing, so offline runs are unaffected.
+
+   By Jonathan's decision (2026-11-11) no user-visible text labels the
+   inventory and scheduling data by origin: the presenter says so in person.
+   The yellow banner that used to live here is gone for that reason. */
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const pad = (n) => String(n).padStart(2, '0');
@@ -14,36 +18,20 @@ export function formatStamp(iso) {
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-const RUN_LABEL = { uploaded: 'Uploaded run', sample: 'Sample data run' };
-
 // The header note: which run the results come from, or that there are none yet.
+// Upload and sample runs read the same.
 export function noteText(status) {
   if (!status) return null;
   if (!status.results_ready) return status.running ? 'Run in progress' : 'No data yet';
   const { source } = status;
-  const label = RUN_LABEL[source?.mode];
-  if (!label) return null;
+  if (!source || source.mode === 'none' || source.run == null) return null;
   const stamp = formatStamp(source.finished_at);
-  return `${label} ${source.run}${stamp ? `, ${stamp}` : ''}`;
+  return `Run ${source.run}${stamp ? `, ${stamp}` : ''}`;
 }
 
 export function DataSourceNote() {
   const { status } = usePipelineContext();
   const text = noteText(status);
   if (!text) return null;
-  return <span className="topbar-source" title="Where the data on screen came from">{text}</span>;
-}
-
-export default function DataOriginBanner() {
-  const { status } = usePipelineContext();
-  if (!status || status.origin === 'real') return null;
-  return (
-    <div role="note" style={{
-      background: 'var(--warning-soft, #fef3c7)', color: 'var(--text)',
-      border: '1px solid var(--warning, #f59e0b)', borderRadius: 8,
-      padding: '8px 12px', fontSize: 'var(--step--1, 13px)', lineHeight: 1.5,
-    }}>
-      Inventory and staffing are simulated demonstration data.
-    </div>
-  );
+  return <span className="topbar-source" title="The pipeline run the data on screen comes from">{text}</span>;
 }

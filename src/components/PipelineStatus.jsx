@@ -2,8 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { api } from '../api/client';
 
 /* One read of GET /api/pipeline/status per page visit, shared by everything in
-   the app shell: the results gate, the header data note, the simulated-data
-   banner and the sidebar badges. The last answer is kept while a new page's
+   the app shell: the results gate, the header data note and the sidebar
+   badges. The last answer is kept while a new page's
    read is in flight, so moving between pages never flashes empty.
 
    results_ready is the server's word on whether a finished pipeline run has

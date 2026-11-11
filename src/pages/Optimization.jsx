@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import PageHero from '../components/PageHero';
-import DataOriginBanner from '../components/DataOriginBanner';
 import { usePipelineContext } from '../components/PipelineStatus';
 import KPI from '../components/KPI';
 import Icon from '../components/Icon';
@@ -120,7 +119,6 @@ export default function Optimization({ onNavigate }) {
           </button>
         }
       />
-      <DataOriginBanner />
 
       {/* STEP 1 — which forecast drives the optimization */}
       <SectionHeader n={step++} title="Choose the forecast engine" desc="The demand signal everything downstream consumes." />
@@ -351,7 +349,7 @@ export default function Optimization({ onNavigate }) {
           </button>
         </div>
         <div className="card-body">
-          {!sup && <div style={{ color: C.muted, padding: '20px 0' }}>Click <strong>Run supply optimization</strong> to run the two-stage stochastic (s,S) programme — a Monte-Carlo simulation picks the order-up-to level that minimises expected total cost. You'll see annual cost before vs after.</div>}
+          {!sup && <div style={{ color: C.muted, padding: '20px 0' }}>Click <strong>Run supply optimization</strong> to run the two-stage stochastic (s,S) programme — it tests many possible weeks of demand and picks the order-up-to level that minimises expected total cost. You'll see annual cost before vs after.</div>}
           {sup && (
             <>
               <SavingsPanel
@@ -360,7 +358,7 @@ export default function Optimization({ onNavigate }) {
                 before={sup.cost.before_zar} after={sup.cost.after_zar}
                 saving={sup.cost.saving_zar} savingPct={sup.cost.saving_pct}
                 unit="per year"
-                note={`Annual expected total cost over a ${sup.horizon_days}-day rolling horizon × ${sup.n_reps} simulated demand paths${sup.forecast_factor ? ` · consumption scaled ×${sup.forecast_factor} to the forecast` : ''} · order ${sup.kpis.items_to_order} of ${sup.kpis.items_total} items now (${zarShort(sup.kpis.order_cost_zar)})${sup.policy_label ? ` · policy: ${sup.policy_label}` : ''}.`}
+                note={`Annual expected total cost over a ${sup.horizon_days}-day rolling horizon × ${sup.n_reps} possible demand paths${sup.forecast_factor ? ` · consumption scaled ×${sup.forecast_factor} to the forecast` : ''} · order ${sup.kpis.items_to_order} of ${sup.kpis.items_total} items now (${zarShort(sup.kpis.order_cost_zar)})${sup.policy_label ? ` · policy: ${sup.policy_label}` : ''}.`}
               />
               {sup.cost_breakdown && (
                 <div style={{ marginTop: 14 }}>

@@ -135,7 +135,7 @@ export default function PolicyEvidence({ onPolicyChange }) {
 
         {!compare && (
           <div style={{ color: C.muted, fontSize: 13, padding: '8px 0' }}>
-            Press <strong>Compare policies</strong> to simulate the four deployable families
+            Press <strong>Compare policies</strong> to test the four deployable families
             (plus the naive benchmark) on the real 30-item panel — then adopt the winner
             for your conditions. Nothing runs until you ask.
           </div>
@@ -228,7 +228,7 @@ export default function PolicyEvidence({ onPolicyChange }) {
               <Icon name="forecast" size={13} /> {busy.sweep ? 'Sweeping…' : 'Run lead-time sweep'}
             </button>
           </div>
-          {!sweep && <div style={{ fontSize: 11.5, color: C.muted }}>Simulates every policy across 3–30 day lead times to find where the forecast-driven policy stops winning.</div>}
+          {!sweep && <div style={{ fontSize: 11.5, color: C.muted }}>Tests every policy across 3–30 day lead times to find where the forecast-driven policy stops winning.</div>}
           {sweep && (
             <>
               <div style={{ fontSize: 11.5, color: C.muted, marginBottom: 8 }}>

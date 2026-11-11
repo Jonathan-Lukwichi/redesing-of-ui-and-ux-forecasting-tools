@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import PageHero from '../components/PageHero';
-import DataOriginBanner, { formatStamp } from '../components/DataOriginBanner';
+import { formatStamp } from '../components/DataOriginBanner';
 import Icon from '../components/Icon';
 import { aiApi } from '../api/aiClient';
 import { api } from '../api/client';
@@ -101,7 +101,6 @@ export default function ActionCenter() {
           </button>
         }
       />
-      <DataOriginBanner />
       {formatStamp(builtAt) && (
         <div style={{ fontSize: 'var(--step--2)', color: 'var(--text-3)' }}>Built {formatStamp(builtAt)}</div>
       )}
