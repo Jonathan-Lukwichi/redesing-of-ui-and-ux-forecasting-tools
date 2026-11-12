@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { aiApi } from '../api/aiClient';
 import { api } from '../api/client';
 import { runProgress, usePipelineContext } from './PipelineStatus';
-import { requestShowLastRun } from '../utils/showLastRun';
+import { clearShowLastRun, renewShowLastRun, requestShowLastRun } from '../utils/showLastRun';
 
 // Global "Ask" assistant — a floating button + chat panel, on every page.
 // The assistant reads: it looks up forecasts, supply and staffing and explains
@@ -17,6 +17,7 @@ const FINISHED_PROMPT = 'The run I confirmed has finished. Check its status and 
 const STOPPED_PROMPT = 'The run I confirmed stopped before the end. Check its status and tell me plainly what went wrong and what to do.';
 const ENDED = ['done', 'amber', 'skipped', 'failed'];
 const REASON_NOTE = { needed: 'needed first', rerun: 're-run so every page matches' };
+const SHOW_MARGIN_MS = 60_000;   // how long past the run's estimate its page still opens on the result
 
 function fmt(s) {
   const t = Math.max(0, Math.round(Number(s) || 0));
@@ -127,12 +128,13 @@ export default function AskChat({ onNavigate }) {
         alive = false;
         const failed = (s.stages || []).find((x) => x.status === 'failed');
         if (failed) {
+          clearShowLastRun();   // nothing new to show: the page stays as an ordinary visit
           patchRun(follow.index, { phase: 'stopped', stoppedAt: failed.label || failed.id });
           setPending(STOPPED_PROMPT);
         } else {
           patchRun(follow.index, { phase: 'finished' });
-          // The page opened shows this run's result once, as if its Load-last button were pressed.
-          requestShowLastRun(follow.proposal.page);
+          // The request made at the start still stands unless the page took it already.
+          renewShowLastRun(follow.proposal.page);
           go(follow.proposal.page);
           setPending(FINISHED_PROMPT);
         }
@@ -158,6 +160,10 @@ export default function AskChat({ onNavigate }) {
     patchRun(i, { phase: 'starting', note: null });
     try {
       const res = await aiApi.runProposal(p.token, via);
+      // The page this run opens shows its result once, as if its Load-last button
+      // were pressed. Asked now, not at the end: the page is hidden while its step
+      // is re-made, and its gate may bring it back before this chat sees the end.
+      requestShowLastRun(p.page, (Number(p.total_seconds) || 0) * 1000 + SHOW_MARGIN_MS);
       if (res?.status) {
         setStatusRef.current?.(res.status);
         setRunStatus(res.status);
