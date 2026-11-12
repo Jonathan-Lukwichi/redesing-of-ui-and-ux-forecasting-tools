@@ -1283,15 +1283,19 @@ test.describe('assistant runs steps', () => {
     expect(st.phase).toBe('idle');
   });
 
-  test('chat @ 390px — an offer past its expiry time is refused here without asking the server', async ({ page }) => {
+  test('chat @ 390px — an offer past its expiry time still asks the server, which refuses it', async ({ page }) => {
+    // The browser clock never blocks a run: the server is the authority on expiry.
     const old = { ...OFFER, expires_at: Math.floor(Date.now() / 1000) - 5 };   // epoch seconds
-    const st = await mockAssistant(page, { replies: [`I can run the optimization.${trailer({ proposal: old })}`] });
+    const st = await mockAssistant(page, {
+      replies: [`I can run the optimization.${trailer({ proposal: old })}`],
+      run: { status: 409, json: { error: 'proposal_expired', message: EXPIRED } },
+    });
     await openChatAndAsk(page, 'run the optimization');
     const card = page.getByTestId('chat-proposal');
     await card.getByRole('button', { name: 'Run' }).click();
+    await expect.poll(() => st.runPosts).toEqual([{ token: 'tok-1', via: 'button' }]);
     await expect(card.getByRole('status')).toContainText(EXPIRED);
-    await page.waitForTimeout(300);
-    expect(st.runPosts).toHaveLength(0);
+    await expect(card.getByRole('button', { name: 'Run' })).toHaveCount(0);
   });
 
   test('chat @ 390px — an offer that expires in the future can still be run', async ({ page }) => {

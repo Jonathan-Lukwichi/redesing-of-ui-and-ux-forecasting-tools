@@ -14,7 +14,6 @@ const POLL_MS = 2000;
 const YES_RE = /^\s*(yes|y|yeah|yep|ok|okay|sure|go|go ahead|run|run it|do it|please do|yes please)\s*[.!]*\s*$/i;
 const FINISHED_PROMPT = 'The run I confirmed has finished. Check its status and results, then summarise them for me.';
 const STOPPED_PROMPT = 'The run I confirmed stopped before the end. Check its status and tell me plainly what went wrong and what to do.';
-const EXPIRED = 'That offer has expired. Ask again and the assistant will re-check.';
 const ENDED = ['done', 'amber', 'skipped', 'failed'];
 const REASON_NOTE = { needed: 'needed first', rerun: 're-run so every page matches' };
 
@@ -151,11 +150,8 @@ export default function AskChat({ onNavigate }) {
     if (!m?.proposal || m.run?.phase !== 'active' || confirmingRef.current) return;
     confirmingRef.current = true;
     const p = m.proposal;
-    if (p.expires_at && Date.now() > p.expires_at * 1000) {   // expires_at is epoch seconds
-      patchRun(i, { phase: 'refused', note: EXPIRED });
-      confirmingRef.current = false;
-      return;
-    }
+    // The server decides whether the offer is still valid (it answers 409
+    // proposal_expired with its own words), so a skewed device clock never blocks a run.
     patchRun(i, { phase: 'starting', note: null });
     try {
       const res = await aiApi.runProposal(p.token, via);
