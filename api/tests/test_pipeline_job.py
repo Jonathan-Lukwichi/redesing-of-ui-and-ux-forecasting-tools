@@ -161,6 +161,44 @@ def test_unexpected_error_fails_the_stage_without_its_text(monkeypatch):
     assert "Alpha" in s["stages"][0]["receipt"]
 
 
+@pytest.mark.parametrize("breaks", ["fingerprint", "timings", "scale"])
+def test_a_stage_that_cannot_be_recorded_fails_and_skips_the_rest(monkeypatch, caplog, breaks):
+    """Marking a step ready (the Consolidate fingerprint) or keeping its time
+    can raise after the stage itself ended: the stage then fails and the rest
+    are skipped, so a half-run never ends looking finished. The log names the
+    error type only."""
+    from core.pipeline import preflight, timings
+
+    def boom(*a, **k):
+        raise RuntimeError("ZZFAKENAME in a cell")
+
+    if breaks == "fingerprint":
+        monkeypatch.setattr(preflight, "inputs_fingerprint", boom)
+    elif breaks == "timings":
+        monkeypatch.setattr(timings, "record", boom)
+    else:
+        monkeypatch.setattr(timings, "scale_for", boom)
+    called = []
+
+    def stage(name):
+        def run():
+            called.append(name)
+            return stages.StageResult(f"{name} done", [], "done")
+        return run
+
+    monkeypatch.setattr(stages, "STAGES", [("consolidate", "Consolidate", stage("consolidate")),
+                                           ("forecast", "Forecast", stage("forecast"))])
+    with caplog.at_level("WARNING"):
+        s = _run()
+    assert _statuses() == ["failed", "skipped"]
+    assert called == ([] if breaks == "scale" else ["consolidate"])
+    receipt = s["stages"][0]["receipt"]
+    assert receipt == "Consolidate failed unexpectedly (RuntimeError)."
+    assert s["running"] is False and s["finished_at"] and s["source"] == {"mode": "none"}
+    assert s["ready_steps"] == [] and s["source"]["mode"] == "none"
+    assert "ZZFAKENAME" not in caplog.text and "RuntimeError" in caplog.text
+
+
 def test_upload_refused_if_a_run_starts_while_it_transforms(client, monkeypatch):
     import core.pipeline
     answers = iter([False, True])          # idle at the door, busy by staging time

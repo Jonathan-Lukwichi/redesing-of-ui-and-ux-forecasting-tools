@@ -329,8 +329,8 @@ def _run(run: _Plan, source: str = "upload",
                     _skip_from(i + 1, len(plan))
                     return
                 cleared = True
-            scale = timings.scale_for(_sid)   # the data size this stage starts on
             try:
+                scale = timings.scale_for(_sid)   # the data size this stage starts on
                 result = fn()
             except stages.StageFailed as e:
                 _update(i, status="failed", receipt=e.message,
@@ -351,8 +351,19 @@ def _run(run: _Plan, source: str = "upload",
                     warnings=list(result.warnings),
                     seconds=round(seconds, 2), peak_mb=_peak())
             if result.status in ("done", "amber"):
-                timings.record(_sid, seconds, scale)
-                _made(_sid, source, relabel)
+                # Recording the time and marking the step ready can raise too
+                # (the fingerprint reads the data): then the stage fails, like
+                # one that raised, so a half-run never ends looking finished.
+                try:
+                    timings.record(_sid, seconds, scale)
+                    _made(_sid, source, relabel)
+                except Exception as e:  # noqa: BLE001 - the text may quote a cell
+                    log.warning("pipeline: stage %s could not be recorded (%s)",
+                                _sid, type(e).__name__)
+                    _update(i, status="failed",
+                            receipt=f"{label} failed unexpectedly ({type(e).__name__}).")
+                    _skip_from(i + 1, len(plan))
+                    return
         ok = True
     finally:
         with _LOCK:
