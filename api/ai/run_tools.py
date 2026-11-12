@@ -97,11 +97,11 @@ def _issues(report: dict, error: bool) -> list[dict]:
 
 
 def _check_data(caller: Caller) -> dict[str, Any]:
+    # Only reads: it never opens a page. The Data Hub opens when propose_run is
+    # refused for missing files, so a sample run never flashes the upload page.
     report = preflight.run_checks()
     st = job.status()
     ok = bool(report.get("ok"))
-    if not ok and caller.can_run:
-        caller.trailer["navigate"] = "upload"
     return {
         "ok": ok,
         "missing": _issues(report, True),

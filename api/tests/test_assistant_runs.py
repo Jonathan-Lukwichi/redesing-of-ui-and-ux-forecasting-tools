@@ -445,7 +445,9 @@ def test_a_refused_confirmation_is_audited(open_client, audit_rows):
 
 # --- check_data and get_run_status ----------------------------------------------
 
-def test_check_data_names_missing_files_and_opens_the_data_hub(monkeypatch):
+def test_check_data_names_missing_files_and_opens_nothing(monkeypatch):
+    # Only a propose_run refused for missing files opens the Data Hub: a sample
+    # run checks the data too, and must not flash the upload page.
     monkeypatch.setattr(preflight, "run_checks", lambda: {"ok": False, "issues": [
         {"level": "error", "file": "inventory_items.csv",
          "message": "Missing file. Upload it before running."},
@@ -457,7 +459,7 @@ def test_check_data_names_missing_files_and_opens_the_data_hub(monkeypatch):
     assert out["warnings"][0]["file"] == "weather_daily.csv" and len(out["missing"]) == 1
     assert out["can_run"] is True and out["running"] is False
     assert out["needs_preparation"] is False and out["ready_steps"] == list(READY_STEPS)
-    assert c.trailer == {"navigate": "upload"}
+    assert c.trailer == {}
 
     visitor = run_tools.Caller(None, False)
     out = run_tools.execute("check_data", {}, visitor)
@@ -506,6 +508,40 @@ def test_the_prompt_carries_the_running_rules():
     assert "RUNNING STEPS" in chat.CHAT_SYSTEM and "You NEVER make decisions" in chat.CHAT_SYSTEM
     assert "You can ONLY read" not in chat.CHAT_SYSTEM
     assert "run pipeline steps after they confirm" in chat.APP_GUIDE
+
+
+def _running_rules() -> str:
+    start = chat.CHAT_SYSTEM.index("RUNNING STEPS")
+    return " ".join(chat.CHAT_SYSTEM[start:].split())
+
+
+def test_the_prompt_checks_the_data_before_anything_else():
+    assert "ALWAYS call check_data first, before you answer or ask anything" in _running_rules()
+
+
+def test_the_prompt_fixes_the_settings_of_chat_runs():
+    rules = _running_rules()
+    assert ("Runs started from the chat always use the best ML model, 7 days ahead, and "
+            "the standing reorder policy") in rules
+    assert "The prediction step forecasts total ED and every specialty" in rules
+    assert ("Never ask about the horizon, the engine, or total versus specialty before "
+            "proposing a run") in rules
+    assert "custom choices are on the forecast page's own Start prediction button" in rules
+    assert "Never state or imply that a run used a setting it does not use" in rules
+
+
+def test_the_prompt_keeps_the_summary_short():
+    rules = _running_rules()
+    assert "at most 5 sentences in one short paragraph" in rules
+    assert "no headings and no bullet lists" in rules
+    assert "only numbers those tools returned" in rules
+    assert "one line naming the decision that is the user's" in rules
+    assert "3 to 5 plain sentences" not in rules
+
+
+def test_the_prompt_never_quotes_utc_clock_times():
+    assert ("Do not state clock times from tool results (they are UTC)"
+            in _running_rules())
 
 
 def test_the_propose_schema_lists_every_step():
