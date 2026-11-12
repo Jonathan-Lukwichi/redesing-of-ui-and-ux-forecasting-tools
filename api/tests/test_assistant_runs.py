@@ -488,6 +488,29 @@ def test_run_status_reports_plain_receipts(fail_in):
     assert "ready_steps" in out
 
 
+def test_a_finished_run_status_carries_the_short_summary_rule(fail_in):
+    # The rule rides in the tool result, next to where the summary is written:
+    # the system prompt alone did not keep real summaries short.
+    with fail_in("optimise"):
+        job.start(plan=["forecast", "optimise"])
+        assert job.wait(10)
+    out = run_tools.execute("get_run_status", {}, run_tools.Caller(None, False))
+    note = out["note"]
+    assert "at most 5 sentences in one short paragraph" in note
+    assert "no headings and no bullet lists" in note
+    assert "Do not state clock times (they are UTC)" in note
+    assert "one line naming the decision that is the user's" in note
+
+
+def test_a_run_still_going_carries_no_summary_rule(hold_in):
+    with hold_in("forecast") as entered:
+        job.start(plan=["forecast"])
+        assert entered.wait(10)
+        out = run_tools.execute("get_run_status", {}, run_tools.Caller(None, False))
+        assert out["running"] is True and "note" not in out
+    assert job.wait(10)
+
+
 # --- Identity, the prompt and the module boundaries --------------------------------
 
 def _request():

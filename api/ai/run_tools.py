@@ -28,6 +28,11 @@ NO_SCOPE = ("This account cannot run pipeline steps: that needs permission to up
 PROPOSED_NOTE = ("Nothing has started. Tell the user what will run, any step added or re-run "
                  "and why, and the estimate in words; then say they can press Run below or "
                  "reply yes.")
+SUMMARY_NOTE = ("When you summarise this run: at most 5 sentences in one short paragraph, "
+                "no headings and no bullet lists, only numbers the data tools returned, the "
+                "result that matters most first; offer more detail instead of giving it. Do "
+                "not state clock times (they are UTC). Then one line naming the decision "
+                "that is the user's, if any.")
 BAD_STEPS = ("Not a valid request ({}). Call propose_run with a list of step ids: prepare, "
              "arrivals, staff, supply, forecast, optimise, recommend, or just full or sample.")
 
@@ -135,13 +140,18 @@ def _propose(args: dict, caller: Caller) -> dict[str, Any]:
 
 def _run_status() -> dict[str, Any]:
     st = job.status()
-    return {
+    out = {
         "running": st["running"],
         "finished_at": st["finished_at"],
         "ready_steps": st["ready_steps"],
         "stages": [{"label": s["label"], "status": s["status"], "receipt": s["receipt"],
                     "warnings": list(s.get("warnings") or [])} for s in st["stages"]],
     }
+    # The short-summary rule sits beside the result it governs: in real runs the
+    # system prompt alone did not keep the summary short.
+    if not st["running"]:
+        out["note"] = SUMMARY_NOTE
+    return out
 
 
 def execute(name: str, args: dict, caller: Caller) -> dict[str, Any]:
