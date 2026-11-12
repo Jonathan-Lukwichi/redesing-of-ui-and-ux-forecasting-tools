@@ -665,7 +665,7 @@ CARDS: dict[str, dict] = {
     },
     "data_hub_pipeline": {
         "title": "How the Data Hub run works, the sample data and staging",
-        "keywords": "data hub upload run pipeline full pipeline stages register registers monthly xlsx drop files checklist staging staged replace months privacy names stored memory restart one button sample data no results yet empty",
+        "keywords": "data hub upload run pipeline full pipeline stages register registers monthly xlsx drop files checklist staging staged replace months privacy names stored memory restart one button sample data no results yet empty assistant chat run step steps unlock page",
         "source": "HealthForecast app guide",
         "body": (
             "The Data Hub is where every number in the app comes from. You drop the files in "
@@ -682,9 +682,15 @@ CARDS: dict[str, dict] = {
             "month that is already staged, the page asks before replacing it. Uploading the "
             "hospital's own inventory and staffing files replaces the stored ones. Only one "
             "run can go at a time, and a stage marked amber finished but needs your attention. "
-            "Until a run has finished, no page shows any result: each one asks you to upload "
-            "the data, and 'Use the sample data' loads the stored hospital, inventory and "
-            "scheduling files and runs the same eight steps."
+            "Each page unlocks as soon as the step that makes its result has finished: "
+            "Explore after the patient-arrivals analysis, Staffing and Supply after theirs, "
+            "the forecast pages after the prediction, Optimization after the optimization, "
+            "and the Action Center after the recommendations; a full run unlocks them all, "
+            "and 'Use the sample data' loads the stored files and runs the same eight steps. "
+            "If you are signed in and may upload data, you can also ask the assistant to run "
+            "any step: it checks the files, says how long it will take, and starts only after "
+            "you press Run or reply yes. It never adopts a policy, approves a roster or acts "
+            "on a recommendation; those decisions stay yours."
         ),
     },
     "page_accounts_and_roles": {
