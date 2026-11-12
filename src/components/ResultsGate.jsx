@@ -7,13 +7,14 @@ import { isStepReady, readySteps, runProgress, usePipelineContext } from './Pipe
 
 const POLL_MS = 2000;
 
+// Each reads in "This page appears once <label> has run."
 export const STEP_LABEL = {
   arrivals: 'the patient-arrivals analysis',
   staff: 'the staff analysis',
   supply: 'the supply analysis',
   forecast: 'the prediction',
   optimise: 'the optimization',
-  recommend: 'the recommendations',
+  recommend: 'the recommendations step',
 };
 
 function messageOf(err) {
@@ -28,7 +29,7 @@ function messageOf(err) {
    starts only when someone presses the button, never on load. */
 export default function ResultsGate({ children, onNavigate, step = 'any' }) {
   const { status, error, refresh, setStatus } = usePipelineContext();
-  const { can } = useSession();
+  const { can, user } = useSession();
   const [starting, setStarting] = useState(false);
   const [confirmReplace, setConfirmReplace] = useState(false);
   const [message, setMessage] = useState(null);
@@ -82,7 +83,12 @@ export default function ResultsGate({ children, onNavigate, step = 'any' }) {
         </Card.Header>
         {stepHint && (
           <div className="pl-note">
-            This page appears once {stepHint} has run. Ask the assistant to run it, or run the full pipeline on the Data Hub.
+            This page appears once {stepHint} has run.
+            {/* Only someone who may run steps is pointed at the assistant (it asks
+                anyone else to sign in) and at the Data Hub. */}
+            {can('data:write') ? ' Ask the assistant to run it, or run the full pipeline on the Data Hub.'
+              : user ? ' Someone who can upload data can run it.'
+                : ' Signing in lets you run it.'}
           </div>
         )}
         {progress && <div className="pl-note" role="status" aria-live="polite">{progress}</div>}

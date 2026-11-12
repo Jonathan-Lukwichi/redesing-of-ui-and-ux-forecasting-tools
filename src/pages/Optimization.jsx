@@ -69,7 +69,7 @@ export default function Optimization({ onNavigate }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const merge =(slice) => setData((prev) => ({ ...prev, ...slice }));
+  const merge = (slice) => setData((prev) => ({ ...prev, ...slice }));
   const setBusyKey = (k, v) => setBusy((b) => ({ ...b, [k]: v }));
 
   // Handlers take explicit model/kappa/service so a selection can re-run with

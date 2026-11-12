@@ -288,6 +288,9 @@ function Shell({ active = 'dashboard', onNavigate, children }) {
   const { status } = usePipelineContext();
   const staffReady = isStepReady(status, 'staff');
   const supplyReady = isStepReady(status, 'supply');
+  // The actions badge counts supply items at risk, but the Action Center
+  // opens only with the recommendations: it shows no sooner than that page.
+  const actionsReady = isStepReady(status, 'recommend');
   const version = status?.data_version;
   const [badges, setBadges] = useState({});
   useEffect(() => {
@@ -301,11 +304,11 @@ function Shell({ active = 'dashboard', onNavigate, children }) {
       const atRisk = supply?.items_at_risk ?? 0;
       setBadges({
         staff: shortfall > 0 ? shortfall : undefined,
-        actions: atRisk > 0 ? atRisk : undefined,
+        actions: actionsReady && atRisk > 0 ? atRisk : undefined,
       });
     });
     return () => ctrl.abort();
-  }, [staffReady, supplyReady, version]);
+  }, [staffReady, supplyReady, actionsReady, version]);
 
   return (
     <>

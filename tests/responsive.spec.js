@@ -918,12 +918,37 @@ test('per-step pages @ 390px — with only the prediction ready, Total ED opens 
   await page.reload(); // a hash-only goto does not remount the app
   await expect(page.getByTestId('results-gate')).toBeVisible();
   await expect(page.getByTestId('results-gate')).toContainText('This page appears once the staff analysis has run.');
+  // A visitor cannot run steps: the assistant would only ask them to sign in.
+  await expect(page.getByTestId('results-gate')).toContainText('Signing in lets you run it.');
+  await expect(page.getByTestId('results-gate')).not.toContainText('Ask the assistant');
   await page.goto('/#dashboard');
   await page.reload(); // a hash-only goto does not remount the app
   await expect(page.getByRole('heading', { name: 'Operations Dashboard' })).toBeVisible();
   await expect(page.getByTestId('results-gate')).toHaveCount(0);
   await page.waitForTimeout(800);
   expect(seen.filter((s) => /\/api\/(staff|supply)\/overview/.test(s))).toHaveLength(0);
+});
+
+test('per-step pages @ 1440px — before the recommendations, a writer is pointed at the assistant and no actions badge shows', async ({ page }) => {
+  const me = { user: { username: 'admin', role: 'admin', action_categories: [],
+    scopes: ['data:write', 'data:read', 'forecast:read', 'staff:read', 'supply:read', 'actions:read', 'assistant'] },
+  auth_mode: 'protected', auth_configured: true };
+  const noRecommend = ['arrivals', 'staff', 'supply', 'forecast', 'optimise'];
+  let ready = noRecommend;
+  await mockGate(page, { me, status: () => ({ ...dhStatus({ done: 8 }), ready_steps: ready }) });
+  await page.route('**/api/staff/overview', (r) => r.fulfill({ json: { kpis: { staffing_shortfall: 7 } } }));
+  await page.route('**/api/supply/overview', (r) => r.fulfill({ json: { items_at_risk: 24 } }));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#actions');
+  const gate = page.getByTestId('results-gate');
+  await expect(gate).toContainText('This page appears once the recommendations step has run. '
+    + 'Ask the assistant to run it, or run the full pipeline on the Data Hub.');
+  // Supply is ready, but the Action Center is not: only the staff badge shows.
+  await expect(page.locator('.sidebar-item-badge')).toHaveText(['7']);
+  ready = [...noRecommend, 'recommend'];
+  await page.goto('about:blank');
+  await page.goto('/#staff');
+  await expect(page.locator('.sidebar-item-badge')).toHaveText(['7', '24']);
 });
 
 test('per-step pages @ 390px — before any run the gate shows no step hint', async ({ page }) => {
@@ -1402,6 +1427,63 @@ test.describe('assistant runs steps', () => {
     expect(st.seen.filter((s) => s.startsWith('POST '))).toHaveLength(0);
   });
 
+  // Asked from the page the run reopens: the page is hidden while its step is
+  // re-made, and either the gate's poll or the chat's may see the end first.
+  // The chat asks for the result as the run starts, so either order shows it.
+  // Both poll every 2 s, side by side: holding back the first or the second
+  // status answer after the end makes the other poller see it first, clearly,
+  // so the two cases together cover both orders.
+  for (const holdAt of [0, 1]) {
+    test(`chat @ 390px — asked from Total ED, the re-made forecast shows without a click (answer ${holdAt + 1} held)`, async ({ page }) => {
+      const FC_OFFER = { token: 'tok-1', kind: 'steps', page: 'forecast-total', total_seconds: 40,
+        steps: [{ id: 'forecast', label: 'Prediction', reason: 'asked', seconds: 40 }],
+        stages: [{ id: 'forecast', seconds: 40 }] };
+      const days = Array.from({ length: 7 }, (_, i) => ({ date: `2026-11-${String(10 + i).padStart(2, '0')}`,
+        predicted: 100 + i, lower: 90, upper: 120, label: 'med', categories: {}, actual: null }));
+      const phases = {
+        idle: statusOf(ALL_READY, dhStatus({ done: 8 }).stages),
+        // As the server reports it: the step being re-made is not ready meanwhile.
+        running: statusOf(ALL_READY.filter((s) => s !== 'forecast'), [stage('forecast', 'Forecast', 'running')], true),
+        done: statusOf(ALL_READY, [stage('forecast', 'Forecast', 'done')]),
+      };
+      const st = await mockAssistant(page, {
+        phases,
+        replies: [`I can re-run the prediction.${trailer({ proposal: FC_OFFER })}`, 'The new forecast is ready.'],
+      });
+      let doneAnswers = 0;
+      await page.route('**/api/pipeline/status', async (r) => {   // overrides mockGate's route
+        const body = phases[st.phase];
+        if (st.phase === 'done' && doneAnswers++ === holdAt) {
+          await new Promise((res) => { setTimeout(res, 2500); });
+        }
+        return r.fulfill({ json: body });
+      });
+      await page.route('**/api/forecast/last', (r) => r.fulfill({ json: { available: true, kind: 'total',
+        ran_at: '2026-11-12T08:26:17', result: { success: true, requested_model: 'ml', model_used: 'Engine',
+          horizon: 7, forecast: days, history: [] } } }));
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto('/#forecast-total');
+      await expect(page.getByText('Choose your forecast method')).toBeVisible();
+      await page.locator('button[title="Analyst Assistant"]').click();
+      await ask(page, 'run the forecast again');
+      await page.getByTestId('chat-proposal').getByRole('button', { name: 'Run' }).click();
+      const gate = page.getByTestId('results-gate');
+      await expect(gate).toContainText('Running step 1 of 1: Forecast');
+      st.seen.length = 0;
+      st.phase = 'done';
+      await expect(gate).toHaveCount(0, { timeout: 10000 });
+      const result = page.getByTestId('forecast-result');
+      await expect(result).toBeVisible({ timeout: 10000 });
+      await expect(result).toContainText('Best ML model · 7 days ahead');
+      await expect(page).toHaveURL(/#forecast-total$/);
+      await expect.poll(() => st.chatBodies.at(-1)?.messages.at(-1).content).toBe(FINISHED_PROMPT);
+      await page.waitForTimeout(500);
+      expect(st.seen.filter((s) => s === 'GET /api/forecast/last'), 'the result is restored once').toHaveLength(1);
+      const posts = st.seen.filter((s) => s.startsWith('POST ') && !/\/api\/ai\/(chat|run)$/.test(s));
+      expect(posts, `posts: ${posts.join(' | ')}`).toHaveLength(0);
+    });
+  }
+
   test('chat @ 390px — a run that stops says where, stays on the page and asks what went wrong', async ({ page }) => {
     const st = await mockAssistant(page, {
       phases: { ...OPT_PHASES, done: statusOf(UP_TO_FORECAST, [stage('optimise', 'Optimise', 'failed')]) },
@@ -1416,6 +1498,39 @@ test.describe('assistant runs steps', () => {
     await expect.poll(() => st.chatBodies.at(-1)?.messages.at(-1).content).toBe(STOPPED_PROMPT);
     await expect(page.getByText('The optimization could not finish.')).toBeVisible();
     await expect(page).toHaveURL(/#dashboard$/);
+  });
+
+  // The request to show the run's result is made as the run starts; a run that
+  // stops clears it, so a later, ordinary visit to that page loads nothing.
+  test('chat @ 390px — after a stopped run, visiting the asked page loads nothing by itself', async ({ page }) => {
+    const FC_OFFER = { token: 'tok-1', kind: 'steps', page: 'forecast-total', total_seconds: 40,
+      steps: [{ id: 'forecast', label: 'Prediction', reason: 'asked', seconds: 40 }],
+      stages: [{ id: 'forecast', seconds: 40 }] };
+    const st = await mockAssistant(page, {
+      phases: {
+        idle: statusOf(ALL_READY, dhStatus({ done: 8 }).stages),
+        running: statusOf(ALL_READY.filter((s) => s !== 'forecast'), [stage('forecast', 'Forecast', 'running')], true),
+        // Stopped at Check: the earlier results stay, so Total ED still opens.
+        done: statusOf(ALL_READY, [stage('check', 'Check', 'failed'), stage('forecast', 'Forecast', 'skipped')]),
+      },
+      replies: [`I can re-run the prediction.${trailer({ proposal: FC_OFFER })}`, 'The run stopped at Check.'],
+    });
+    await openChatAndAsk(page, 'run the prediction again');
+    const card = page.getByTestId('chat-proposal');
+    await card.getByRole('button', { name: 'Run' }).click();
+    await expect(page.getByTestId('chat-run-progress')).toBeVisible();
+    st.phase = 'done';
+    await expect(card).toContainText('Stopped at Check');
+    await expect.poll(() => st.chatBodies.at(-1)?.messages.at(-1).content).toBe(STOPPED_PROMPT);
+    await expect(page).toHaveURL(/#dashboard$/);
+    st.seen.length = 0;
+    await page.locator('button[title="Analyst Assistant"]').click();   // close the chat
+    await page.getByRole('button', { name: 'Open menu' }).click();
+    await page.locator('#app-sidebar').getByRole('button', { name: 'Total ED' }).click();
+    await expect(page.getByText('Choose your forecast method')).toBeVisible();
+    await page.waitForTimeout(800);
+    await expect(page.getByTestId('forecast-result')).toHaveCount(0);
+    expect(st.seen.filter((s) => s === 'GET /api/forecast/last')).toHaveLength(0);
   });
 
   test('chat @ 390px — missing files open the Data Hub', async ({ page }) => {
