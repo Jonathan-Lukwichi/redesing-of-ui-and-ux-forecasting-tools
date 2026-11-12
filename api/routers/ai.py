@@ -172,7 +172,11 @@ async def chat(request: Request,
     runner = run_tools.Caller(username=acting,
                               can_run=acting is not None
                               and security.caller_can(request, "data:write"))
-    msgs = [{"role": m.role, "content": m.content} for m in req.messages]
+    # Defence in depth: the chat sends back only visible text, but anything
+    # from the trailer mark on is cut here too, so a token or a forged trailer
+    # in the history never reaches the model or the audit row.
+    msgs = [{"role": m.role, "content": m.content.split(run_tools.TRAILER_MARK, 1)[0]}
+            for m in req.messages]
     last_user = next((m["content"] for m in reversed(msgs) if m["role"] == "user"), "")
 
     def gen():
@@ -214,10 +218,31 @@ class RunRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+async def _idle_or_audited(request: Request, user=security.DataWriteAccess) -> None:
+    """PipelineIdle for /run, with the refusal audited. It refuses before the
+    token is looked at, so a busy pipeline keeps the token for a later try.
+    The body is read only to name the proposal (by hash) and the way it was
+    confirmed; an invalid body is refused as busy too, as PipelineIdle did."""
+    try:
+        security.require_pipeline_idle()
+    except security.PipelineBusy:
+        try:
+            body = await request.json()
+        except Exception:  # noqa: BLE001 - not JSON: nothing to name
+            body = None
+        body = body if isinstance(body, dict) else {}
+        token, via = body.get("token"), body.get("via", "button")
+        proposals.audit_busy_refusal(
+            user.username,
+            token if isinstance(token, str) and 8 <= len(token) <= 64 else None,
+            via if via in ("button", "typed") else None)
+        raise
+
+
 @router.post("/run")
 async def run(req: RunRequest,
               user=security.DataWriteAccess,
-              _idle=security.PipelineIdle,
+              _idle=Depends(_idle_or_audited),
               _rl=Depends(security.rate_limit("heavy"))):
     """Start the run the assistant proposed, once the user confirmed it. Only
     the browser calls this, with the token from the chat trailer; the token

@@ -77,6 +77,17 @@ def _audit(surface: str, username: str | None, token: str, summary: str, **extra
                     extra={"user": username, "proposal_id": proposal_id(token), **extra})
 
 
+def audit_busy_refusal(username: str | None, token: str | None, via: str | None) -> None:
+    """Audit a confirmation refused before its token was looked at, because a
+    run was already going (the route's idle check, which keeps the token). The
+    row has the shape of the other refused rows; without a token it carries no
+    proposal_id. The token itself is never written."""
+    audit.log_event("assistant_confirm_refused", "none", "refused", "", 0, 0,
+                    extra={"user": username,
+                           "proposal_id": proposal_id(token) if token else None,
+                           "via": via, "code": "already_running"})
+
+
 def issue(username: str, p: steps.Plan) -> dict:
     """Store this plan for this user and return what the browser gets:
     p.public() plus the token and its expiry (seconds since the epoch). The
