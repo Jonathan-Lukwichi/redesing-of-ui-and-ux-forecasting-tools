@@ -25,6 +25,17 @@ async function streamPost(path, body, onDelta, signal) {
     if (done) break;
     onDelta(decoder.decode(value, { stream: true }));
   }
+  const tail = decoder.decode();
+  if (tail) onDelta(tail);
+}
+
+// The chat's last chunk may be a trailer from the server: this mark, then JSON
+// ({proposal?, navigate?}). Only the text before the mark is the reply.
+const TRAILER_MARK = '\x1e';
+
+function splitTrailer(raw) {
+  const cut = raw.indexOf(TRAILER_MARK);
+  return cut < 0 ? [raw, ''] : [raw.slice(0, cut), raw.slice(cut + 1)];
 }
 
 export const aiApi = {
@@ -42,6 +53,49 @@ export const aiApi = {
   // Streaming chat with read-only tools. messages = [{role, content}].
   chat: (messages, onDelta, signal) =>
     streamPost('/api/ai/chat', { messages }, onDelta, signal),
+
+  // One chat turn. onText(visible) gets the whole reply so far, without the
+  // trailer; once the stream ends the trailer is parsed and returned:
+  // { proposal, navigate }, each null when absent.
+  chatTurn: async (messages, onText, signal) => {
+    let raw = '';
+    await streamPost('/api/ai/chat', { messages }, (chunk) => {
+      raw += chunk;
+      onText(splitTrailer(raw)[0]);
+    }, signal);
+    const [, json] = splitTrailer(raw);
+    let t = null;
+    if (json) {
+      try { t = JSON.parse(json); } catch { t = null; }
+    }
+    const p = t?.proposal;
+    const proposal = p && typeof p === 'object' && typeof p.token === 'string' && Array.isArray(p.steps) ? p : null;
+    return { proposal, navigate: typeof t?.navigate === 'string' ? t.navigate : null };
+  },
+
+  // Start the run the assistant offered, once the user confirmed it (via:
+  // 'button' or 'typed'). Answers {status, proposal}; a refusal throws an
+  // Error carrying .status, .code and the server's plain-English message.
+  runProposal: async (token, via) => {
+    const res = await fetch(`${API_BASE}/api/ai/run`, {
+      credentials: 'include',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, via }),
+    });
+    let body = null;
+    try { body = await res.json(); } catch { body = null; }
+    if (!res.ok) {
+      const d = body?.detail;
+      const b = d && typeof d === 'object' && !Array.isArray(d) ? d : body;
+      const err = new Error((b && typeof b.message === 'string' && b.message)
+        || `The run could not be started (${res.status}).`);
+      err.status = res.status;
+      err.code = b?.error || null;
+      throw err;
+    }
+    return body;
+  },
 
   // AI-ranked action list from live signals. A plain read serves the stored
   // list; refresh asks the server to rebuild it (Re-generate).

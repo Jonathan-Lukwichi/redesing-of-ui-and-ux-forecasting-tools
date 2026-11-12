@@ -1087,3 +1087,293 @@ test('upload @ 390px — the sample button sits beside Run and starts the sample
   await expect(sampleBtn).toBeDisabled();
   expect(posts).toEqual(['POST']);
 });
+
+
+// ---- The assistant runs steps ------------------------------------------------
+// The assistant offers a run; nothing starts until the user presses Run or types
+// yes. The chat then follows the run's progress, opens the page of the step that
+// was asked for and asks the assistant to summarise the result. The offer card is
+// drawn from the server's trailer, never from the model's words.
+test.describe('assistant runs steps', () => {
+  const FINISHED_PROMPT = 'The run I confirmed has finished. Check its status and results, then summarise them for me.';
+  const STOPPED_PROMPT = 'The run I confirmed stopped before the end. Check its status and tell me plainly what went wrong and what to do.';
+  const EXPIRED = 'That offer has expired. Ask again and the assistant will re-check.';
+  const WRITER = {
+    user: { username: 'admin', role: 'admin', action_categories: [],
+      scopes: ['data:write', 'data:read', 'forecast:read', 'staff:read', 'supply:read', 'actions:read', 'assistant'] },
+    auth_mode: 'protected', auth_configured: true,
+  };
+  const OFFER = { token: 'tok-1', kind: 'steps', page: 'optimize', total_seconds: 6,
+    steps: [{ id: 'optimise', label: 'Optimization', reason: 'asked', seconds: 6 }],
+    stages: [{ id: 'optimise', seconds: 6 }] };
+  const UP_TO_FORECAST = ['arrivals', 'staff', 'supply', 'forecast'];
+  const ALL_READY = [...UP_TO_FORECAST, 'optimise', 'recommend'];
+  const trailer = (t) => `\x1e${JSON.stringify(t)}`;
+  const stage = (id, label, status) => ({ id, label, status, peak_mb: null, seconds: null,
+    receipt: status === 'failed' ? `${label} could not finish.` : null, warnings: [] });
+  const statusOf = (ready, stages, running = false) => ({ ...dhStatus({ done: 8 }), running,
+    finished_at: running ? null : '2026-11-02T12:25:00+00:00', stages, ready_steps: ready });
+  // idle: steps up to the prediction are ready -> running: the optimisation -> done: all ready.
+  const OPT_PHASES = {
+    idle: statusOf(UP_TO_FORECAST, dhStatus({ done: 8 }).stages),
+    running: statusOf(UP_TO_FORECAST, [stage('optimise', 'Optimise', 'running')], true),
+    done: statusOf(ALL_READY, [stage('optimise', 'Optimise', 'done')]),
+  };
+
+  // A signed-in writer, a phased status, chat replies by call count, and a
+  // recorder of /api/ai/run bodies. A successful run moves the phase to running.
+  async function mockAssistant(page, { phases = OPT_PHASES, replies = [], run = null } = {}) {
+    const st = { phase: 'idle', chatBodies: [], runPosts: [], seen: recordApi(page) };
+    await mockGate(page, { status: () => phases[st.phase], me: WRITER });
+    await page.route('**/api/ai/chat', (r) => {
+      st.chatBodies.push(r.request().postDataJSON());
+      const body = replies[st.chatBodies.length - 1] ?? 'All right.';
+      return r.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', body });
+    });
+    await page.route('**/api/ai/run', (r) => {
+      const b = r.request().postDataJSON();
+      st.runPosts.push(b);
+      if (run) return r.fulfill(run);
+      st.phase = 'running';
+      return r.fulfill({ json: { status: phases.running, proposal: OFFER } });
+    });
+    return st;
+  }
+
+  async function ask(page, q) {
+    const input = page.getByPlaceholder('Ask a question…');
+    await input.fill(q);
+    await input.press('Enter');
+  }
+
+  async function openChatAndAsk(page, q, start = 'dashboard') {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/#${start}`);
+    await page.locator('button[title="Analyst Assistant"]').click();
+    await ask(page, q);
+  }
+
+  // Only the visible text goes back to the assistant: never the trailer or a token.
+  function expectNoTrailerSent(st) {
+    for (const b of st.chatBodies) {
+      for (const m of b.messages) {
+        expect(Object.keys(m).sort()).toEqual(['content', 'role']);
+        expect(m.content).not.toContain('\x1e');
+        expect(m.content).not.toMatch(/tok-\d/);
+      }
+    }
+  }
+
+  test('chat @ 390px — an offer runs only after Run, shows progress, opens the page and summarises', async ({ page }) => {
+    const st = await mockAssistant(page, { replies: [
+      `I can run the optimization for you.${trailer({ proposal: OFFER })}`,
+      'The plan covers the week from 3 Nov.',
+    ] });
+    await openChatAndAsk(page, 'run the optimization');
+    const card = page.getByTestId('chat-proposal');
+    await expect(card).toContainText('Ready to run · about 6 s');
+    await expect(card).toContainText('Optimization');
+    await expect(card).toContainText('~6 s');
+    await expect(page.getByTestId('chat-panel')).not.toContainText('tok-1');
+    // The card and its Run button fit inside the panel at 390px.
+    const runBtn = card.getByRole('button', { name: 'Run' });
+    const pb = await page.getByTestId('chat-panel').boundingBox();
+    const bb = await runBtn.boundingBox();
+    expect(bb.x).toBeGreaterThanOrEqual(pb.x);
+    expect(bb.x + bb.width).toBeLessThanOrEqual(pb.x + pb.width + 0.5);
+    const m = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
+    expect(m.sw).toBeLessThanOrEqual(m.cw + 1);
+    await page.waitForTimeout(500);
+    expect(st.runPosts).toHaveLength(0);
+    await runBtn.click();
+    await expect.poll(() => st.runPosts).toEqual([{ token: 'tok-1', via: 'button' }]);
+    const progress = page.getByTestId('chat-run-progress');
+    await expect(progress).toContainText('Running step 1 of 1: Optimise');
+    await expect(progress).toContainText('about 6 s left');
+    await expect(page.getByRole('button', { name: /New chat/ })).toBeDisabled();
+    st.phase = 'done';
+    await expect(page).toHaveURL(/#optimize$/);
+    await expect(page.getByPlaceholder('Ask a question…')).toBeVisible(); // chat still open
+    await expect.poll(() => st.chatBodies.at(-1)?.messages.at(-1).content).toBe(FINISHED_PROMPT);
+    await expect(page.getByText('The plan covers the week from 3 Nov.')).toBeVisible();
+    await expect(card).toContainText('Finished');
+    // The hidden prompt is sent but never shown.
+    await expect(page.getByTestId('chat-panel')).not.toContainText(FINISHED_PROMPT);
+    expectNoTrailerSent(st);
+    const heavy = st.seen.filter((s) => (s.startsWith('POST ') && !/\/api\/ai\/(chat|run)$/.test(s))
+      || /forecast-options|compare-demo|sweep-demo|strategy-compare|policy\/tune(?!\/last)/.test(s));
+    expect(heavy, `heavy calls: ${heavy.join(' | ')}`).toHaveLength(0);
+  });
+
+  test('chat @ 390px — typing yes confirms the offer without asking the assistant', async ({ page }) => {
+    const st = await mockAssistant(page, { replies: [`I can run the optimization.${trailer({ proposal: OFFER })}`] });
+    await openChatAndAsk(page, 'run the optimization');
+    await expect(page.getByTestId('chat-proposal')).toContainText('Ready to run');
+    await ask(page, 'yes');
+    await expect.poll(() => st.runPosts).toEqual([{ token: 'tok-1', via: 'typed' }]);
+    await expect(page.getByTestId('chat-panel').getByText('yes', { exact: true })).toBeVisible();
+    await expect(page.getByTestId('chat-run-progress')).toContainText('Running step 1 of 1: Optimise');
+    await page.waitForTimeout(500);
+    expect(st.chatBodies).toHaveLength(1);
+  });
+
+  test('chat @ 390px — yes with no offer goes to the assistant and runs nothing', async ({ page }) => {
+    const st = await mockAssistant(page, { replies: ['The optimization plans the week ahead.', 'Yes to what, exactly?'] });
+    await openChatAndAsk(page, 'what does the optimization do?');
+    await expect(page.getByText('The optimization plans the week ahead.')).toBeVisible();
+    await ask(page, 'yes');
+    await expect(page.getByText('Yes to what, exactly?')).toBeVisible();
+    expect(st.chatBodies).toHaveLength(2);
+    await page.waitForTimeout(300);
+    expect(st.runPosts).toHaveLength(0);
+  });
+
+  test('chat @ 390px — yes after a plain reply does not confirm an earlier offer', async ({ page }) => {
+    const st = await mockAssistant(page, { replies: [
+      `I can run the optimization.${trailer({ proposal: OFFER })}`,
+      'It plans next week\'s roster and supplies.',
+      'Which one do you mean?',
+    ] });
+    await openChatAndAsk(page, 'run the optimization');
+    await expect(page.getByTestId('chat-proposal')).toContainText('Ready to run');
+    await ask(page, 'what does it do first?');
+    await expect(page.getByText('It plans next week\'s roster and supplies.')).toBeVisible();
+    await ask(page, 'yes');
+    await expect(page.getByText('Which one do you mean?')).toBeVisible();
+    expect(st.chatBodies).toHaveLength(3);
+    await page.waitForTimeout(300);
+    expect(st.runPosts).toHaveLength(0);
+  });
+
+  test('chat @ 390px — a newer offer retires the earlier card and yes binds to the newest', async ({ page }) => {
+    const NEWER = { ...OFFER, token: 'tok-2', total_seconds: 46,
+      steps: [{ id: 'forecast', label: 'Prediction', reason: 'needed', seconds: 40 }, ...OFFER.steps],
+      stages: [{ id: 'forecast', seconds: 40 }, ...OFFER.stages] };
+    const st = await mockAssistant(page, { replies: [
+      `I can run the optimization.${trailer({ proposal: OFFER })}`,
+      `With a fresh prediction first.${trailer({ proposal: NEWER })}`,
+    ] });
+    await openChatAndAsk(page, 'run the optimization');
+    const cards = page.getByTestId('chat-proposal');
+    await expect(cards).toHaveCount(1);
+    await ask(page, 'with a new forecast first');
+    await expect(cards).toHaveCount(2);
+    await expect(cards.nth(1)).toContainText('Ready to run · about 46 s');
+    await expect(cards.nth(1)).toContainText('needed first');
+    await expect(cards.nth(0).getByRole('button', { name: 'Run' })).toHaveCount(0);
+    await ask(page, 'yes please');
+    await expect.poll(() => st.runPosts).toEqual([{ token: 'tok-2', via: 'typed' }]);
+    expect(st.chatBodies).toHaveLength(2);
+    expect(st.chatBodies[1].messages[1]).toEqual({ role: 'assistant', content: 'I can run the optimization.' });
+    expectNoTrailerSent(st);
+  });
+
+  test('chat @ 390px — an expired offer says so and runs nothing', async ({ page }) => {
+    const st = await mockAssistant(page, {
+      replies: [`I can run the optimization.${trailer({ proposal: OFFER })}`],
+      run: { status: 409, json: { error: 'proposal_expired', message: EXPIRED } },
+    });
+    await openChatAndAsk(page, 'run the optimization');
+    const card = page.getByTestId('chat-proposal');
+    await card.getByRole('button', { name: 'Run' }).click();
+    await expect(card.getByRole('status')).toContainText(EXPIRED);
+    await expect(card.getByRole('button', { name: 'Run' })).toHaveCount(0);
+    await expect(page.getByTestId('chat-run-progress')).toHaveCount(0);
+    expect(st.runPosts).toHaveLength(1);
+    expect(st.phase).toBe('idle');
+  });
+
+  test('chat @ 390px — an offer past its expiry time is refused here without asking the server', async ({ page }) => {
+    const old = { ...OFFER, expires_at: Math.floor(Date.now() / 1000) - 5 };   // epoch seconds
+    const st = await mockAssistant(page, { replies: [`I can run the optimization.${trailer({ proposal: old })}`] });
+    await openChatAndAsk(page, 'run the optimization');
+    const card = page.getByTestId('chat-proposal');
+    await card.getByRole('button', { name: 'Run' }).click();
+    await expect(card.getByRole('status')).toContainText(EXPIRED);
+    await page.waitForTimeout(300);
+    expect(st.runPosts).toHaveLength(0);
+  });
+
+  test('chat @ 390px — an offer that expires in the future can still be run', async ({ page }) => {
+    const fresh = { ...OFFER, expires_at: Math.floor(Date.now() / 1000) + 600 };
+    const st = await mockAssistant(page, { replies: [`I can run the optimization.${trailer({ proposal: fresh })}`] });
+    await openChatAndAsk(page, 'run the optimization');
+    await page.getByTestId('chat-proposal').getByRole('button', { name: 'Run' }).click();
+    await expect.poll(() => st.runPosts).toEqual([{ token: 'tok-1', via: 'button' }]);
+  });
+
+  test('chat @ 390px — a double click on Run starts one run', async ({ page }) => {
+    const st = await mockAssistant(page, { replies: [`I can run the optimization.${trailer({ proposal: OFFER })}`] });
+    await openChatAndAsk(page, 'run the optimization');
+    await page.getByTestId('chat-proposal').getByRole('button', { name: 'Run' }).dblclick();
+    await expect.poll(() => st.runPosts.length).toBe(1);
+    await page.waitForTimeout(500);
+    expect(st.runPosts).toHaveLength(1);
+  });
+
+  test('chat @ 390px — Not now leaves the offer unrun', async ({ page }) => {
+    const st = await mockAssistant(page, { replies: [`I can run the optimization.${trailer({ proposal: OFFER })}`, 'Fine.'] });
+    await openChatAndAsk(page, 'run the optimization');
+    const card = page.getByTestId('chat-proposal');
+    await card.getByRole('button', { name: 'Not now' }).click();
+    await expect(card.getByRole('button', { name: 'Run' })).toHaveCount(0);
+    await ask(page, 'yes');   // no active card any more: this goes to the assistant
+    await expect(page.getByTestId('chat-panel').getByText('Fine.')).toBeVisible();
+    expect(st.runPosts).toHaveLength(0);
+  });
+
+  test('chat @ 390px — a page whose step re-runs shows the gate with progress, then returns', async ({ page }) => {
+    const FC_OFFER = { token: 'tok-1', kind: 'steps', page: 'forecast-total', total_seconds: 40,
+      steps: [{ id: 'forecast', label: 'Prediction', reason: 'asked', seconds: 40 }],
+      stages: [{ id: 'forecast', seconds: 40 }] };
+    const st = await mockAssistant(page, {
+      phases: {
+        idle: statusOf(ALL_READY, dhStatus({ done: 8 }).stages),
+        running: statusOf(['arrivals', 'staff', 'supply'], [stage('forecast', 'Forecast', 'running')], true),
+        done: statusOf(ALL_READY, [stage('forecast', 'Forecast', 'done')]),
+      },
+      replies: [`I can re-run the prediction.${trailer({ proposal: FC_OFFER })}`, 'The new forecast is ready.'],
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/#forecast-total');
+    await expect(page.getByText('Choose your forecast method')).toBeVisible();
+    await page.locator('button[title="Analyst Assistant"]').click();
+    await ask(page, 'run the forecast again');
+    await page.getByTestId('chat-proposal').getByRole('button', { name: 'Run' }).click();
+    const gate = page.getByTestId('results-gate');
+    await expect(gate).toContainText('Running step 1 of 1: Forecast');
+    st.phase = 'done';
+    await expect(gate).toHaveCount(0, { timeout: 6000 });
+    await expect(page.getByText('Choose your forecast method')).toBeAttached();
+    await expect(page).toHaveURL(/#forecast-total$/);
+    await expect.poll(() => st.chatBodies.at(-1)?.messages.at(-1).content).toBe(FINISHED_PROMPT);
+  });
+
+  test('chat @ 390px — a run that stops says where, stays on the page and asks what went wrong', async ({ page }) => {
+    const st = await mockAssistant(page, {
+      phases: { ...OPT_PHASES, done: statusOf(UP_TO_FORECAST, [stage('optimise', 'Optimise', 'failed')]) },
+      replies: [`I can run the optimization.${trailer({ proposal: OFFER })}`, 'The optimization could not finish.'],
+    });
+    await openChatAndAsk(page, 'run the optimization');
+    const card = page.getByTestId('chat-proposal');
+    await card.getByRole('button', { name: 'Run' }).click();
+    await expect(page.getByTestId('chat-run-progress')).toContainText('Running step 1 of 1: Optimise');
+    st.phase = 'done';
+    await expect(card).toContainText('Stopped at Optimise');
+    await expect.poll(() => st.chatBodies.at(-1)?.messages.at(-1).content).toBe(STOPPED_PROMPT);
+    await expect(page.getByText('The optimization could not finish.')).toBeVisible();
+    await expect(page).toHaveURL(/#dashboard$/);
+  });
+
+  test('chat @ 390px — missing files open the Data Hub', async ({ page }) => {
+    await mockAssistant(page, { replies: [
+      `Some files are missing. Upload them on the Data Hub first.${trailer({ navigate: 'upload' })}`,
+    ] });
+    await openChatAndAsk(page, 'run the optimization');
+    await expect(page).toHaveURL(/#upload$/);
+    await expect(page.getByPlaceholder('Ask a question…')).toBeVisible();
+    await expect(page.getByTestId('chat-panel')).toContainText('Some files are missing.');
+    await expect(page.getByTestId('chat-panel')).not.toContainText('navigate');
+    await expect(page.getByTestId('chat-proposal')).toHaveCount(0);
+  });
+});

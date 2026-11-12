@@ -337,7 +337,7 @@ function Shell({ active = 'dashboard', onNavigate, children }) {
           menuOpen={mobileOpen} menuBtnRef={menuBtnRef} routeKey={active} />
         {children}
       </main>
-      <AskChat />
+      <AskChat onNavigate={navigate} />
     </div>
     </>
   );
