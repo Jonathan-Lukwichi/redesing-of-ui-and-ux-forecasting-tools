@@ -1193,6 +1193,8 @@ test.describe('assistant runs steps', () => {
     await expect(page.getByRole('button', { name: /New chat/ })).toBeDisabled();
     st.phase = 'done';
     await expect(page).toHaveURL(/#optimize$/);
+    // The opened page restores the run's plan once, through Load last plan's GET.
+    await expect.poll(() => st.seen.filter((s) => s === 'GET /api/optimization/last')).toHaveLength(1);
     await expect(page.getByPlaceholder('Ask a question…')).toBeVisible(); // chat still open
     await expect.poll(() => st.chatBodies.at(-1)?.messages.at(-1).content).toBe(FINISHED_PROMPT);
     await expect(page.getByText('The plan covers the week from 3 Nov.')).toBeVisible();
@@ -1351,6 +1353,53 @@ test.describe('assistant runs steps', () => {
     await expect(page.getByText('Choose your forecast method')).toBeAttached();
     await expect(page).toHaveURL(/#forecast-total$/);
     await expect.poll(() => st.chatBodies.at(-1)?.messages.at(-1).content).toBe(FINISHED_PROMPT);
+  });
+
+  // The page a chat-started run opens shows that run's result straight away,
+  // through its own Load-last path (a GET of the materialized /last result).
+  // An ordinary visit still loads nothing until the user presses the button.
+  test('chat @ 390px — after a chat-run prediction, Total ED shows the new forecast without a click', async ({ page }) => {
+    const FC_OFFER = { token: 'tok-1', kind: 'steps', page: 'forecast-total', total_seconds: 40,
+      steps: [{ id: 'forecast', label: 'Prediction', reason: 'asked', seconds: 40 }],
+      stages: [{ id: 'forecast', seconds: 40 }] };
+    const days = Array.from({ length: 7 }, (_, i) => ({ date: `2026-11-${String(10 + i).padStart(2, '0')}`,
+      predicted: 100 + i, lower: 90, upper: 120, label: 'med', categories: {}, actual: null }));
+    const st = await mockAssistant(page, {
+      phases: {
+        idle: statusOf(ALL_READY, dhStatus({ done: 8 }).stages),
+        running: statusOf(ALL_READY, [stage('forecast', 'Forecast', 'running')], true),
+        done: statusOf(ALL_READY, [stage('forecast', 'Forecast', 'done')]),
+      },
+      replies: [`I can re-run the prediction.${trailer({ proposal: FC_OFFER })}`, 'The new forecast is ready.'],
+    });
+    await page.route('**/api/forecast/last', (r) => r.fulfill({ json: { available: true, kind: 'total',
+      ran_at: '2026-11-12T08:26:17', result: { success: true, requested_model: 'ml', model_used: 'Engine',
+        horizon: 7, forecast: days, history: [] } } }));
+    await openChatAndAsk(page, 'run the prediction again');
+    await page.getByTestId('chat-proposal').getByRole('button', { name: 'Run' }).click();
+    await expect.poll(() => st.runPosts).toHaveLength(1);
+    st.seen.length = 0; // the Dashboard read its own forecast on load; count from here
+    st.phase = 'done';
+    await expect(page).toHaveURL(/#forecast-total$/);
+    const result = page.getByTestId('forecast-result');
+    await expect(result).toBeVisible();
+    await expect(result).toContainText('Best ML model · 7 days ahead');
+    await expect(result).toContainText('7 days from Nov 10');
+    expect(st.seen.filter((s) => s === 'GET /api/forecast/last')).toHaveLength(1);
+    const posts = st.seen.filter((s) => s.startsWith('POST ') && !/\/api\/ai\/(chat|run)$/.test(s));
+    expect(posts, `posts: ${posts.join(' | ')}`).toHaveLength(0);
+
+    // An ordinary visit loads nothing until Load last run is pressed (Plan C).
+    st.seen.length = 0;
+    await page.goto('about:blank');
+    await page.goto('/#forecast-total');
+    await expect(page.getByText('Choose your forecast method')).toBeVisible();
+    await page.waitForTimeout(800);
+    await expect(page.getByTestId('forecast-result')).toHaveCount(0);
+    expect(st.seen.filter((s) => s === 'GET /api/forecast/last')).toHaveLength(0);
+    await page.getByRole('button', { name: 'Load last run' }).click();
+    await expect(page.getByTestId('forecast-result')).toContainText('Best ML model · 7 days ahead');
+    expect(st.seen.filter((s) => s.startsWith('POST '))).toHaveLength(0);
   });
 
   test('chat @ 390px — a run that stops says where, stays on the page and asks what went wrong', async ({ page }) => {

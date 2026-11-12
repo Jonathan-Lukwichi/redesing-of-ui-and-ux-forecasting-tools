@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
 import ForecastTrust from '../components/ForecastTrust';
 import { C } from '../styles/palette';
+import { takeShowLastRun } from '../utils/showLastRun';
 
 
 const BADGE = {
@@ -186,6 +187,14 @@ export default function Task2Forecast({ onNavigate }) {
     } catch (e) { setLastNote(e.message || 'Could not load the last run.'); }
     finally { setLastBusy(false); }
   };
+  // A run the chat just finished opens this page: once the specialty is known,
+  // show its last run once, as a press of Load last run. An ordinary visit
+  // takes nothing and loads nothing.
+  // The request is taken inside the effect, so a Strict Mode re-run finds it gone.
+  useEffect(() => {
+    if (specialty && takeShowLastRun('forecast-specialty')) loadLast();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [specialty]);
 
   const run = async () => {
     setRunning(true); setResult(null);

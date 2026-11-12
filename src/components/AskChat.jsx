@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { aiApi } from '../api/aiClient';
 import { api } from '../api/client';
 import { runProgress, usePipelineContext } from './PipelineStatus';
+import { requestShowLastRun } from '../utils/showLastRun';
 
 // Global "Ask" assistant — a floating button + chat panel, on every page.
 // The assistant reads: it looks up forecasts, supply and staffing and explains
@@ -130,6 +131,8 @@ export default function AskChat({ onNavigate }) {
           setPending(STOPPED_PROMPT);
         } else {
           patchRun(follow.index, { phase: 'finished' });
+          // The page opened shows this run's result once, as if its Load-last button were pressed.
+          requestShowLastRun(follow.proposal.page);
           go(follow.proposal.page);
           setPending(FINISHED_PROMPT);
         }

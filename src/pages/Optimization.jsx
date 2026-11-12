@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import PageHero from '../components/PageHero';
+import { takeShowLastRun } from '../utils/showLastRun';
 import { usePipelineContext } from '../components/PipelineStatus';
 import KPI from '../components/KPI';
 import Icon from '../components/Icon';
@@ -60,8 +61,15 @@ export default function Optimization({ onNavigate }) {
       .catch((e) => setError(e.message || 'Could not load the last plan'))
       .finally(() => setLoadBusy(false));
   };
+  // A run the chat just finished opens this page: show its plan once, as a
+  // press of Load last plan. An ordinary visit takes nothing and loads nothing.
+  // The request is taken inside the effect, so a Strict Mode re-run finds it gone.
+  useEffect(() => {
+    if (takeShowLastRun('optimize')) loadLast();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const merge = (slice) => setData((prev) => ({ ...prev, ...slice }));
+  const merge =(slice) => setData((prev) => ({ ...prev, ...slice }));
   const setBusyKey = (k, v) => setBusy((b) => ({ ...b, [k]: v }));
 
   // Handlers take explicit model/kappa/service so a selection can re-run with

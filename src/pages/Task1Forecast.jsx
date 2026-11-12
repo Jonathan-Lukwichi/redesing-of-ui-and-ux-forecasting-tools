@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import ForecastTrust from '../components/ForecastTrust';
 import AiPanel from '../components/AiPanel';
+import { takeShowLastRun } from '../utils/showLastRun';
 import { C } from '../styles/palette';
 
 
@@ -145,6 +146,34 @@ export default function Task1Forecast({ onNavigate }) {
     }
   };
 
+  // Plan C: restores the server's last Total ED run; never computes.
+  const [lastBusy, setLastBusy] = useState(false);
+  const [lastNote, setLastNote] = useState(null);
+  const loadLast = async () => {
+    setLastBusy(true); setLastNote(null);
+    try {
+      const d = await api.forecast.last();
+      if (!d?.available || (d.kind && d.kind !== 'total')) {
+        setLastNote('No previous Total ED run on the server yet.');
+        return;
+      }
+      const r = d.result;
+      const h = HORIZONS.find((x) => x.days === r.horizon);
+      // A pipeline run carries no alias: name the engine, never the algorithm.
+      const alias = r.requested_alias
+        || (r.requested_model === 'ml' ? 'Best ML model' : 'Best statistical model');
+      setResult({ ok: true, data: { ...r, requested_alias: alias }, horizonId: h?.id || horizon });
+    } catch (e) { setLastNote(e.message || 'Could not load the last run.'); }
+    finally { setLastBusy(false); }
+  };
+  // A run the chat just finished opens this page: show it once, as a press of
+  // Load last run. An ordinary visit takes nothing and loads nothing. The request
+  // is taken inside the effect, so a Strict Mode re-run finds it gone.
+  useEffect(() => {
+    if (takeShowLastRun('forecast-total')) loadLast();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const run = async () => {
     setRunning(true); setResult(null);
     try {
@@ -203,6 +232,13 @@ export default function Task1Forecast({ onNavigate }) {
         onRun={run}
         summary={`${engineMeta.name} · ${HORIZONS.find((h) => h.id === horizon)?.label || horizon} · ${isBacktest ? `backtest from ${startDate}` : 'future'}`}
       />
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button className="btn btn-sm" onClick={loadLast} disabled={lastBusy || running}>
+          {lastBusy ? 'Loading…' : 'Load last run'}
+        </button>
+        {lastNote && <span style={{ fontSize: 12, color: C.muted }}>{lastNote}</span>}
+      </div>
 
       {/* Step 1 — Forecast method (the 2 engines that actually run) */}
       <Section step="1" title="Choose your forecast method" sub="What you pick is what runs.">
@@ -490,7 +526,7 @@ function ForecastResult({ data, horizonId, badge, onValidate, validating }) {
   const typicalMiss = data.is_backtest && data.backtest ? data.backtest.mae : data.mae;
 
   return (
-    <div style={{
+    <div data-testid="forecast-result" style={{
       background: 'linear-gradient(180deg,#f8fbff 0%,#ffffff 60%)',
       border: `2px solid ${C.teal}`, borderRadius: 16, padding: '22px 24px',
       boxShadow: '0 10px 30px rgba(13,148,136,0.10)',
